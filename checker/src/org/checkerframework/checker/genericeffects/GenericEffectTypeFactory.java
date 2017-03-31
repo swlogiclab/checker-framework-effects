@@ -99,9 +99,9 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
      *
      * <p>Process followed: Get the overriding method annotations Iterate over all of its subtypes
      * For each subtype, that has its own implementation or declaration of the input method: Check
-     * that the effect of the override <= the declared effect of the origin.
+     * that the effect of the override is less than the declared effect of the origin.
      *
-     * <p>There are two sets of subtypes to traverse: 1. Chain of Parent classes -> terminating in
+     * <p>There are two sets of subtypes to traverse: 1. Chain of Parent classes terminating in
      * Object 2. Set of interfaces the class implements.
      *
      * @param declaringType : Class containing the overriding method
