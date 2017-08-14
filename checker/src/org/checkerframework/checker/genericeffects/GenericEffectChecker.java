@@ -7,13 +7,13 @@ import java.util.Set;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
-
-@SupportedLintOptions({"debugSpew"})
+//interface with the actual compiler
+@SupportedLintOptions({"debugSpew", "IgnoreIntegerOverflow", "IgnoreDecimalOverflow", "IgnoreIntegerPrecisionLoss", "IgnoreDecimalPrecisionLoss"})
 public class GenericEffectChecker extends BaseTypeChecker {
 
     @Override
     protected BaseTypeVisitor<?> createSourceVisitor() {
-        return new GenericEffectVisitor(this);
+        return new GenericEffectVisitor(this, new CastingEffectsExtension(this.getEffectLattice()));
     }
 
     @Override
@@ -36,8 +36,8 @@ public class GenericEffectChecker extends BaseTypeChecker {
     protected GenericEffectLattice lattice;
 
     public GenericEffectLattice getEffectLattice() {
-        if (lattice != null) {
-            lattice = new DefaultEffects();
+        if (lattice == null) {
+            lattice = new CastingEffects();
         }
         return lattice;
     }

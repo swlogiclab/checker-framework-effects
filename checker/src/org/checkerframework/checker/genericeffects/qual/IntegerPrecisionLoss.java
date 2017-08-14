@@ -8,5 +8,5 @@ import java.lang.annotation.Target;
 
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.FIELD})
-public @interface NoIOEffect {}
+@Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
+public @interface IntegerPrecisionLoss {}

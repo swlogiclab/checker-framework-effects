@@ -3,6 +3,7 @@ package org.checkerframework.checker.genericeffects;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 
+//This lattice is used by other effect checkers
 public interface GenericEffectLattice {
 
     // Method to check Less than equal to Effect
@@ -30,4 +31,7 @@ public interface GenericEffectLattice {
 
     // Get the Bottom Most Effect of Lattice
     public Class<? extends Annotation> getBottomMostEffectInLattice();
+
+    //consider whether you need this class
+    public Class<? extends Annotation> checkClassType(Class<? extends Annotation> c);
 }

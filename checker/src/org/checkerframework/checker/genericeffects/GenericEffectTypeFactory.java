@@ -4,14 +4,11 @@ import com.sun.source.tree.Tree;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.*;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.framework.source.Result;
@@ -70,6 +67,25 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
         return null;
     }
 
+    //change this to be similar to ExecutableElement
+    public Class<? extends Annotation> getDeclaredEffect(Element methodElt)
+    {
+        ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
+        AnnotationMirror annotatedEffect = null;
+
+        for (Class<? extends Annotation> OkEffect : validEffects) {
+            annotatedEffect = getDeclAnnotation(methodElt, OkEffect);
+            if (annotatedEffect != null) {
+                if (debugSpew) {
+                    System.err.println("Method marked @" + annotatedEffect);
+                }
+                return OkEffect;
+            }
+        }
+        //this was originally bottom lattice
+        return genericEffect.getBottomMostEffectInLattice();
+    }
+
     /**
      * Returns the Declared Effect on the passed method as parameter
      *
@@ -90,7 +106,10 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
                 return OkEffect;
             }
         }
-        return genericEffect.getBottomMostEffectInLattice();
+        // this needs to be changed to return a different type depending on the type of the class
+        Class<? extends Annotation> c = getDeclaredEffect(methodElt.getEnclosingElement());
+        return genericEffect.checkClassType(c);
+        //return genericEffect.getBottomMostEffectInLattice();
     }
 
     /**
