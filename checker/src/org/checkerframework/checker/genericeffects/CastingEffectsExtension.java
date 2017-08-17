@@ -21,9 +21,7 @@ import org.checkerframework.checker.genericeffects.qual.*;
 public class CastingEffectsExtension extends GenericEffectExtension{
     //this lattice is not really needed
     GenericEffectLattice genericEffects = super.genericEffects;
-    DataCapture d = super.d;
-    public CastingEffectsExtension(GenericEffectLattice lattice)
-    {
+    public CastingEffectsExtension(GenericEffectLattice lattice) {
         super(lattice);
     }
 
@@ -35,16 +33,6 @@ public class CastingEffectsExtension extends GenericEffectExtension{
 
     @Override
     public Class<? extends Annotation> checkTypeCast(TypeCastTree node) {
-        //String castTo = InternalUtils.typeOf(node.getType()).toString();
-        //String beingCast = InternalUtils.typeOf(node.getExpression()).toString();
-        /*
-        if(!isSafeLiteral(node))
-        {
-            //d.createData(castTo, beingCast);
-            d.createData(node);
-        }
-        return genericEffects.getBottomMostEffectInLattice();
-         */
         TypeKind castTo = InternalUtils.typeOf(node.getType()).getKind();
         TypeKind beingCast = InternalUtils.typeOf(node.getExpression()).getKind();
         if(isSafeLiteral(node))
@@ -69,7 +57,7 @@ public class CastingEffectsExtension extends GenericEffectExtension{
     @Override
     public boolean doesAssignmentCheck()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -82,6 +70,17 @@ public class CastingEffectsExtension extends GenericEffectExtension{
         } else {
             return genericEffects.getBottomMostEffectInLattice();
         }
+    }
+
+    @Override
+    public Class<? extends Annotation> checkIgnoredEffects(String compilerArgs, Class<? extends Annotation> anno)
+    {
+        String[] parsedArgs = compilerArgs.split(",");
+        for(String args : parsedArgs) {
+            if(args.equals(anno.getSimpleName()))
+                return genericEffects.getBottomMostEffectInLattice();
+        }
+        return anno;
     }
 
     private boolean isSafeLiteral(TypeCastTree node) {
@@ -99,6 +98,4 @@ public class CastingEffectsExtension extends GenericEffectExtension{
         }
         return false;
     }
-
-
 }

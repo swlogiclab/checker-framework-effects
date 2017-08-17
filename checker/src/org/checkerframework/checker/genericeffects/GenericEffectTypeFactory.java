@@ -4,11 +4,14 @@ import com.sun.source.tree.Tree;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.lang.model.element.*;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
+import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
+import org.checkerframework.checker.genericeffects.qual.SafeCast;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.framework.source.Result;
@@ -83,7 +86,16 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
             }
         }
         //this was originally bottom lattice
-        return genericEffect.getBottomMostEffectInLattice();
+        AnnotationMirror anno = getDeclAnnotation(methodElt.getEnclosingElement(), DefaultEffect.class);
+
+        if(anno == null || anno.getElementValues().entrySet().toArray().length == 0)
+            return genericEffect.getBottomMostEffectInLattice();
+        //this might not parse string safely
+        String effect = anno.getElementValues().entrySet().toArray()[0].toString().split("=")[1].replace("\"", "");
+
+        Class<? extends Annotation> defaultEffect = genericEffect.checkClassType(effect);
+        return defaultEffect;
+        //return genericEffect.getBottomMostEffectInLattice();
     }
 
     /**
@@ -107,8 +119,15 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
             }
         }
         // this needs to be changed to return a different type depending on the type of the class
-        Class<? extends Annotation> c = getDeclaredEffect(methodElt.getEnclosingElement());
-        return genericEffect.checkClassType(c);
+        AnnotationMirror anno = getDeclAnnotation(methodElt.getEnclosingElement(), DefaultEffect.class);
+
+        if(anno == null || anno.getElementValues().entrySet().toArray().length == 0)
+            return genericEffect.getBottomMostEffectInLattice();
+        //this might not parse string safely
+        String effect = anno.getElementValues().entrySet().toArray()[0].toString().split("=")[1].replace("\"", "");
+
+        Class<? extends Annotation> defaultEffect = genericEffect.checkClassType(effect);
+        return defaultEffect;
         //return genericEffect.getBottomMostEffectInLattice();
     }
 

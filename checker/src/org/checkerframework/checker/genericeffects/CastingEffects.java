@@ -91,6 +91,9 @@ public final class CastingEffects implements GenericEffectLattice {
         listOfEffects.add(UnsafeDecimalCast.class);
         listOfEffects.add(NumberOverflow.class);
         listOfEffects.add(UnsafeCast.class);
+
+        listOfEffects.add(DefaultEffect.class);
+
         return listOfEffects;
     }
 
@@ -114,9 +117,13 @@ public final class CastingEffects implements GenericEffectLattice {
 
 
     @Override
-    public Class<? extends Annotation> checkClassType(Class<? extends Annotation> caller)
+    public Class<? extends Annotation> checkClassType(String effect)
     {
-        //TODO: add logic to make this method return the effect for a class type
-        return null;
+        for(Class<? extends Annotation> validEffect : getValidEffects())
+        {
+            if(effect.equals(validEffect.getSimpleName()))
+                return validEffect;
+        }
+        return getBottomMostEffectInLattice();
     }
 }

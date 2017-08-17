@@ -33,5 +33,5 @@ public interface GenericEffectLattice {
     public Class<? extends Annotation> getBottomMostEffectInLattice();
 
     //consider whether you need this class
-    public Class<? extends Annotation> checkClassType(Class<? extends Annotation> c);
+    public Class<? extends Annotation> checkClassType(String effect);
 }

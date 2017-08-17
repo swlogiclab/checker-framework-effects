@@ -13,12 +13,10 @@ import java.lang.annotation.Annotation;
 public class GenericEffectExtension {
 
     protected  GenericEffectLattice genericEffects;
-    protected DataCapture d;
     //this constructore may not be needed
     public GenericEffectExtension(GenericEffectLattice lattice)
     {
         genericEffects = lattice;
-        d = new DataCapture("D:\\Research\\data.txt");
     }
 
     public boolean doesArrayAccessCheck() { return false; }
@@ -77,12 +75,9 @@ public class GenericEffectExtension {
         return null;
     }
 
-    private static final String[] EMPTY_ARRAY = {};
-    public String[] getCompilerArgs() { return EMPTY_ARRAY; }
+    public Class<? extends Annotation> checkIgnoredEffects(String compilerArgs, Class<? extends Annotation> anno){return null;}
 
-
-    public Class<? extends Annotation> checkClassType(Class<? extends Annotation> c) { return null; }
-    /**
+    /*
     //Void visitAnnotation(AnnotationTree node, Void p)
     Void visitArrayAccess(ArrayAccessTree node, Void p)
     Void visitAssignment(AssignmentTree node, Void p)

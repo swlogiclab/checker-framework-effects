@@ -7,8 +7,11 @@ import java.util.Set;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
+import org.checkerframework.framework.source.SupportedOptions;
+
 //interface with the actual compiler
-@SupportedLintOptions({"debugSpew", "IgnoreIntegerOverflow", "IgnoreDecimalOverflow", "IgnoreIntegerPrecisionLoss", "IgnoreDecimalPrecisionLoss"})
+@SupportedLintOptions({"debugSpew"})//, "IgnoreIntegerOverflow", "IgnoreDecimalOverflow", "IgnoreIntegerPrecisionLoss", "IgnoreDecimalPrecisionLoss"})
+@SupportedOptions({"ignoreEffects"})
 public class GenericEffectChecker extends BaseTypeChecker {
 
     @Override
@@ -41,4 +44,5 @@ public class GenericEffectChecker extends BaseTypeChecker {
         }
         return lattice;
     }
+
 }
