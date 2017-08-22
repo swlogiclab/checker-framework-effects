@@ -1,14 +1,11 @@
 package org.checkerframework.checker.genericeffects.qual;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface DefaultEffect {
-    String value() default "SafeCast";
+    //this may need to be changed back to strings later on
+    Class<? extends Annotation> value() default SafeCast.class;
 }

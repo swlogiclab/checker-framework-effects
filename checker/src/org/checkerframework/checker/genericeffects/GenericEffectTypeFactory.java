@@ -7,14 +7,18 @@ import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.*;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 
+import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.SafeCast;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.framework.source.Result;
+import org.checkerframework.javacutil.TreeUtils;
 
 public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
@@ -86,8 +90,8 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
             }
         }
         //this was originally bottom lattice
+        //if a static initializer goes through here then that means that the enclosing element is a static initializer not a class
         AnnotationMirror anno = getDeclAnnotation(methodElt.getEnclosingElement(), DefaultEffect.class);
-
         if(anno == null || anno.getElementValues().entrySet().toArray().length == 0)
             return genericEffect.getBottomMostEffectInLattice();
         //this might not parse string safely
@@ -97,6 +101,93 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
         return defaultEffect;
         //return genericEffect.getBottomMostEffectInLattice();
     }
+
+
+
+
+
+
+    public Class<? extends Annotation> getDeclaredEffect(Element methodElt, Element clsElt)
+    {
+        ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
+        AnnotationMirror annotatedEffect = null;
+
+        for (Class<? extends Annotation> OkEffect : validEffects) {
+            annotatedEffect = getDeclAnnotation(methodElt, OkEffect);
+            if (annotatedEffect != null) {
+                if (debugSpew) {
+                    System.err.println("Method marked @" + annotatedEffect);
+                }
+                return OkEffect;
+            }
+        }
+        //this was originally bottom lattice
+        //if a static initializer goes through here then that means that the enclosing element is a static initializer not a class
+        //AnnotationMirror anno = getDeclAnnotation(clsElt, DefaultEffect.class);
+        //https://stackoverflow.com/questions/7687829/java-6-annotation-processing-getting-a-class-from-an-annotation
+
+        String teStr = getClassType(clsElt);
+
+        //this might not parse string safely
+        //String effect = anno.getElementValues().entrySet().toArray()[0].toString().split("=")[1].replace("\"", "");
+
+        Class<? extends Annotation> defaultEffect = genericEffect.checkClassType(teStr);
+        return defaultEffect;
+        //return genericEffect.getBottomMostEffectInLattice();
+    }
+    public Class<? extends Annotation> getDeclaredEffect(ExecutableElement methodElt, Element clsElt) {
+        ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
+        AnnotationMirror annotatedEffect = null;
+
+        for (Class<? extends Annotation> OkEffect : validEffects) {
+            annotatedEffect = getDeclAnnotation(methodElt, OkEffect);
+            if (annotatedEffect != null) {
+                if (debugSpew) {
+                    System.err.println("Method marked @" + annotatedEffect);
+                }
+                return OkEffect;
+            }
+        }
+        // this needs to be changed to return a different type depending on the type of the class
+        //enclosing element may not get class level annotation
+        String teStr = getClassType(clsElt);
+
+        //this might not parse string safely
+        //String effect = anno.getElementValues().entrySet().toArray()[0].toString().split("=")[1].replace("\"", "");
+
+        Class<? extends Annotation> defaultEffect = genericEffect.checkClassType(teStr);
+        return defaultEffect;
+        //return genericEffect.getBottomMostEffectInLattice();
+    }
+
+    private String getClassType(Element clsElt)
+    {
+        TypeMirror clsAnno = null;
+        try {
+            clsElt.getAnnotation(DefaultEffect.class).value();
+        }
+        catch(MirroredTypeException e)
+        {
+            clsAnno = e.getTypeMirror();
+        }
+
+        if(clsAnno == null)
+            return "SafeCast";
+        //could possible shorten this or change checkClassType method
+        Types TypeUtils = this.processingEnv.getTypeUtils();
+        TypeElement te =  (TypeElement)TypeUtils.asElement(clsAnno);
+        Name teName = te.getSimpleName();
+        String teStr = teName.toString();
+        return teStr;
+    }
+
+
+
+
+
+
+
+
 
     /**
      * Returns the Declared Effect on the passed method as parameter
@@ -119,17 +210,18 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
             }
         }
         // this needs to be changed to return a different type depending on the type of the class
+        //enclosing element may not get class level annotation
         AnnotationMirror anno = getDeclAnnotation(methodElt.getEnclosingElement(), DefaultEffect.class);
 
         if(anno == null || anno.getElementValues().entrySet().toArray().length == 0)
             return genericEffect.getBottomMostEffectInLattice();
         //this might not parse string safely
         String effect = anno.getElementValues().entrySet().toArray()[0].toString().split("=")[1].replace("\"", "");
-
         Class<? extends Annotation> defaultEffect = genericEffect.checkClassType(effect);
         return defaultEffect;
         //return genericEffect.getBottomMostEffectInLattice();
     }
+
 
     /**
      * Looks for invalid overrides, (cases where a method override declares a larger/higher effect
