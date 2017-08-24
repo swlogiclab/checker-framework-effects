@@ -162,9 +162,14 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
     private String getClassType(Element clsElt)
     {
+        //fix this to pass around objects instead of strings
         TypeMirror clsAnno = null;
         try {
             clsElt.getAnnotation(DefaultEffect.class).value();
+        }
+        catch(NullPointerException e)
+        {
+            return "SafeCast";
         }
         catch(MirroredTypeException e)
         {

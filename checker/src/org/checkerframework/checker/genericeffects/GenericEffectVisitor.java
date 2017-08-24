@@ -9,6 +9,7 @@ import java.util.Stack;
 import java.util.concurrent.Callable;
 import javax.lang.model.element.*;
 
+import com.sun.source.util.TreePath;
 import org.checkerframework.checker.genericeffects.qual.*;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
@@ -127,16 +128,17 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             if(isWithinMethod(callerTree)) {
                 //Class<? extends Annotation> targetEffect = extension.checkArrayAccess(node);
                 ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-                Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
+                //does this act correct?
+                Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt, getClassTree());
 
-                checkWithinMethod(callerTree, node, targetEffect, "method.invalid");
+                checkWithinMethod(callerTree, node, targetEffect, "call.invalid.super.effect");
                 return super.visitMethodInvocation(node, p);
             }
             VariableTree varTree = TreeUtils.enclosingVariable(getCurrentPath());
             if(isWithinVariable(varTree)) {
                 //Class<? extends Annotation> varTargetEffect = extension.checkArrayAccess(node);
                 ExecutableElement varElt = TreeUtils.elementFromUse(node);
-                Class<? extends Annotation> varTargetEffect = atypeFactory.getDeclaredEffect(varElt);
+                Class<? extends Annotation> varTargetEffect = atypeFactory.getDeclaredEffect(varElt, getClassTree());
 
                 checkWithinVariable(varTree, node, varTargetEffect, "field.invalid");
                 return super.visitMethodInvocation(node, p);
@@ -169,13 +171,13 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             if (annotatedEffect == null) {
                 atypeFactory
                         .fromElement(methElt)
-                        .addAnnotation(atypeFactory.getDeclaredEffect(methElt));
+                        .addAnnotation(atypeFactory.getDeclaredEffect(methElt, getClassTree()));
             }
         }
 
         currentMethods.push(node);
 
-        effStack.push(atypeFactory.getDeclaredEffect(methElt));
+        effStack.push(atypeFactory.getDeclaredEffect(methElt, getClassTree()));
 
         if (debugSpew) {
             System.err.println(
@@ -211,13 +213,13 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             if (annotatedEffect == null) {
                 atypeFactory
                         .fromElement(methElt)
-                        .addAnnotation(atypeFactory.getDeclaredEffect(methElt));
+                        .addAnnotation(atypeFactory.getDeclaredEffect(methElt, getClassTree()));
             }
         }
 
         currentVars.push(node);
 
-        varEffStack.push(atypeFactory.getDeclaredEffect(methElt));
+        varEffStack.push(atypeFactory.getDeclaredEffect(methElt, getClassTree()));
 
 
         Void ret = super.visitVariable(node, p);
@@ -243,12 +245,74 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         effStack.pop();
     }
 
-
     private Element getClassTree()
     {
+
         ClassTree clsTree = TreeUtils.enclosingClass(getCurrentPath());
         Element clsElt = TreeUtils.elementFromDeclaration(clsTree);
+        return getTopLevelClass(clsElt);
+        /*
+        Element clsOuter = clsElt.getEnclosingElement();
+        if(clsElt.getAnnotation(DefaultEffect.class) != null)
+        {
+            return clsElt;
+        }
+        while(clsOuter.getKind() == ElementKind.CLASS)
+        {
+            if(clsOuter.getAnnotation(DefaultEffect.class) != null) {
+                return clsOuter;
+            }
+            else
+            {
+                clsOuter = clsOuter.getEnclosingElement();
+            }
+        }
         return clsElt;
+        */
+    }
+
+    private Element getTopLevelClass(Element elt)
+    {
+        final Element firstElt = elt;
+        if(elt == null)
+        {
+            return firstElt;
+        }
+        else if(elt.getAnnotation(DefaultEffect.class) != null)
+        {
+            return elt;
+        }
+        else
+        {
+            return getTopLevelClass(elt.getEnclosingElement());
+        }
+
+
+       /* Element currentElt = elt;
+        while(currentElt.getEnclosingElement() != null)
+        {
+            if(elt.getAnnotation(DefaultEffect.class) != null) {
+                return elt;
+            }
+            else {
+                currentElt = elt.getEnclosingElement();
+            }
+        }
+        return elt;
+        final Element firstElt = elt;
+        if(elt.getEnclosingElement() == null)
+        {
+            return firstElt;
+        }
+        else
+        {
+            if(elt.getAnnotation(DefaultEffect.class) != null) {
+                //checker.userErrorAbort((elt.getEnclosingElement().getAnnotation(DefaultEffect.class) != null) + "");
+                return elt;
+            }
+            return getTopLevelClass(elt.getEnclosingElement());
+        }*/
+
     }
 
 
@@ -307,7 +371,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         if(isWithinMethod(callerTree)) {
             //Class<? extends Annotation> targetEffect = extension.checkArrayAccess(node);
             ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
+            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt, getClassTree());
 
             checkWithinMethod(callerTree, node, targetEffect, "method.invalid");
             return super.visitNewClass(node, p);
@@ -316,7 +380,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         if(isWithinVariable(varTree)) {
             //Class<? extends Annotation> varTargetEffect = extension.checkArrayAccess(node);
             ExecutableElement varElt = TreeUtils.elementFromUse(node);
-            Class<? extends Annotation> varTargetEffect = atypeFactory.getDeclaredEffect(varElt);
+            Class<? extends Annotation> varTargetEffect = atypeFactory.getDeclaredEffect(varElt, getClassTree());
 
             checkWithinVariable(varTree, node, varTargetEffect, "field.invalid");
             return super.visitNewClass(node, p);
@@ -534,15 +598,32 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     @Override
     public Void visitTypeCast(TypeCastTree node, Void p) {
         if(extension.doesTypeCastCheck()) {
+            //ClassTree clsTree = TreeUtils.enclosingClass(getCurrentPath());
+
+
             MethodTree callerTree = TreeUtils.enclosingMethod(getCurrentPath());
             if(isWithinMethod(callerTree)) {
                 Class<? extends Annotation> targetEffect = extension.checkTypeCast(node);
+
+
+                ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
+                Class<? extends Annotation> callerEffect = atypeFactory.getDeclaredEffect(callerElt, getClassTree());
+                checkWarning(node, targetEffect, callerEffect);
+
+
                 checkWithinMethod(callerTree, node, targetEffect, "cast.invalid");
                 return super.visitTypeCast(node, p);
             }
             VariableTree varTree = TreeUtils.enclosingVariable(getCurrentPath());
             if(isWithinVariable(varTree)) {
                 Class<? extends Annotation> varTargetEffect = extension.checkTypeCast(node);
+
+
+                VariableElement varElt = TreeUtils.elementFromDeclaration(varTree);
+                Class<? extends Annotation> varCallerEffect = atypeFactory.getDeclaredEffect(varElt, getClassTree());
+                checkWarning(node, varTargetEffect, varCallerEffect);
+
+
                 checkWithinVariable(varTree, node, varTargetEffect, "cast.invalid");
                 return super.visitTypeCast(node, p);
             }
@@ -550,6 +631,23 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         }
         return null;
     }
+
+    private void checkWarning(Tree node, Class<? extends Annotation> target, Class<? extends Annotation> caller)
+    {
+        if(extension.reportWarning(node) != null)
+            checker.report(Result.warning(extension.reportWarning(node), target, caller), node);
+    }
+
+    private void checkError(Tree node, Class<? extends Annotation> target, Class<? extends Annotation> caller)
+    {
+        //this needs to be fixed to show target and caller effects
+        if(extension.reportError(node) != null)
+            checker.report(Result.failure(extension.reportError(node), target, caller), node);
+    }
+
+
+
+
 
 /*
     @Override
@@ -603,10 +701,16 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     private void checkWithinMethod(MethodTree callerTree, Tree node, Class<? extends Annotation> targetEffect, String errorMsg) {
         ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
         Class<? extends Annotation> callerEffect = atypeFactory.getDeclaredEffect(callerElt, getClassTree());
+
+
+        //checkWarning(node, targetEffect, callerEffect);
+
+
         if (checker.getOption("ignoreEffects") != null) {
             targetEffect = extension.checkIgnoredEffects(checker.getOption("ignoreEffects"), targetEffect);
         }
         if (!genericEffect.LE(targetEffect, callerEffect)) {
+            //checkError(node, targetEffect, callerEffect);
             checker.report(
                     Result.failure(errorMsg, targetEffect, callerEffect), node);
         }
@@ -620,6 +724,30 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         VariableElement varElt = TreeUtils.elementFromDeclaration(variableTree);
         //make sure this makes sense
         Class<? extends Annotation> varCallerEffect = atypeFactory.getDeclaredEffect(varElt, getClassTree());
+
+
+        //checkWarning(node, targetEffect, varCallerEffect);
+
+
+        if (checker.getOption("ignoreEffects") != null) {
+            targetEffect = extension.checkIgnoredEffects(checker.getOption("ignoreEffects"), targetEffect);
+        }
+        if (!genericEffect.LE(targetEffect, varCallerEffect)) {
+            //checkError(node, targetEffect, varCallerEffect);
+            checker.report(
+                    Result.failure(errorMsg, targetEffect, varCallerEffect), node);
+        }
+    }
+
+
+
+
+
+/*
+    private void checkWithinClass(ClassTree clsTree, Tree node, Class<? extends Annotation> targetEffect, String errorMsg) {
+        ClassElement varElt = TreeUtils.elementFromDeclaration();
+        //make sure this makes sense
+        Class<? extends Annotation> varCallerEffect = atypeFactory.getDeclaredEffect(varElt, getClassTree());
         if (checker.getOption("ignoreEffects") != null) {
             targetEffect = extension.checkIgnoredEffects(checker.getOption("ignoreEffects"), targetEffect);
         }
@@ -628,4 +756,5 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     Result.failure(errorMsg, targetEffect, varCallerEffect), node);
         }
     }
+    */
 }

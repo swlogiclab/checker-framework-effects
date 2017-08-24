@@ -13,6 +13,9 @@ import java.lang.annotation.Annotation;
 public class GenericEffectExtension {
 
     protected  GenericEffectLattice genericEffects;
+
+    //TODO: Add something for warnings (redundant casts)
+
     //this constructore may not be needed
     public GenericEffectExtension(GenericEffectLattice lattice)
     {
@@ -76,6 +79,10 @@ public class GenericEffectExtension {
     }
 
     public Class<? extends Annotation> checkIgnoredEffects(String compilerArgs, Class<? extends Annotation> anno){return null;}
+
+
+    public String reportError(Tree node) { return null; }
+    public String reportWarning(Tree node) { return null; }
 
     /*
     //Void visitAnnotation(AnnotationTree node, Void p)

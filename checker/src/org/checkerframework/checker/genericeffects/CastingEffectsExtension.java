@@ -98,4 +98,42 @@ public class CastingEffectsExtension extends GenericEffectExtension{
         }
         return false;
     }
+
+
+    //report warning and report warning only have tree objects which may be strange
+    @Override
+    public String reportError(Tree node)
+    {
+        TypeCastTree tsNode = (TypeCastTree) node;
+        TypeKind castTo = InternalUtils.typeOf(tsNode.getType()).getKind();
+        TypeKind beingCast = InternalUtils.typeOf(tsNode.getExpression()).getKind();
+        if(isSafeLiteral(tsNode))
+            return null;
+        else if ((beingCast.equals(TypeKind.LONG) && (castTo.equals(TypeKind.INT) || castTo.equals(TypeKind.SHORT) || castTo.equals(TypeKind.BYTE)))
+                || (beingCast.equals(TypeKind.INT) && (castTo.equals(TypeKind.SHORT) || castTo.equals(TypeKind.BYTE)))
+                || (beingCast.equals(TypeKind.SHORT) && castTo.equals(TypeKind.BYTE)))
+            return "cast.invalid";
+        else if((beingCast.equals(TypeKind.DOUBLE) || beingCast.equals(TypeKind.FLOAT))
+                && (castTo.equals(TypeKind.LONG) || castTo.equals(TypeKind.INT) || castTo.equals(TypeKind.SHORT) || castTo.equals(TypeKind.BYTE)))
+            return "cast.invalid";
+        else if((beingCast.equals(TypeKind.LONG) && (castTo.equals(TypeKind.DOUBLE) || castTo.equals(TypeKind.FLOAT)))
+                || (beingCast.equals(TypeKind.INT) && castTo.equals(TypeKind.FLOAT)))
+            return "cast.invalid";
+        else if(beingCast.equals(TypeKind.DOUBLE) && castTo.equals(TypeKind.FLOAT))
+            return "cast.invalid";
+        else
+            return null;
+    }
+
+    @Override
+    public String reportWarning(Tree node)
+    {
+        TypeCastTree tcNode = (TypeCastTree) node;
+        TypeKind castTo = InternalUtils.typeOf(tcNode.getType()).getKind();
+        TypeKind beingCast = InternalUtils.typeOf(tcNode.getExpression()).getKind();
+        if(beingCast.equals(castTo))
+            return "cast.redundant";
+        return null;
+    }
+
 }
