@@ -208,7 +208,6 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
      * @param issueConflictWarning : true if warning should be issued
      * @param errorNode : node to check for errors
      */
-    //note extra parameters have been added for the getdeclaredeffect - now gone
     public void checkEffectOverride(
             TypeElement declaringType,
             ExecutableElement overridingMethod,
