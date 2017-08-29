@@ -9,4 +9,7 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
+/**
+ * This annotation is used for situations where there is a float or a double that is being cast to a byte, short, integer, or double.
+ */
 public @interface DecimalOverflow {}

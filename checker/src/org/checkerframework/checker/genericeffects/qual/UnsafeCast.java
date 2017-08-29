@@ -9,4 +9,7 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
+/**
+ * This annotation allows the use of all unsafe casts.
+ */
 public @interface UnsafeCast {}

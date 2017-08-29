@@ -5,7 +5,9 @@ import java.lang.annotation.*;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
+/**
+ * This annotation is meant to be used by classes so the developer may specify which effect to default to.
+ */
 public @interface DefaultEffect {
-    //this may need to be changed back to strings later on
     Class<? extends Annotation> value() default SafeCast.class;
 }

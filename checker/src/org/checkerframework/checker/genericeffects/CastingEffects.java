@@ -3,30 +3,43 @@ package org.checkerframework.checker.genericeffects;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import org.checkerframework.checker.genericeffects.qual.*;
-import org.checkerframework.framework.source.SupportedLintOptions;
 
 /**
- * Test Class to test FileIO Effect Checker inside Generic Effect Checker
+ * Class to set up lattice for Casting Effect Checker within Generic Effect Checker
  *
- * <p>Creates and checks relationship among the valid effects of FileIO Effect Checker
+ * <p>Creates and checks relationship among the valid effects of Casting Effect Checker
  */
-//@SupportedLintOptions({"IgnoreIntegerOverflow"})
 public final class CastingEffects implements GenericEffectLattice {
+
+    ArrayList<Class<? extends Annotation>> listOfEffects = new ArrayList<>();
+
+    /**
+     * Constructor that will add the defined list of effects to an ArrayList
+     */
+    public CastingEffects() {
+        listOfEffects.add(SafeCast.class);
+        listOfEffects.add(IntegerPrecisionLoss.class);
+        listOfEffects.add(DecimalPrecisionLoss.class);
+        listOfEffects.add(IntegerOverflow.class);
+        listOfEffects.add(DecimalOverflow.class);
+        listOfEffects.add(NumberPrecisionLoss.class);
+        listOfEffects.add(UnsafeIntegerCast.class);
+        listOfEffects.add(UnsafeDecimalCast.class);
+        listOfEffects.add(NumberOverflow.class);
+        listOfEffects.add(UnsafeCast.class);
+    }
 
     /**
      * Method to check Less than equal to Effect
      *
      * @param left : Left Effect
      * @param right: Right Effect
-     * @return boolean true : if bottom effect is left effect and is equal to NoFileEffect OR if top
-     *     effect is right effect and is equal to ReadWriteFileEffect OR if left effect and right effect are
-     *     the same
+     * @return boolean true : if bottom effect is on the left and the top effect is on the right, or if effects are equal
      *     <p>false : otherwise
      */
     @Override
     public boolean LE(Class<? extends Annotation> left, Class<? extends Annotation> right) {
         assert (left != null && right != null);
-
 
         if(right.equals(UnsafeCast.class))
             return true;
@@ -74,32 +87,17 @@ public final class CastingEffects implements GenericEffectLattice {
     }
 
     /**
-     * Get the collection of valid effects. For FileIO EFfect checker: Valid Effects:
-     * NoFileEffect, ReadFileEffect, WriteFileEffect, and ReadWriteFileEffect
+     * Method that gets the valid list of effects.
+     *
+     * @return ArrayList containing the list of effects.
      */
     @Override
-    public ArrayList<Class<? extends Annotation>> getValidEffects() {
-
-        ArrayList<Class<? extends Annotation>> listOfEffects = new ArrayList<>();
-        listOfEffects.add(SafeCast.class);
-        listOfEffects.add(IntegerPrecisionLoss.class);
-        listOfEffects.add(DecimalPrecisionLoss.class);
-        listOfEffects.add(IntegerOverflow.class);
-        listOfEffects.add(DecimalOverflow.class);
-        listOfEffects.add(NumberPrecisionLoss.class);
-        listOfEffects.add(UnsafeIntegerCast.class);
-        listOfEffects.add(UnsafeDecimalCast.class);
-        listOfEffects.add(NumberOverflow.class);
-        listOfEffects.add(UnsafeCast.class);
-
-        listOfEffects.add(DefaultEffect.class);
-
-        return listOfEffects;
-    }
+    public ArrayList<Class<? extends Annotation>> getValidEffects() { return listOfEffects; }
 
     /**
-     * Get the Top Most Effect of Lattice. For FileIO EFfect checker: Top Most Effect of Lattice:
-     * ReadWriteFileEffect
+     * Method that gets the top most effect in the lattice as defined by the developer.
+     *
+     * @return The top most effect (UnsafeCast).
      */
     @Override
     public Class<? extends Annotation> getTopMostEffectInLattice() {
@@ -107,23 +105,12 @@ public final class CastingEffects implements GenericEffectLattice {
     }
 
     /**
-     * Get the Bottom Most Effect of Lattice. For FileIO EFfect checker: Bottom Most Effect of Lattice:
-     * NoFileEffect
+     * Method that gets the bottom most effect in the lattice as defined by the developer.
+     *
+     * @return The bottom most effect (SafeCast).
      */
     @Override
     public Class<? extends Annotation> getBottomMostEffectInLattice() {
         return SafeCast.class;
-    }
-
-
-    @Override
-    public Class<? extends Annotation> checkClassType(String effect)
-    {
-        for(Class<? extends Annotation> validEffect : getValidEffects())
-        {
-            if(effect.equals(validEffect.getSimpleName()))
-                return validEffect;
-        }
-        return getBottomMostEffectInLattice();
     }
 }

@@ -9,9 +9,8 @@ import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
 import org.checkerframework.framework.source.SupportedOptions;
 
-//interface with the actual compiler
-@SupportedLintOptions({"debugSpew"})//, "IgnoreIntegerOverflow", "IgnoreDecimalOverflow", "IgnoreIntegerPrecisionLoss", "IgnoreDecimalPrecisionLoss"})
-@SupportedOptions({"ignoreEffects"})
+@SupportedLintOptions({"debugSpew"})
+@SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
 public class GenericEffectChecker extends BaseTypeChecker {
 
     @Override
@@ -38,6 +37,11 @@ public class GenericEffectChecker extends BaseTypeChecker {
 
     protected GenericEffectLattice lattice;
 
+    /**
+     * Method to get the lattice of the checker.
+     *
+     * @return A GenericEffectLattice object that represents the lattice of the checker.
+     */
     public GenericEffectLattice getEffectLattice() {
         if (lattice == null) {
             lattice = new CastingEffects();
