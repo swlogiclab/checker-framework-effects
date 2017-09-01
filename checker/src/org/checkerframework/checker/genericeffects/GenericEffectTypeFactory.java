@@ -120,7 +120,6 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
      */
     private Class<? extends Annotation> getClassType(Element clsElt)
     {
-        //checker.userErrorAbort((clsElt.getAnnotation(DefaultEffect.class)!=null)+"");
         //TODO: There may be a better approach to getting the information that is needed than raising an exception
         TypeMirror clsAnno = null;
         try {
