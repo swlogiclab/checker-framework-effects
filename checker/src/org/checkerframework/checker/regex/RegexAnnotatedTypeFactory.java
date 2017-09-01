@@ -20,6 +20,7 @@ import org.checkerframework.checker.regex.qual.RegexBottom;
 import org.checkerframework.checker.regex.qual.UnknownRegex;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
+import org.checkerframework.dataflow.qual.Pure;
 import org.checkerframework.framework.flow.CFAbstractAnalysis;
 import org.checkerframework.framework.flow.CFAnalysis;
 import org.checkerframework.framework.flow.CFStore;
@@ -49,10 +50,10 @@ import org.checkerframework.javacutil.TreeUtils;
  *   <li value="2">concatenation of two valid regular expression values (either {@code String} or
  *       {@code char}) or two partial regular expression values that make a valid regular expression
  *       when concatenated.
- *   <li value="3">for calls to Pattern.compile changes the group count value of the return type to
+ *   <li value="3">for calls to Pattern.compile, change the group count value of the return type to
  *       be the same as the parameter. For calls to the asRegex methods of the classes in
- *       asRegexClasses these asRegex methods will return a {@code @Regex String} with the same
- *       group count as the second argument to the call to asRegex.
+ *       asRegexClasses, the returned {@code @Regex String} gets the same group count as the second
+ *       argument to the call to asRegex.
  *       <!--<li value="4">initialization of a char array that when converted to a String
  * is a valid regular expression.</li>-->
  * </ol>
@@ -82,7 +83,7 @@ public class RegexAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     /**
      * The value method of the PartialRegex qualifier.
      *
-     * @see org.checkerframework.checker.regex.classic.qual.PartialRegex
+     * @see org.checkerframework.checker.regex.qual.PartialRegex
      */
     private final ExecutableElement partialRegexValue;
 
@@ -156,14 +157,6 @@ public class RegexAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return new RegexTransfer((CFAnalysis) analysis);
     }
 
-    @Override
-    public TreeAnnotator createTreeAnnotator() {
-        return new ListTreeAnnotator(
-                new ImplicitsTreeAnnotator(this),
-                new RegexTreeAnnotator(this),
-                new RegexPropagationAnnotator(this));
-    }
-
     /** Returns a new Regex annotation with the given group count. */
     /*package-scope*/ AnnotationMirror createRegexAnnotation(int groupCount) {
         AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Regex.class);
@@ -181,7 +174,7 @@ public class RegexAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     /**
      * A custom qualifier hierarchy for the Regex Checker. This makes a regex annotation a subtype
      * of all regex annotations with lower group count values. For example, {@code @Regex(3)} is a
-     * subtype of {@code @Regex(1)}. All regex annotations are subtypes of {@code @Regex} which has
+     * subtype of {@code @Regex(1)}. All regex annotations are subtypes of {@code @Regex}, which has
      * a default value of 0.
      */
     private final class RegexQualifierHierarchy extends GraphQualifierHierarchy {
@@ -239,7 +232,7 @@ public class RegexAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     /** Returns the number of groups in the given regex String. */
-    public static int getGroupCount(/*@Regex*/ String regex) {
+    public static int getGroupCount(@Regex String regex) {
         return Pattern.compile(regex).matcher("").groupCount();
     }
 
@@ -248,7 +241,7 @@ public class RegexAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
      * type annotations which cannot be used in IDEs (yet).
      */
     @SuppressWarnings("purity") // the checker cannot prove that the method is pure, but it is
-    /*@org.checkerframework.dataflow.qual.Pure*/
+    @Pure
     private static boolean isRegex(String s) {
         try {
             Pattern.compile(s);
@@ -258,7 +251,17 @@ public class RegexAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return true;
     }
 
-    private class RegexPropagationAnnotator extends PropagationTreeAnnotator {
+    @Override
+    public TreeAnnotator createTreeAnnotator() {
+        // Don't call super.createTreeAnnotator because the PropagationTreeAnnotator types binary
+        // expressions as lub.
+        return new ListTreeAnnotator(
+                new ImplicitsTreeAnnotator(this),
+                new RegexTreeAnnotator(this),
+                new RegexPropagationAnnotator(this));
+    }
+
+    private static class RegexPropagationAnnotator extends PropagationTreeAnnotator {
 
         public RegexPropagationAnnotator(AnnotatedTypeFactory atypeFactory) {
             super(atypeFactory);
@@ -327,7 +330,9 @@ public class RegexAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     type.removeAnnotationInHierarchy(REGEX);
                     // ...and add a new one with the correct group count value.
                     type.addAnnotation(createRegexAnnotation(lGroupCount + rGroupCount));
-                } else if (lExprPoly && rExprPoly || lExprPoly && rExprRE || lExprRE && rExprPoly) {
+                } else if ((lExprPoly && rExprPoly)
+                        || (lExprPoly && rExprRE)
+                        || (lExprRE && rExprPoly)) {
                     type.addAnnotation(PolyRegex.class);
                 } else if (lExprPart && rExprPart) {
                     String lRegex = getPartialRegexValue(lExpr);
@@ -418,8 +423,8 @@ public class RegexAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         /**
          * Returns the value of the Regex annotation on the given type or NULL if there is no Regex
          * annotation. If type is a TYPEVAR, WILDCARD, or INTERSECTION type, visit first their
-         * primary annotation then visit their upper bounds to get the Regex annotation. It's get
-         * "minimum" regex count because, depending on the bounds of a typevar or wildcard, the
+         * primary annotation then visit their upper bounds to get the Regex annotation. The method
+         * gets "minimum" regex count because, depending on the bounds of a typevar or wildcard, the
          * actual type may have more than the upper bound's count.
          *
          * @param type type that may carry a Regex annotation

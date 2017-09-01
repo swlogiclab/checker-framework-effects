@@ -39,6 +39,7 @@ import org.checkerframework.javacutil.ElementUtils;
 import org.checkerframework.javacutil.ErrorReporter;
 import org.checkerframework.javacutil.InternalUtils;
 import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.javacutil.TypeAnnotationUtils;
 import org.checkerframework.javacutil.TypesUtils;
 
 /**
@@ -209,7 +210,7 @@ public class FlowExpressions {
             AnnotationProvider provider,
             ExpressionTree receiverTree,
             boolean allowNonDeterministic) {
-        Receiver receiver = null;
+        Receiver receiver;
         switch (receiverTree.getKind()) {
             case ARRAY_ACCESS:
                 ArrayAccessTree a = (ArrayAccessTree) receiverTree;
@@ -251,6 +252,8 @@ public class FlowExpressions {
                     }
                     TypeMirror type = InternalUtils.typeOf(mn);
                     receiver = new MethodCall(type, invokedMethod, methodReceiver, parameters);
+                } else {
+                    receiver = null;
                 }
                 break;
             case MEMBER_SELECT:
@@ -290,7 +293,13 @@ public class FlowExpressions {
                     case ANNOTATION_TYPE:
                     case INTERFACE:
                         receiver = new ClassName(ele.asType());
+                        break;
+                    default:
+                        receiver = null;
                 }
+                break;
+            default:
+                receiver = null;
         }
 
         if (receiver == null) {
@@ -499,8 +508,8 @@ public class FlowExpressions {
             }
             FieldAccess fa = (FieldAccess) other;
             return super.syntacticEquals(other)
-                    || fa.getField().equals(getField())
-                            && fa.getReceiver().syntacticEquals(getReceiver());
+                    || (fa.getField().equals(getField())
+                            && fa.getReceiver().syntacticEquals(getReceiver()));
         }
 
         @Override
@@ -670,15 +679,14 @@ public class FlowExpressions {
             LocalVariable other = (LocalVariable) obj;
             VarSymbol vs = (VarSymbol) element;
             VarSymbol vsother = (VarSymbol) other.element;
-            // Use type.unannotatedType().toString().equals(...) instead of Types.isSameType(...)
+            // Use TypeAnnotationUtils.unannotatedType(type).toString().equals(...) instead of Types.isSameType(...)
             // because Types requires a processing environment, and FlowExpressions is
             // designed to be independent of processing environment.  See also
             // calls to getType().toString() in FlowExpressions.
             return vsother.name.contentEquals(vs.name)
-                    && vsother.type
-                            .unannotatedType()
+                    && TypeAnnotationUtils.unannotatedType(vsother.type)
                             .toString()
-                            .equals(vs.type.unannotatedType().toString())
+                            .equals(TypeAnnotationUtils.unannotatedType(vs.type).toString())
                     && vsother.owner.toString().equals(vs.owner.toString());
         }
 
@@ -690,7 +698,9 @@ public class FlowExpressions {
         public int hashCode() {
             VarSymbol vs = (VarSymbol) element;
             return HashCodeUtils.hash(
-                    vs.name.toString(), vs.type.unannotatedType().toString(), vs.owner.toString());
+                    vs.name.toString(),
+                    TypeAnnotationUtils.unannotatedType(vs.type).toString(),
+                    vs.owner.toString());
         }
 
         @Override

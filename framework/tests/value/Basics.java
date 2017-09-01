@@ -102,16 +102,14 @@ class Basics {
         @IntRange(from = 15, to = 30)
         //:: error: (assignment.type.incompatible)
         Integer test4 = a;
-        @IntRange(from = 3, to = 30)
-        Integer test5 = a;
+        @IntRange(from = 3, to = 30) Integer test5 = a;
 
         /* IntRange + IntVal */
         a = new Integer(0);
         if (true) {
             a = x;
         }
-        @IntRange(from = 0, to = 4)
-        Integer test7 = a;
+        @IntRange(from = 0, to = 4) Integer test7 = a;
 
         /* IntRange (Wider than 10) + IntVal */
         a = new Integer(0);
@@ -121,8 +119,7 @@ class Basics {
         @IntRange(from = 1, to = 30)
         //:: error: (assignment.type.incompatible)
         Integer test8 = a;
-        @IntRange(from = 0, to = 30)
-        Integer test9 = a;
+        @IntRange(from = 0, to = 30) Integer test9 = a;
     }
 
     public void intTest(@IntRange(from = 3, to = 4) int x, @IntRange(from = 20, to = 30) int y) {
@@ -146,16 +143,14 @@ class Basics {
         @IntRange(from = 15, to = 30)
         //:: error: (assignment.type.incompatible)
         int test4 = a;
-        @IntRange(from = 3, to = 30)
-        int test5 = a;
+        @IntRange(from = 3, to = 30) int test5 = a;
 
         /* IntRange + IntVal */
         a = 0;
         if (true) {
             a = x;
         }
-        @IntRange(from = 0, to = 4)
-        int test7 = a;
+        @IntRange(from = 0, to = 4) int test7 = a;
 
         /* IntRange (Wider than 10) + IntVal */
         a = 0;
@@ -165,8 +160,17 @@ class Basics {
         @IntRange(from = 1, to = 30)
         //:: error: (assignment.type.incompatible)
         int test8 = a;
-        @IntRange(from = 0, to = 30)
-        int test9 = a;
+        @IntRange(from = 0, to = 30) int test9 = a;
+    }
+
+    public void intCastTest(@IntVal({0, 1}) int input) {
+        @IntVal({0, 1}) int c = (int) input;
+        @IntVal({0, 1}) int ac = (@IntVal({0, 1}) int) input;
+        @IntVal({0, 1, 2}) int sc = (@IntVal({0, 1, 2}) int) input;
+        //:: warning: (cast.unsafe)
+        @IntVal({1}) int uc = (@IntVal({1}) int) input;
+        //:: warning: (cast.unsafe)
+        @IntVal({2}) int bc = (@IntVal({2}) int) input;
     }
 
     public void IntDoubleTest(
@@ -242,14 +246,11 @@ class Basics {
         //:: error: (assignment.type.incompatible)
         int a = 1; // a should be @BottomVal
 
-        @IntRange(from = 1)
-        int b = 2;
+        @IntRange(from = 1) int b = 2;
 
-        @IntRange(to = 2)
-        int c = 1;
+        @IntRange(to = 2) int c = 1;
 
-        @IntRange(to = 2, from = 0)
-        int d = 1;
+        @IntRange(to = 2, from = 0) int d = 1;
     }
 
     void tooManyValuesDouble() {
@@ -276,11 +277,17 @@ class Basics {
 
         @UnknownVal String c = "";
 
-        a = c; // This should succeed if a is treated as @UnknownVal
+        //:: error: (assignment.type.incompatible)
+        a = c; // This should not succeed if a is treated as @ArrayLen(1)
+
+        @ArrayLen(1) String al = a; // a is @ArrayLen(1)
 
         //:: warning: (too.many.values.given)
         @StringVal({"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"}) String d = "h";
 
-        d = "b" + d; // This should succeed since d is @UnknownVal
+        //:: error: (assignment.type.incompatible)
+        d = "b" + d; // This should not succeed since d is @ArrayLen(1)
+
+        @ArrayLen(1) String dl = d; // d is @ArrayLen(1)
     }
 }

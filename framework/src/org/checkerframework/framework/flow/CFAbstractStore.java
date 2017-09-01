@@ -792,8 +792,8 @@ public abstract class CFAbstractStore<V extends CFAbstractValue<V>, S extends CF
     }
 
     @Override
-    public S widenUpperBound(S other) {
-        return upperBound(other, true);
+    public S widenedUpperBound(S previous) {
+        return upperBound(previous, true);
     }
 
     private S upperBound(S other, boolean shouldWiden) {
@@ -935,6 +935,12 @@ public abstract class CFAbstractStore<V extends CFAbstractValue<V>, S extends CF
         } else {
             return false;
         }
+    }
+
+    @Override
+    public int hashCode() {
+        // What is a good hash code to use?
+        return System.identityHashCode(this);
     }
 
     @SideEffectFree

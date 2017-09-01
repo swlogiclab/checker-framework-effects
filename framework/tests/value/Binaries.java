@@ -17,7 +17,7 @@ class Binaries {
 
     void write(int t) {}
 
-    // Test widenUpperBound is working.
+    // Test widenedUpperBound is working.
     public void loop(int c) {
         double v = 0;
         int decexp = 0;
@@ -39,12 +39,10 @@ class Binaries {
             @UnknownVal int top) {
 
         /* IntRange + IntRange */
-        @IntRange(from = 8, to = 24)
-        int a = range1 + range2;
+        @IntRange(from = 8, to = 24) int a = range1 + range2;
 
         /* IntRange * IntVal */
-        @IntRange(from = 3, to = 8)
-        int b = values * range1;
+        @IntRange(from = 3, to = 8) int b = values * range1;
 
         /* IntRange * BottomVal */
         int c = range1 * bottom;
