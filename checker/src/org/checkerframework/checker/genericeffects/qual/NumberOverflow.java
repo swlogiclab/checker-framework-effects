@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
 /**
- * This annotation is for situations involving any sort of overflow/underflow where a value is being cast to an integer.
- * Ex. double to integer, long to byte
+ * This annotation is for situations involving any sort of overflow/underflow where a value is being
+ * cast to an integer. Ex. double to integer, long to byte
  */
 public @interface NumberOverflow {}

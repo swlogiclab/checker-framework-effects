@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
 /**
- * This annotation is for situations involving unsafe casts from integer values.
- * Ex. long to integer, long to double, integer to float, integer to byte
+ * This annotation is for situations involving unsafe casts from integer values. Ex. long to
+ * integer, long to double, integer to float, integer to byte
  */
 public @interface UnsafeIntegerCast {}
