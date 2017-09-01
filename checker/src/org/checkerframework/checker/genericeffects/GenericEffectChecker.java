@@ -48,5 +48,4 @@ public class GenericEffectChecker extends BaseTypeChecker {
         }
         return lattice;
     }
-
 }

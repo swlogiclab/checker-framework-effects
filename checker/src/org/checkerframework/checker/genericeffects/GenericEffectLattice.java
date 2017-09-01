@@ -31,5 +31,4 @@ public interface GenericEffectLattice {
 
     // Get the Bottom Most Effect of Lattice
     public Class<? extends Annotation> getBottomMostEffectInLattice();
-
 }
