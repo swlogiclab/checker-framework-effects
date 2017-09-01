@@ -99,7 +99,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
         }
         return elt;
         /*
-        while(encElt.getKind() != ElementKind.CLASS || encElt.getKind() != ElementKind.INTERFACE) {
+        while (encElt.getKind() != ElementKind.CLASS || encElt.getKind() != ElementKind.INTERFACE) {
             encElt = encElt.getEnclosingElement();
         }
         return encElt
