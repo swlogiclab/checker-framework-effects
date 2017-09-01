@@ -1,11 +1,27 @@
 package org.checkerframework.checker.genericeffects;
 
-import com.sun.source.tree.*;
-
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Stack;
-import javax.lang.model.element.*;
+
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ArrayAccessTree;
+import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.BinaryTree;
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompoundAssignmentTree;
+import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.InstanceOfTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberReferenceTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.TypeCastTree;
+import com.sun.source.tree.UnaryTree;
 
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
@@ -13,6 +29,11 @@ import org.checkerframework.framework.source.Result;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
 import org.checkerframework.javacutil.TreeUtils;
+
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.TypeElement;
 
 public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFactory> {
 
@@ -23,16 +44,17 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     protected final Stack<Class<? extends Annotation>> effStack;
     protected final Stack<MethodTree> currentMethods;
 
-    //fields for variables
-    protected final Stack<Class<? extends Annotation>> varEffStack;
-    protected final Stack<VariableTree> currentVars;
+    //fields for compiler arguments
+    boolean ignoringEffects;
+    boolean ignoringWarnings;
+    boolean ignoringErrors;
 
     /**
      * Constructor that takes passes the checker to the superclass and takes in a GenericEffectExtension object.
      * The effect stack for methods and variables are set up in the constructor.
      *
      * @param checker The checker that allows the Casting Effects Checker to function.
-     * @param ext An GenericEffectExtension object that provides the developer with more functions dealing with specific tree nodes.
+     * @param ext     An GenericEffectExtension object that provides the developer with more functions dealing with specific tree nodes.
      */
     public GenericEffectVisitor(BaseTypeChecker checker, GenericEffectExtension ext) {
         super(checker);
@@ -42,10 +64,11 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         effStack = new Stack<Class<? extends Annotation>>();
         currentMethods = new Stack<MethodTree>();
 
-        //added this assignment
-        varEffStack = new Stack<Class<? extends Annotation>>();;
-        currentVars = new Stack<VariableTree>();
         extension = ext;
+
+        ignoringEffects = checker.getOption("ignoreEffects") != null;
+        ignoringWarnings = checker.getOption("ignoreWarnings") != null;
+        ignoringErrors = checker.getOption("ignoreErrors") != null;
 
         genericEffect = ((GenericEffectChecker) checker).getEffectLattice();
     }
@@ -60,13 +83,34 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         return new GenericEffectTypeFactory(checker, debugSpew);
     }
 
-    //TODO: Determine what the use of this method is.
+    /**
+     * This method is here because the inherited version of this method complains about the way that certain
+     * checks are done.
+     * TODO: Please document the use of this with respect to the generic effect checker better.
+     * Note: The GuiEffectChecker uses a similar setup and provides more documentation.
+     *
+     * @param method
+     * @param node
+     */
     @Override
     protected void checkMethodInvocability(
             AnnotatedExecutableType method, MethodInvocationTree node) {
     }
 
-    //TODO: Determine what the use of this method is.
+
+    /**
+     * Method override validity is checked manually by the type factory during visitation, so
+     * the method is overridden here.
+     * TODO: Please document the use of this with respect to the generic effect checker better.
+     * Note: The GuiEffectChecker uses a similar setup and provides more documentation.
+     *
+     * @param overriderTree
+     * @param enclosingType
+     * @param overridden
+     * @param overriddenType
+     * @param p
+     * @return
+     */
     @Override
     protected boolean checkOverride(
             MethodTree overriderTree,
@@ -74,11 +118,15 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             AnnotatedTypeMirror.AnnotatedExecutableType overridden,
             AnnotatedTypeMirror.AnnotatedDeclaredType overriddenType,
             Void p) {
-        // Method override validity is checked manually by the type factory during visitation
         return true;
     }
 
-    //TODO: Determine what the use of this method is.
+    /**
+     * TODO: Please document the use off this with respect to the generic effect checker better.
+     * Note: The GuiEffectChecker uses a similar setup and provides more documentation.
+     *
+     * @param node
+     */
     @Override
     public void processClassTree(ClassTree node) {
         // Fix up context for static initializers of new class
@@ -93,7 +141,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      * Method that visits method tree nodes and adds their effects to the stacks set up in the constructor.
      *
      * @param node The method tree node that was encountered during checking.
-     * @param p Void
+     * @param p    Void
      * @return Void
      */
     @Override
@@ -139,46 +187,6 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     /**
-     * Method that visits variable tree nodes and adds their effects to the stacks set up in the constructor.
-     *
-     * @param node The variable tree node that was encountered during checking.
-     * @param p Void
-     * @return Void
-     */
-    @Override
-    public Void visitVariable(VariableTree node, Void p)
-    {
-        Element methElt = TreeUtils.elementFromDeclaration(node);
-
-
-        assert (methElt != null);
-
-        ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
-        AnnotationMirror annotatedEffect;
-
-        for (Class<? extends Annotation> OkEffect : validEffects) {
-            annotatedEffect = atypeFactory.getDeclAnnotation(methElt, OkEffect);
-
-            if (annotatedEffect == null) {
-                atypeFactory
-                        .fromElement(methElt)
-                        .addAnnotation(atypeFactory.getDeclaredEffect(methElt));
-            }
-        }
-
-        currentVars.push(node);
-
-        varEffStack.push(atypeFactory.getDeclaredEffect(methElt));
-
-
-        Void ret = super.visitVariable(node, p);
-        currentVars.pop();
-        varEffStack.pop();
-        return ret;
-
-    }
-
-    /**
      * Method that can be used in a visitor method to see if a node is enclosed by a method.
      *
      * @return A boolean representing whether the node is enclosed by a method (true) or not (false).
@@ -189,89 +197,107 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     /**
-     * Method that is used by all visitors to enforce the checker's lattice and report errors and warnings depending on the
-     * developers specifications. Compiler arguments are also checked to determine what should be ignored. This method
-     * checks at the method level.
+     * Method to check is a target effect and a caller effect are invalid according to the lattice.
+     * The method also checks which effects are to be ignored.
      *
-     * @param node A tree node encountered during checking.
-     * @param targetEffect The effect of the tree node encountered during checking.
-     * @param failureMsg The failure message to be reported.
-     * @param warningMsg The warning message to be reported.
+     * @param targetEffect Target effect of node.
+     * @param callerEffect Caller effect of node.
+     * @return Boolean value representing whether the effects are invalid (true) or not (false)
      */
-    private void checkEnclosingMethod(Tree node, Class<? extends Annotation> targetEffect, String failureMsg, String warningMsg) {
+    private boolean isInvalid(Class<? extends Annotation> targetEffect, Class<? extends Annotation> callerEffect) {
+        if (ignoringEffects)
+            targetEffect = extension.checkIgnoredEffects(checker.getOption("ignoreEffects"), targetEffect);
+        if (!genericEffect.LE(targetEffect, callerEffect))
+            return true;
+        return false;
+    }
+
+    /**
+     * Method that reports an error as specified by given parameters. The method also checks which errors are to be ignored.
+     *
+     * @param node Node for which error should be reported.
+     * @param targetEffect Target effect of node.
+     * @param callerEffect Caller effect of node.
+     * @param failureMsg Error message to be reported.
+     */
+    private void checkError(Tree node, Class<? extends Annotation> targetEffect, Class<? extends Annotation> callerEffect, String failureMsg) {
+        if (!ignoringErrors)
+            checker.report(Result.failure(failureMsg, targetEffect, callerEffect), node);
+        else if (ignoringErrors && !extension.isIgnored(checker.getOption("ignoreErrors"), failureMsg))
+            checker.report(Result.failure(failureMsg, targetEffect, callerEffect), node);
+    }
+
+    /**
+     * Method that reports a warning as specified by the given parameters. The method also checks which warnings are to be ignored.
+     *
+     * @param node Node for which warning should be reported.
+     * @param targetEffect Target effect of node.
+     * @param callerEffect Caller effect of node.
+     * @param warningMsg Warning message to be reported.
+     */
+    private void checkWarning(Tree node, Class<? extends Annotation> targetEffect, Class<? extends Annotation> callerEffect, String warningMsg) {
+        if (!ignoringWarnings)
+            checker.report(Result.warning(warningMsg, targetEffect, callerEffect), node);
+        else if (ignoringWarnings && !extension.isIgnored(checker.getOption("ignoreWarnings"), warningMsg))
+            checker.report(Result.warning(warningMsg, targetEffect, callerEffect), node);
+    }
+
+    /**
+     * Method that is used by visitor methods to get the effect of a method that a node is within.
+     *
+     * @return Effect of a method that a node is within.
+     */
+    private Class<? extends Annotation> getMethodCallerEffect() {
         MethodTree callerTree = TreeUtils.enclosingMethod(getCurrentPath());
         ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
-        Class<? extends Annotation> callerEffect = atypeFactory.getDeclaredEffect(callerElt);
-        if (checker.getOption("ignoreEffects") != null)
-            targetEffect = extension.checkIgnoredEffects(checker.getOption("ignoreEffects"), targetEffect);
-        if(warningMsg != null) {
-            if(checker.getOption("ignoreWarnings") == null)
-                checker.report(Result.warning(warningMsg, targetEffect, callerEffect), node);
-            else if (checker.getOption("ignoreWarnings") != null && !extension.isIgnored(checker.getOption("ignoreWarnings"), warningMsg))
-                checker.report(Result.warning(warningMsg, targetEffect, callerEffect), node);
-        }
-        if (!genericEffect.LE(targetEffect, callerEffect)) {
-            if(checker.getOption("ignoreErrors") == null)
-                checker.report(Result.failure(failureMsg, targetEffect, callerEffect), node);
-            else if (checker.getOption("ignoreErrors") != null && !extension.isIgnored(checker.getOption("ignoreErrors"), failureMsg))
-                checker.report(Result.failure(failureMsg, targetEffect, callerEffect), node);
-        }
+        return atypeFactory.getDeclaredEffect(callerElt);
     }
 
     /**
-     * Method that can be used in a visitor method to see if a node is enclosed by a variable.
+     * Method that is used in a visitor method to get the default effect a class that a node is within.
      *
-     * @return A boolean representing whether the node is enclosed by a variable (true) or not (false).
+     * @return The default effect of a class that a node is within.
      */
-    private boolean hasEnclosingVariable() {
-        VariableTree varTree = TreeUtils.enclosingVariable(getCurrentPath());
-        return varTree != null;
+    private Class<? extends Annotation> getDefaultClassEffect() {
+        ClassTree clsTree = TreeUtils.enclosingClass(getCurrentPath());
+        Element clsElt = TreeUtils.elementFromDeclaration(clsTree);
+        return atypeFactory.getDefaultEffect(clsElt);
     }
 
     /**
-     * Method that is used by all visitors to enforce the checker's lattice and report errors and warnings depending on the
-     * developers specifications. Compiler arguments are also checked to determine what should be ignored. This method
-     * checks at the variable level.
+     * TODO: This is not supported yet but should be treated similar to a method.
      *
-     * @param node A tree node encountered during checking.
-     * @param targetEffect The effect of the tree node encountered during checking.
-     * @param failureMsg The failure message to be reported.
-     * @param warningMsg The warning message to be reported.
+     * @param node
+     * @param p
+     * @return
      */
-    private void checkEnclosingVariable(Tree node, Class<? extends Annotation> targetEffect, String failureMsg, String warningMsg) {
-        VariableTree varTree = TreeUtils.enclosingVariable(getCurrentPath());
-        VariableElement varElt = TreeUtils.elementFromDeclaration(varTree);
-        Class<? extends Annotation> varCallerEffect = atypeFactory.getDeclaredEffect(varElt);
-        if(warningMsg != null) {
-            if(checker.getOption("ignoreWarnings") == null)
-                checker.report(Result.warning(warningMsg, targetEffect, varCallerEffect), node);
-            else if (checker.getOption("ignoreWarnings") != null && !extension.isIgnored(checker.getOption("ignoreWarnings"), warningMsg))
-                checker.report(Result.warning(warningMsg, targetEffect, varCallerEffect), node);
-        }
-        if (!genericEffect.LE(targetEffect, varCallerEffect)) {
-            if(checker.getOption("ignoreErrors") == null)
-                checker.report(Result.failure(failureMsg, targetEffect, varCallerEffect), node);
-            else if (checker.getOption("ignoreErrors") != null && !extension.isIgnored(checker.getOption("ignoreErrors"), failureMsg))
-                checker.report(Result.failure(failureMsg, targetEffect, varCallerEffect), node);
-        }
-    }
-
     @Override
     public Void visitLambdaExpression(LambdaExpressionTree node, Void p) {
-        //TODO: This is not supported yet.
-        return null;
+        return super.visitLambdaExpression(node, p);
     }
 
+    /**
+     * TODO: Determine if this requires the same effect checks as for methods.
+     *
+     * @param node
+     * @param p
+     * @return
+     */
     @Override
     public Void visitMemberReference(MemberReferenceTree node, Void p) {
-        //TODO: Determine if this requires the same effect checks as for methods.
-        return null;
+        return super.visitMemberReference(node, p);
     }
 
+    /**
+     * TODO: Determine if this requires the same effect checks as for methods.
+     *
+     * @param node
+     * @param p
+     * @return
+     */
     @Override
     public Void visitMemberSelect(MemberSelectTree node, Void p) {
-        //TODO: Determine if this requires the same effect checks as for methods.
-        return null;
+        return super.visitMemberSelect(node, p);
     }
 
     /**
@@ -283,23 +309,19 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      */
     @Override
     public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
-        if(hasEnclosingMethod()) {
-            ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
-            checkEnclosingMethod(node,
-                    targetEffect,
-                    "call.invalid.super.effect",
-                    null);
-            return super.visitMethodInvocation(node, p);
+        if (hasEnclosingMethod()) {
+            ExecutableElement elt = TreeUtils.elementFromUse(node);
+            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(elt);
+            Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+            if (isInvalid(targetEffect, callerEffect))
+                checkError(node, targetEffect, callerEffect, "call.invalid.effect");
         }
-        if(hasEnclosingVariable()) {
-            ExecutableElement varElt = TreeUtils.elementFromUse(node);
-            Class<? extends Annotation> varTargetEffect = atypeFactory.getDeclaredEffect(varElt);
-            checkEnclosingVariable(node,
-                    varTargetEffect,
-                    "call.invalid.super.effect",
-                    null);
-            return super.visitMethodInvocation(node, p);
+        else {
+            ExecutableElement elt = TreeUtils.elementFromUse(node);
+            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(elt);
+            Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+            if (isInvalid(targetEffect, callerEffect))
+                checkError(node, targetEffect, callerEffect, "call.invalid.effect");
         }
         return super.visitMethodInvocation(node, p);
     }
@@ -308,28 +330,24 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      * Method to check if the constructor call is made from a valid context.
      *
      * @param node New class tree node that is found during checking.
-     * @param p Void
+     * @param p    Void
      * @return Void
      */
     @Override
     public Void visitNewClass(NewClassTree node, Void p) {
-        if(hasEnclosingMethod()) {
-            ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
-            checkEnclosingMethod(node,
-                    targetEffect,
-                    "constructor.call.invalid",
-                    null);
-            return super.visitNewClass(node, p);
+        if (hasEnclosingMethod()) {
+            ExecutableElement elt = TreeUtils.elementFromUse(node);
+            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(elt);
+            Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+            if (isInvalid(targetEffect, callerEffect))
+                checkError(node, targetEffect, callerEffect, "constructor.call.invalid");
         }
-        if(hasEnclosingVariable()) {
-            ExecutableElement varElt = TreeUtils.elementFromUse(node);
-            Class<? extends Annotation> varTargetEffect = atypeFactory.getDeclaredEffect(varElt);
-            checkEnclosingVariable(node,
-                    varTargetEffect,
-                    "constructor.call.invalid",
-                    null);
-            return super.visitNewClass(node, p);
+        else {
+            ExecutableElement elt = TreeUtils.elementFromUse(node);
+            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(elt);
+            Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+            if (isInvalid(targetEffect, callerEffect))
+                checkError(node, targetEffect, callerEffect, "constructor.call.invalid");
         }
         return super.visitNewClass(node, p);
     }
@@ -338,657 +356,225 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      * The methods below this comment follow the same format. Each method is a different visit method
      * for a different kind of tree node. Using the extensions class the developer can activate specific
      * visitor methods depending on what they want to check.
-     *
+     * <p>
      * The methods work by first checking if the node being checked is enclosed by a method. If it is then
      * the method obtains the effect of the node and checks it against the method's effect. If the node is not
      * enclosed by a method, then it checks at the variable level against the class annotation.
      *
      * @param node Specific tree node that is to be checked.
-     * @param p Void
+     * @param p    Void
      * @return Void
      */
     @Override
     public Void visitArrayAccess(ArrayAccessTree node, Void p) {
-        if(extension.doesArrayAccessCheck()) {
-            if(hasEnclosingMethod()) {
+        //checks if check is active
+        if (extension.doesArrayAccessCheck()) {
+            //checks if node is enclosed by method
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkArrayAccess(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitArrayAccess(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                //checks if the effect of the node is less than or equal to the methods
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                //checks if the node should output any warnings
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkArrayAccess(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitArrayAccess(node, p);
+            //if node is not within a method, then node is compared to default effect of class
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkArrayAccess(node);
+                //gets node's default effect
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                //checks if effect of the node is less than or equal to the default effects
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                //checks if the node should output and warnings
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitArrayAccess(node, p);
         }
-        return null;
-    }
-
-    @Override
-    public Void visitArrayType(ArrayTypeTree node, Void p) {
-        if(extension.doesArrayTypeCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkArrayType(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitArrayType(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkArrayType(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitArrayType(node, p);
-            }
-            return super.visitArrayType(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitAssert(AssertTree node, Void p) {
-        if(extension.doesAssertCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkAssert(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitAssert(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkAssert(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitAssert(node, p);
-            }
-            return super.visitAssert(node, p);
-        }
-        return null;
+        return super.visitArrayAccess(node, p);
     }
 
     @Override
     public Void visitAssignment(AssignmentTree node, Void p) {
-        if(extension.doesAssignmentCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesAssignmentCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkAssignment(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitAssignment(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkAssignment(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitAssignment(node, p);
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkAssignment(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitAssignment(node, p);
         }
-        return null;
+        return super.visitAssignment(node, p);
     }
 
     @Override
     public Void visitBinary(BinaryTree node, Void p) {
-        if(extension.doesBinaryCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesBinaryCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkBinary(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitBinary(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkBinary(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitBinary(node, p);
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkBinary(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitBinary(node, p);
         }
-        return null;
-    }
-
-    @Override
-    public Void visitBreak(BreakTree node, Void p) {
-        if(extension.doesBreakCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkBreak(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitBreak(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkBreak(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitBreak(node, p);
-            }
-            return super.visitBreak(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitCase(CaseTree node, Void p) {
-        if(extension.doesCaseCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkCase(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitCase(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkCase(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitCase(node, p);
-            }
-            return super.visitCase(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitCatch(CatchTree node, Void p) {
-        if(extension.doesCatchCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkCatch(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitCatch(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkCatch(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitCatch(node, p);
-            }
-            return super.visitCatch(node, p);
-        }
-        return null;
+        return super.visitBinary(node, p);
     }
 
     @Override
     public Void visitCompoundAssignment(CompoundAssignmentTree node, Void p) {
-        if(extension.doesCompoundAssignmentCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesCompoundAssignmentCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkCompoundAssignment(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitCompoundAssignment(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkCompoundAssignment(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitCompoundAssignment(node, p);
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkCompoundAssignment(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitCompoundAssignment(node, p);
         }
-        return null;
+        return super.visitCompoundAssignment(node, p);
     }
 
     @Override
     public Void visitConditionalExpression(ConditionalExpressionTree node, Void p) {
-        if(extension.doesConditionalExpressionCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesConditionalExpressionCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkConditionalExpression(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitConditionalExpression(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkConditionalExpression(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitConditionalExpression(node, p);
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkConditionalExpression(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitConditionalExpression(node, p);
         }
-        return null;
-    }
-
-    @Override
-    public Void visitContinue(ContinueTree node, Void p) {
-        if(extension.doesContinueCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkContinue(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitContinue(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkContinue(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitContinue(node, p);
-            }
-            return super.visitContinue(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitDoWhileLoop(DoWhileLoopTree node, Void p) {
-        if(extension.doesDoWhileLoopCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkDoWhileLoop(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitDoWhileLoop(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkDoWhileLoop(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitDoWhileLoop(node, p);
-            }
-            return super.visitDoWhileLoop(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitEnhancedForLoop(EnhancedForLoopTree node, Void p) {
-        if(extension.doesEnhancedForLoopCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkEnhancedForLoop(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitEnhancedForLoop(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkEnhancedForLoop(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitEnhancedForLoop(node, p);
-            }
-            return super.visitEnhancedForLoop(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitForLoop(ForLoopTree node, Void p) {
-        if(extension.doesForLoopCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkForLoop(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitForLoop(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkForLoop(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitForLoop(node, p);
-            }
-            return super.visitForLoop(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitIf(IfTree node, Void p) {
-        if(extension.doesIfCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkIf(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitIf(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkIf(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitIf(node, p);
-            }
-            return super.visitIf(node, p);
-        }
-        return null;
+        return super.visitConditionalExpression(node, p);
     }
 
     @Override
     public Void visitInstanceOf(InstanceOfTree node, Void p) {
-        if(extension.doesInstanceOfCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesInstanceOfCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkInstanceOf(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitInstanceOf(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkInstanceOf(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitInstanceOf(node, p);
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkInstanceOf(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitInstanceOf(node, p);
         }
-        return null;
-    }
-
-    @Override
-    public Void visitIntersectionType(IntersectionTypeTree node, Void p) {
-        if(extension.doesIntersectionTypeCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkIntersectionType(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitIntersectionType(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkIntersectionType(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitIntersectionType(node, p);
-            }
-            return super.visitIntersectionType(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitLabeledStatement(LabeledStatementTree node, Void p) {
-        if(extension.doesLabeledStatementCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkLabeledStatement(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitLabeledStatement(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkLabeledStatement(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitLabeledStatement(node, p);
-            }
-            return super.visitLabeledStatement(node, p);
-        }
-        return null;
+        return super.visitInstanceOf(node, p);
     }
 
     @Override
     public Void visitLiteral(LiteralTree node, Void p) {
-        if(extension.doesLiteralCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesLiteralCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkLiteral(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitLiteral(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkLiteral(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitLiteral(node, p);
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkLiteral(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitLiteral(node, p);
         }
-        return null;
+        return super.visitLiteral(node, p);
     }
 
     @Override
     public Void visitNewArray(NewArrayTree node, Void p) {
-        if(extension.doesNewArrayCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesNewArrayCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkNewArray(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitNewArray(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkNewArray(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitNewArray(node, p);
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkNewArray(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitNewArray(node, p);
         }
-        return null;
-    }
-
-    @Override
-    public Void visitPrimitiveType(PrimitiveTypeTree node, Void p) {
-        if(extension.doesPrimitiveTypeCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkPrimitiveType(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitPrimitiveType(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkPrimitiveType(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitPrimitiveType(node, p);
-            }
-            return super.visitPrimitiveType(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitReturn(ReturnTree node, Void p) {
-        if(extension.doesReturnCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkReturn(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitReturn(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkReturn(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitReturn(node, p);
-            }
-            return super.visitReturn(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitSwitch(SwitchTree node, Void p) {
-        if(extension.doesSwitchCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkSwitch(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitSwitch(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkSwitch(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitSwitch(node, p);
-            }
-            return super.visitSwitch(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitSynchronized(SynchronizedTree node, Void p) {
-        if(extension.doesSynchronizedCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkSynchronized(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitSynchronized(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkSynchronized(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitSynchronized(node, p);
-            }
-            return super.visitSynchronized(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitThrow(ThrowTree node, Void p) {
-        if(extension.doesThrowCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkThrow(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitThrow(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkThrow(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitThrow(node, p);
-            }
-            return super.visitThrow(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitTry(TryTree node, Void p) {
-        if(extension.doesTryCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkTry(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitTry(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkTry(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitTry(node, p);
-            }
-            return super.visitTry(node, p);
-        }
-        return null;
+        return super.visitNewArray(node, p);
     }
 
     @Override
     public Void visitTypeCast(TypeCastTree node, Void p) {
-        if(extension.doesTypeCastCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesTypeCastCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkTypeCast(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitTypeCast(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkTypeCast(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitTypeCast(node, p);
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkTypeCast(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
             return super.visitTypeCast(node, p);
         }
@@ -997,99 +583,25 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitUnary(UnaryTree node, Void p) {
-        if(extension.doesUnaryCheck()) {
-            if(hasEnclosingMethod()) {
+        if (extension.doesUnaryCheck()) {
+            if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkUnary(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitUnary(node, p);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            if(hasEnclosingVariable()) {
+            else {
                 Class<? extends Annotation> varTargetEffect = extension.checkUnary(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitUnary(node, p);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(varTargetEffect, callerEffect))
+                    checkError(node, varTargetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, varTargetEffect, callerEffect, extension.reportWarning(node));
             }
-            return super.visitUnary(node, p);
         }
-        return null;
-    }
-
-    @Override
-    public Void visitUnionType(UnionTypeTree node, Void p) {
-        if(extension.doesUnionTypeCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkUnionType(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitUnionType(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkUnionType(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitUnionType(node, p);
-            }
-            return super.visitUnionType(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitWhileLoop(WhileLoopTree node, Void p) {
-        if(extension.doesWhileLoopCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkWhileLoop(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitWhileLoop(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkWhileLoop(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitWhileLoop(node, p);
-            }
-            return super.visitWhileLoop(node, p);
-        }
-        return null;
-    }
-
-    @Override
-    public Void visitWildcard(WildcardTree node, Void p) {
-        if(extension.doesWildcardCheck()) {
-            if(hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkWildcard(node);
-                checkEnclosingMethod(node,
-                        targetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitWildcard(node, p);
-            }
-            if(hasEnclosingVariable()) {
-                Class<? extends Annotation> varTargetEffect = extension.checkWildcard(node);
-                checkEnclosingVariable(node,
-                        varTargetEffect,
-                        extension.reportError(node),
-                        extension.reportWarning(node));
-                return super.visitWildcard(node, p);
-            }
-            return super.visitWildcard(node, p);
-        }
-        return null;
+        return super.visitUnary(node, p);
     }
 
 }
-

@@ -4,7 +4,11 @@ import com.sun.source.tree.Tree;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
-import javax.lang.model.element.*;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
@@ -78,6 +82,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
     /**
      * This method is used to get the inner most class with a DefaultEffect annotation from an element (in case there are nested classes).
+     * This is done by continually getting the enclosing element of an element until the desired annotation is found.
      * Note: If the developer would not like this feature. The commented code at the bottom will only return the enclosing class of the element
      * and ignore nested classes.
      *
@@ -85,20 +90,20 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
      * @return Inner most annotated class with the DefaultEffect annotation. If none is found then the outer most class is returned.
      */
     private Element getInnermostAnnotatedClass(Element elt) {
-        Element clsElt = elt;
-        while (clsElt != null) {
-            if (clsElt.getAnnotation(DefaultEffect.class) != null)
-                break;
+        Element encElt = elt;
+        while (encElt != null) {
+            if (encElt.getAnnotation(DefaultEffect.class) != null)
+                return encElt;
             else
-                clsElt = clsElt.getEnclosingElement();
+                encElt = encElt.getEnclosingElement();
         }
-        return clsElt;
-       /*
-       while(clsElt.getKind() != ElementKind.CLASS) {
-           clsElt = clsElt.getEnclosingElement();
-       }
-       return clsElt;
-       */
+        return elt;
+        /*
+        while(encElt.getKind() != ElementKind.CLASS || encElt.getKind() != ElementKind.INTERFACE) {
+            encElt = encElt.getEnclosingElement();
+        }
+        return encElt
+        */
     }
 
     /**
@@ -107,61 +112,44 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
      * raise a mirrored type exception because it is "attempting to access a class object corresponding to
      * a TypeMirror". The current solution to this is to analyze the exception and get the TypeMirror object
      * because it contains the information that is needed.
+     * Note: This link provides more information on this workaround and may be useful for future changes:
+     * https://stackoverflow.com/questions/7687829/java-6-annotation-processing-getting-a-class-from-an-annotation
      *
      * @param clsElt An element representing a class.
      * @return The default effect of the class element that was passed as a parameter.
      */
-    //https://stackoverflow.com/questions/7687829/java-6-annotation-processing-getting-a-class-from-an-annotation
     private Class<? extends Annotation> getClassType(Element clsElt)
     {
+        //checker.userErrorAbort((clsElt.getAnnotation(DefaultEffect.class)!=null)+"");
         //TODO: There may be a better approach to getting the information that is needed than raising an exception
         TypeMirror clsAnno = null;
         try {
             clsElt.getAnnotation(DefaultEffect.class).value();
         }
-        catch(NullPointerException e)
-        {
+        catch(NullPointerException e) {
             return genericEffect.getBottomMostEffectInLattice();
         }
-        catch(MirroredTypeException e)
-        {
+        catch(MirroredTypeException e) {
             clsAnno = e.getTypeMirror();
         }
         //TODO: Find a way to extract the class type from the TypeElement object without making use of Strings.
         Types TypeUtils = this.processingEnv.getTypeUtils();
         TypeElement typeElt =  (TypeElement)TypeUtils.asElement(clsAnno);
         String name = typeElt.getSimpleName().toString();
-        for(Class<? extends Annotation> validEffect : genericEffect.getValidEffects())
-        {
+        for(Class<? extends Annotation> validEffect : genericEffect.getValidEffects()) {
             if(name.equals(validEffect.getSimpleName()))
                 return validEffect;
         }
         return genericEffect.getBottomMostEffectInLattice();
     }
 
-
     /**
-     * Returns the Declared Effect on the passed element as parameter
+     * Method that gets the default effect of a element by looking at its class annotation.
      *
-     * @param elt : Element for which declared effect is to be returned
-     * @return declared effect : if methodElt is annotated with a valid effect
-     *     bottomMostEffectInLattice : otherwise, bottom most effect of lattice
+     * @param elt Element for which the default effect will be retrieved.
+     * @return Default effect of the element.
      */
-    public Class<? extends Annotation> getDeclaredEffect(Element elt)
-    {
-        ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
-        AnnotationMirror annotatedEffect = null;
-
-        for (Class<? extends Annotation> OkEffect : validEffects) {
-            annotatedEffect = getDeclAnnotation(elt, OkEffect);
-            if (annotatedEffect != null) {
-                if (debugSpew) {
-                    System.err.println("Method marked @" + annotatedEffect);
-                }
-                return OkEffect;
-            }
-        }
-
+    public Class<? extends Annotation> getDefaultEffect(Element elt) {
         Element clsElt = getInnermostAnnotatedClass(elt);
         return getClassType(clsElt);
     }

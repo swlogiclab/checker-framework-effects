@@ -2,7 +2,17 @@ package org.checkerframework.checker.genericeffects;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
-import org.checkerframework.checker.genericeffects.qual.*;
+import org.checkerframework.checker.genericeffects.qual.SafeCast;
+import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
+import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;
+import org.checkerframework.checker.genericeffects.qual.NumberPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.UnsafeIntegerCast;
+import org.checkerframework.checker.genericeffects.qual.UnsafeDecimalCast;
+import org.checkerframework.checker.genericeffects.qual.NumberOverflow;
+import org.checkerframework.checker.genericeffects.qual.UnsafeCast;
+
 
 /**
  * Class to set up lattice for Casting Effect Checker within Generic Effect Checker
