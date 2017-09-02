@@ -11,8 +11,6 @@ import org.checkerframework.javacutil.InternalUtils;
 
 public class CastingEffectsExtension extends GenericEffectExtension {
 
-    GenericEffectLattice genericEffects = super.genericEffects;
-
     /**
      * Constructor that takes the lattice in as a parameter and passes it to the constructor of the
      * superclass.
