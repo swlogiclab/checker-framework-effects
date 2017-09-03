@@ -1052,6 +1052,13 @@
         </antcall>
     </target>
 
+    <target name="genericeffect-tests" depends="jar,build-tests"
+            description="Run tests for the Generic Effect Checker, instantiated to ">
+        <antcall target="-run-tests">
+            <param name="param" value="tests.GenericEffectsTest"/>
+        </antcall>
+    </target>
+
     <target name="example-tests" depends="dist,example-tests-nobuildjdk"
             description="Run tests for the example programs">
     </target>
