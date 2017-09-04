@@ -90,8 +90,7 @@ public class GenericEffectExtension {
 
     /**
      * These methods should be overridden in a new class depending on the type of checker the developer is creating.
-     * Note: Mostly all trees that are subclasses of ExpressionTree can be or are checked except for AnnotatedTypeTree, AnnotationTree,
-     * ErroneousTree, IdentifierTree, and ParenthesizedTree. These are not checked because they have been judged to be unhelpful or
+     * Note: Mostly all trees are checked except for ones that have been judged to be unhelpful or
      * encompass too many things.
      *
      * @param node The specific tree node that the developer wants to check.
