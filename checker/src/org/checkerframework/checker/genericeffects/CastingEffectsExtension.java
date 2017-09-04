@@ -9,7 +9,11 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import java.lang.annotation.Annotation;
 
-import org.checkerframework.checker.genericeffects.qual.*;
+import org.checkerframework.checker.genericeffects.qual.SafeCast;
+import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
+import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;;
 
 public class CastingEffectsExtension extends GenericEffectExtension{
 
@@ -65,7 +69,7 @@ public class CastingEffectsExtension extends GenericEffectExtension{
     }
 
     /**
-     * Private method to for checking if a type cast involving a literal is safe.
+     * Private method for checking if a type cast involving a literal is safe.
      * Note: This method only accounts for integer literals such as ints and longs.
      * Floats, doubles, and chars are not included due to their strange behavior/representation.
      * TODO: Find a way to check float literals.
