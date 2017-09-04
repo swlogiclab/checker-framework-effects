@@ -5,8 +5,11 @@ import com.sun.source.tree.TypeCastTree;
 import java.lang.annotation.Annotation;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
-import org.checkerframework.checker.genericeffects.qual.*;
+import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;
+import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
+import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.SafeCast;
 import org.checkerframework.javacutil.InternalUtils;
 
 public class CastingEffectsExtension extends GenericEffectExtension {
@@ -66,9 +69,10 @@ public class CastingEffectsExtension extends GenericEffectExtension {
     }
 
     /**
-     * Private method to for checking if a type cast involving a literal is safe. Note: This method
-     * only accounts for integer literals such as ints and longs. Floats, doubles, and chars are not
-     * included due to their strange behavior/representation.
+     * Private method for checking if a type cast involving a literal is safe.
+     * Note: This method only accounts for integer literals such as ints and longs.
+     * Floats, doubles, and chars are not included due to their strange behavior/representation.
+     * TODO: Find a way to check float literals.
      *
      * @param node A type cast tree node that is encountered while checking.
      * @return A boolean value representing whether the type cast tree node is safe for a casting
@@ -85,7 +89,7 @@ public class CastingEffectsExtension extends GenericEffectExtension {
             }
             return true;
         }
-        if (node.getExpression().getKind().equals(Tree.Kind.LONG_LITERAL)) {
+        else if (node.getExpression().getKind().equals(Tree.Kind.LONG_LITERAL)) {
             long val = Long.parseLong(node.getExpression().toString().replace("L", ""));
             if (t.getKind().equals(TypeKind.BYTE)) {
                 if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE) return false;
