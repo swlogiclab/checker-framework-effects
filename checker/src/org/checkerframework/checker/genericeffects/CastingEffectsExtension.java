@@ -34,8 +34,7 @@ public class CastingEffectsExtension extends GenericEffectExtension{
      * @return A boolean value representing whether the type cast check is activated.
      */
     @Override
-    public boolean doesTypeCastCheck()
-    {
+    public boolean doesTypeCastCheck() {
         return true;
     }
 

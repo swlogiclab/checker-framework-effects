@@ -61,6 +61,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     protected final boolean debugSpew;
     private GenericEffectLattice genericEffect;
     private GenericEffectExtension extension;
+    
     // effStack and currentMethods should always be the same size.
     protected final Stack<Class<? extends Annotation>> effStack;
     protected final Stack<MethodTree> currentMethods;

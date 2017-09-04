@@ -102,7 +102,9 @@ public final class CastingEffects implements GenericEffectLattice {
      * @return ArrayList containing the list of effects.
      */
     @Override
-    public ArrayList<Class<? extends Annotation>> getValidEffects() { return listOfEffects; }
+    public ArrayList<Class<? extends Annotation>> getValidEffects() {
+        return listOfEffects;
+    }
 
     /**
      * Method that gets the top most effect in the lattice as defined by the developer.
