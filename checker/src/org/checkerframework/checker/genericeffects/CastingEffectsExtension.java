@@ -5,6 +5,7 @@ import com.sun.source.tree.TypeCastTree;
 import java.lang.annotation.Annotation;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;
 import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
 import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
