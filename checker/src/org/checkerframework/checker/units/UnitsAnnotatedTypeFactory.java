@@ -5,12 +5,14 @@ import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Tree;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.tools.Diagnostic.Kind;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.checker.units.qual.MixedUnits;
 import org.checkerframework.checker.units.qual.Prefix;
 import org.checkerframework.checker.units.qual.UnitsBottom;
@@ -30,10 +32,6 @@ import org.checkerframework.framework.util.GraphQualifierHierarchy;
 import org.checkerframework.framework.util.MultiGraphQualifierHierarchy.MultiGraphFactory;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.ErrorReporter;
-
-/*>>>
-import org.checkerframework.checker.nullness.qual.Nullable;
- */
 
 /**
  * Annotated type factory for the Units Checker.
@@ -253,7 +251,7 @@ public class UnitsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return false;
     }
 
-    private /*@Nullable*/ Class<? extends Annotation> getBaseUnitAnnoClass(AnnotationMirror anno) {
+    private @Nullable Class<? extends Annotation> getBaseUnitAnnoClass(AnnotationMirror anno) {
         // loop through the meta annotations of the annotation, look for UnitsMultiple
         for (AnnotationMirror metaAnno :
                 anno.getAnnotationType().asElement().getAnnotationMirrors()) {
@@ -303,13 +301,27 @@ public class UnitsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
                 if (!getUnitsRel().containsKey(classname)) {
                     try {
-                        unitsRel.put(classname, theclass.newInstance().init(processingEnv));
+                        unitsRel.put(
+                                classname,
+                                theclass.getDeclaredConstructor()
+                                        .newInstance()
+                                        .init(processingEnv));
+                    } catch (NoSuchMethodException e) {
+                        // TODO
+                        e.printStackTrace();
+                        ErrorReporter.errorAbort("Exception NoSuchMethodException");
+                    } catch (InvocationTargetException e) {
+                        // TODO
+                        e.printStackTrace();
+                        ErrorReporter.errorAbort("Exception InvocationTargetException");
                     } catch (InstantiationException e) {
                         // TODO
                         e.printStackTrace();
+                        ErrorReporter.errorAbort("Exception InstantiationException");
                     } catch (IllegalAccessException e) {
                         // TODO
                         e.printStackTrace();
+                        ErrorReporter.errorAbort("Exception IllegalAccessException");
                     }
                 }
             }
@@ -318,11 +330,10 @@ public class UnitsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     @Override
     public TreeAnnotator createTreeAnnotator() {
-        ImplicitsTreeAnnotator implicitsTreeAnnotator = new ImplicitsTreeAnnotator(this);
-        implicitsTreeAnnotator.addTreeKind(Tree.Kind.NULL_LITERAL, BOTTOM);
+        // Don't call super.createTreeAnnotator because it includes PropagationTreeAnnotator which is incorrect.
         return new ListTreeAnnotator(
                 new UnitsPropagationTreeAnnotator(this),
-                implicitsTreeAnnotator,
+                new ImplicitsTreeAnnotator(this),
                 new UnitsTreeAnnotator(this));
     }
 

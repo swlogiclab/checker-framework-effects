@@ -124,7 +124,7 @@ public class InterningAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
     }
 
-    /** Adds @Interned to enum types and any use of a class that is declared to be @Interned */
+    /** Adds @Interned to enum types and any use of a class that is declared to be @Interned. */
     private class InterningTypeAnnotator extends TypeAnnotator {
 
         InterningTypeAnnotator(InterningAnnotatedTypeFactory atypeFactory) {
@@ -156,8 +156,8 @@ public class InterningAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     /**
-     * Unbox type and replace any interning type annotations with @Interned since all all primitives
-     * can safely use ==. See case 4 in the class comments.
+     * Unbox type and replace any interning type annotations with @Interned since all primitives can
+     * safely use ==. See case 4 in the class comments.
      */
     @Override
     public AnnotatedPrimitiveType getUnboxedType(AnnotatedDeclaredType type) {

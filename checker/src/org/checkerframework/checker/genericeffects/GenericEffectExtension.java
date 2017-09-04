@@ -32,12 +32,12 @@ import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.UnionTypeTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.tree.WildcardTree;
-
 import java.lang.annotation.Annotation;
+import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 
 public class GenericEffectExtension {
 
-    protected  GenericEffectLattice genericEffects;
+    protected GenericEffectLattice genericEffects;
 
     /**
      * Constructor to set the lattice.
@@ -166,7 +166,7 @@ public class GenericEffectExtension {
     public boolean doesUnaryCheck() {
         return false;
     }
-
+  
     public boolean doesUnionTypeCheck() {
         return false;
     }
@@ -185,7 +185,8 @@ public class GenericEffectExtension {
      * encompass too many things.
      *
      * @param node The specific tree node that the developer wants to check.
-     * @return The effect of the specific tree node or throws an UnsupportedOperationException if not overridden.
+     * @return The effect of the specific tree node or throws an UnsupportedOperationException if
+     *     not overridden.
      */
     public Class<? extends Annotation> checkArrayAccess(ArrayAccessTree node) {
         throw new UnsupportedOperationException();
@@ -311,24 +312,61 @@ public class GenericEffectExtension {
         throw new UnsupportedOperationException();
     }
 
+    public Class<? extends Annotation> checkAssignment(AssignmentTree node) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> checkBinary(BinaryTree node) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> checkCompoundAssignment(CompoundAssignmentTree node) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> checkConditionalExpression(ConditionalExpressionTree node) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> checkInstanceOf(InstanceOfTree node) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> checkLiteral(LiteralTree node) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> checkNewArray(NewArrayTree node) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> checkTypeCast(TypeCastTree node) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> checkUnary(UnaryTree node) {
+        throw new UnsupportedOperationException();
+    }
 
     /**
-     * This method should be overridden in a new class to define errors that should occur during checking.
+     * This method should be overridden in a new class to define errors that should occur during
+     * checking.
      *
      * @param node A tree node that represents all nodes that are being checked.
      * @return An error/failure message depending on the tree node.
      */
-    public String reportError(Tree node) {
+    public @CompilerMessageKey String reportError(Tree node) {
         return null;
     }
 
     /**
-     * This method should be overridden in a new class to define warnings that should occur during checking.
+     * This method should be overridden in a new class to define warnings that should occur during
+     * checking.
      *
      * @param node A tree node that represents all nodes that are being checked.
      * @return A warning message depending on the tree node.
      */
-    public String reportWarning(Tree node) {
+    public @CompilerMessageKey String reportWarning(Tree node) {
         return null;
     }
 
@@ -337,13 +375,14 @@ public class GenericEffectExtension {
      *
      * @param compilerArgs Arguments that were taken from the compiler.
      * @param anno Effect that needs to be checked to see if it is in the compiler arguments.
-     * @return The bottom most effect in the lattice if the effect was in the compiler arguments or else the original effect is returned.
+     * @return The bottom most effect in the lattice if the effect was in the compiler arguments or
+     *     else the original effect is returned.
      */
-    public Class<? extends Annotation> checkIgnoredEffects(String compilerArgs, Class<? extends Annotation> anno)
-    {
+    public Class<? extends Annotation> checkIgnoredEffects(
+            String compilerArgs, Class<? extends Annotation> anno) {
         String[] parsedArgs = compilerArgs.split(",");
-        for(String args : parsedArgs) {
-            if(args.equals(anno.getSimpleName()))
+        for (String args : parsedArgs) {
+            if (args.equals(anno.getSimpleName()))
                 return genericEffects.getBottomMostEffectInLattice();
         }
         return anno;
@@ -353,14 +392,14 @@ public class GenericEffectExtension {
      * This method should not be overridden unless compiler arguments need to be parsed differently.
      *
      * @param compilerArgs Arguments that were taken from the compiler.
-     * @param error Failure/Warning that needs to be checked to see if it was in the compiler arguments.
+     * @param error Failure/Warning that needs to be checked to see if it was in the compiler
+     *     arguments.
      * @return A boolean value if the value is in the compiler arguments (true) or not (false).
      */
     public boolean isIgnored(String compilerArgs, String error) {
         String[] parsedArgs = compilerArgs.split(",");
-        for(String args : parsedArgs) {
-            if(args.equals(error))
-                return true;
+        for (String args : parsedArgs) {
+            if (args.equals(error)) return true;
         }
         return false;
     }

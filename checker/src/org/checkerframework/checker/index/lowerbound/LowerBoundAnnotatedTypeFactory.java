@@ -12,35 +12,36 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.UnaryTree;
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import org.checkerframework.checker.index.IndexMethodIdentifier;
-import org.checkerframework.checker.index.minlen.MinLenAnnotatedTypeFactory;
-import org.checkerframework.checker.index.minlen.MinLenChecker;
+import org.checkerframework.checker.index.IndexUtil;
 import org.checkerframework.checker.index.qual.GTENegativeOne;
 import org.checkerframework.checker.index.qual.IndexFor;
 import org.checkerframework.checker.index.qual.IndexOrHigh;
 import org.checkerframework.checker.index.qual.IndexOrLow;
+import org.checkerframework.checker.index.qual.LengthOf;
+import org.checkerframework.checker.index.qual.LowerBoundBottom;
 import org.checkerframework.checker.index.qual.LowerBoundUnknown;
-import org.checkerframework.checker.index.qual.MinLen;
+import org.checkerframework.checker.index.qual.NegativeIndexFor;
 import org.checkerframework.checker.index.qual.NonNegative;
 import org.checkerframework.checker.index.qual.PolyIndex;
 import org.checkerframework.checker.index.qual.PolyLowerBound;
 import org.checkerframework.checker.index.qual.Positive;
+import org.checkerframework.checker.index.searchindex.SearchIndexAnnotatedTypeFactory;
+import org.checkerframework.checker.index.searchindex.SearchIndexChecker;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
 import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.common.value.qual.BottomVal;
+import org.checkerframework.common.value.util.Range;
 import org.checkerframework.framework.qual.PolyAll;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
-import org.checkerframework.framework.type.treeannotator.ImplicitsTreeAnnotator;
 import org.checkerframework.framework.type.treeannotator.ListTreeAnnotator;
-import org.checkerframework.framework.type.treeannotator.PropagationTreeAnnotator;
 import org.checkerframework.framework.type.treeannotator.TreeAnnotator;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
@@ -73,7 +74,8 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     /** The canonical @{@link Positive} annotation. */
     public final AnnotationMirror POS = AnnotationUtils.fromClass(elements, Positive.class);
     /** The bottom annotation. */
-    public final AnnotationMirror BOTTOM = POS;
+    public final AnnotationMirror BOTTOM =
+            AnnotationUtils.fromClass(elements, LowerBoundBottom.class);
     /** The canonical @{@link LowerBoundUnknown} annotation. */
     public final AnnotationMirror UNKNOWN =
             AnnotationUtils.fromClass(elements, LowerBoundUnknown.class);
@@ -87,6 +89,7 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         addAliasedAnnotation(IndexFor.class, NN);
         addAliasedAnnotation(IndexOrLow.class, GTEN1);
         addAliasedAnnotation(IndexOrHigh.class, NN);
+        addAliasedAnnotation(LengthOf.class, NN);
         addAliasedAnnotation(PolyAll.class, POLY);
         addAliasedAnnotation(PolyIndex.class, POLY);
 
@@ -104,7 +107,8 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         NonNegative.class,
                         GTENegativeOne.class,
                         LowerBoundUnknown.class,
-                        PolyLowerBound.class));
+                        PolyLowerBound.class,
+                        LowerBoundBottom.class));
     }
 
     /**
@@ -155,30 +159,32 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return getTypeFactoryOfSubchecker(ValueChecker.class);
     }
 
-    /** Returns the MinLen Checker's annotated type factory. */
-    public MinLenAnnotatedTypeFactory getMinLenAnnotatedTypeFactory() {
-        return getTypeFactoryOfSubchecker(MinLenChecker.class);
+    /** Returns the SearchIndexFor Checker's annotated type factory. */
+    public SearchIndexAnnotatedTypeFactory getSearchIndexAnnotatedTypeFactory() {
+        return getTypeFactoryOfSubchecker(SearchIndexChecker.class);
     }
 
     /** Returns the type in the lower bound hierarchy that a Value Checker type corresponds to. */
     private AnnotationMirror getLowerBoundAnnotationFromValueType(AnnotatedTypeMirror valueType) {
-        List<Long> possibleValues = getPossibleValues(valueType);
+        Range possibleValues = getPossibleValues(valueType, getValueAnnotatedTypeFactory());
         // possibleValues is null if the Value Checker does not have any estimate.
         if (possibleValues == null) {
+            // possibleValues is null if there is no IntVal annotation on the type - such as
+            // when there is a BottomVal annotation. In that case, give this the LBC's bottom type.
+            if (AnnotationUtils.containsSameByClass(valueType.getAnnotations(), BottomVal.class)) {
+                return BOTTOM;
+            }
             return UNKNOWN;
         }
-        if (possibleValues.size() == 0) {
-            return BOTTOM;
-        }
         // The annotation of the whole list is the min of the list.
-        long lvalMin = Collections.min(possibleValues);
+        long lvalMin = possibleValues.from;
         // Turn it into an integer.
         int valMin = (int) Math.max(Math.min(Integer.MAX_VALUE, lvalMin), Integer.MIN_VALUE);
         return anmFromVal(valMin);
     }
 
     /** Determine the annotation that should be associated with a literal. */
-    private AnnotationMirror anmFromVal(int val) {
+    private AnnotationMirror anmFromVal(long val) {
         if (val >= 1) {
             return POS;
         } else if (val >= 0) {
@@ -193,9 +199,7 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     @Override
     public TreeAnnotator createTreeAnnotator() {
         return new ListTreeAnnotator(
-                new LowerBoundTreeAnnotator(this),
-                new PropagationTreeAnnotator(this),
-                new ImplicitsTreeAnnotator(this));
+                new LowerBoundTreeAnnotator(this), super.createTreeAnnotator());
     }
 
     private class LowerBoundTreeAnnotator extends TreeAnnotator {
@@ -261,10 +265,34 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 case POSTFIX_DECREMENT:
                     // Do nothing. The CF should take care of these itself.
                     break;
+                case BITWISE_COMPLEMENT:
+                    handleBitWiseComplement(
+                            getSearchIndexAnnotatedTypeFactory()
+                                    .getAnnotatedType(tree.getExpression()),
+                            typeDst);
+                    break;
                 default:
                     break;
             }
             return super.visitUnary(tree, typeDst);
+        }
+
+        /**
+         * Bitwise complement converts between {@code @NegativeIndexFor} and {@code @IndexOrHigh}.
+         * This handles the lowerbound part of that type, so the result is converted to
+         * {@code @NonNegative}.
+         *
+         * @param searchIndexType the type of an expression in a bitwise complement. For instance,
+         *     in {@code ~x}, this is the type of {@code x}.
+         * @param typeDst the type of the entire bitwise complement expression. It is modified by
+         *     this method.
+         */
+        private void handleBitWiseComplement(
+                AnnotatedTypeMirror searchIndexType, AnnotatedTypeMirror typeDst) {
+            if (AnnotationUtils.containsSameByClass(
+                    searchIndexType.getAnnotations(), NegativeIndexFor.class)) {
+                typeDst.addAnnotation(NN);
+            }
         }
 
         /** Special handling for Math.max. The return is the GLB of the arguments. */
@@ -287,13 +315,18 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         private Integer getMinLenFromMemberSelectTree(MemberSelectTree tree) {
             if (TreeUtils.isArrayLengthAccess(tree)) {
-                AnnotatedTypeMirror minLenType =
-                        getMinLenAnnotatedTypeFactory().getAnnotatedType(tree.getExpression());
-                AnnotationMirror anm = minLenType.getAnnotation(MinLen.class);
-                if (anm == null) {
-                    return 0;
-                }
-                return AnnotationUtils.getElementValue(anm, "value", Integer.class, true);
+                return IndexUtil.getMinLenFromTree(tree, getValueAnnotatedTypeFactory());
+            }
+            return null;
+        }
+
+        /**
+         * Looks up the minlen of a method invocation tree. Returns null if the tree doesn't
+         * represent an string length method.
+         */
+        private Integer getMinLenFromMethodInvocationTree(MethodInvocationTree tree) {
+            if (imf.isStringLength(tree, processingEnv)) {
+                return IndexUtil.getMinLenFromTree(tree, getValueAnnotatedTypeFactory());
             }
             return null;
         }
@@ -477,15 +510,21 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 // Instead of a separate method for subtraction, add the negative of a constant.
                 addAnnotationForLiteralPlus(-1 * valRight.intValue(), leftType, type);
 
-                // Check if the left side is a field access of an array's length. If so,
+                Integer minLen = null;
+                // Check if the left side is a field access of an array's length,
+                // or invocation of String.length. If so,
                 // try to look up the MinLen of the array, and potentially keep
                 // this either NN or POS instead of GTEN1 or LBU.
                 if (leftExpr.getKind() == Kind.MEMBER_SELECT) {
                     MemberSelectTree mstree = (MemberSelectTree) leftExpr;
-                    Integer minLen = getMinLenFromMemberSelectTree(mstree);
-                    if (minLen != null) {
-                        type.replaceAnnotation(anmFromVal(minLen - valRight.intValue()));
-                    }
+                    minLen = getMinLenFromMemberSelectTree(mstree);
+                } else if (leftExpr.getKind() == Kind.METHOD_INVOCATION) {
+                    MethodInvocationTree mitree = (MethodInvocationTree) leftExpr;
+                    minLen = getMinLenFromMethodInvocationTree(mitree);
+                }
+
+                if (minLen != null) {
+                    type.replaceAnnotation(anmFromVal(minLen - valRight));
                 }
 
                 return;
@@ -621,10 +660,10 @@ public class LowerBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 int val, AnnotatedTypeMirror leftType, AnnotatedTypeMirror type) {
             if (val == 0) {
                 // Reaching this indicates a divide by zero error. If the value is zero, then this is
-                // division by zero. Division by zero is treated as bottom (i.e. Positive) so that users
+                // division by zero. Division by zero is treated as bottom so that users
                 // aren't warned about dead code that's dividing by zero. This code assumes that non-dead
                 // code won't include literal divide by zeros...
-                type.addAnnotation(POS);
+                type.addAnnotation(BOTTOM);
             } else if (val == 1) {
                 type.addAnnotation(leftType.getAnnotationInHierarchy(POS));
             } else if (val >= 2) {

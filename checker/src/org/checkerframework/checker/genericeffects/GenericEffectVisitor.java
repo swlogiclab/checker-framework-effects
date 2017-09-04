@@ -1,17 +1,5 @@
 package org.checkerframework.checker.genericeffects;
 
-import java.lang.annotation.Annotation;
-import java.util.ArrayList;
-import java.util.Stack;
-
-import com.sun.source.tree.Tree;
-import com.sun.source.tree.MethodInvocationTree;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.NewClassTree;
-import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.LambdaExpressionTree;
-import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssertTree;
@@ -20,6 +8,7 @@ import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BreakTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CatchTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ContinueTree;
@@ -30,31 +19,39 @@ import com.sun.source.tree.IfTree;
 import com.sun.source.tree.InstanceOfTree;
 import com.sun.source.tree.IntersectionTypeTree;
 import com.sun.source.tree.LabeledStatementTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberReferenceTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.PrimitiveTypeTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.SwitchTree;
 import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.ThrowTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.UnionTypeTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.tree.WildcardTree;
-
-import org.checkerframework.common.basetype.BaseTypeChecker;
-import org.checkerframework.common.basetype.BaseTypeVisitor;
-import org.checkerframework.framework.source.Result;
-import org.checkerframework.framework.type.AnnotatedTypeMirror;
-import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
-import org.checkerframework.javacutil.TreeUtils;
-
+import java.lang.annotation.Annotation;
+import java.util.ArrayList;
+import java.util.Stack;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
+import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
+import org.checkerframework.common.basetype.BaseTypeChecker;
+import org.checkerframework.framework.source.Result;
+import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
+import org.checkerframework.framework.type.AnnotatedTypeMirror;
+import org.checkerframework.javacutil.TreeUtils;
 
 public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFactory> {
 
@@ -72,11 +69,13 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     boolean ignoringErrors;
 
     /**
-     * Constructor that takes passes the checker to the superclass and takes in a GenericEffectExtension object.
-     * The effect stack for methods and variables are set up in the constructor.
+     * Constructor that takes passes the checker to the superclass and takes in a
+     * GenericEffectExtension object. The effect stack for methods and variables are set up in the
+     * constructor.
      *
      * @param checker The checker that allows the Casting Effects Checker to function.
-     * @param ext     An GenericEffectExtension object that provides the developer with more functions dealing with specific tree nodes.
+     * @param ext An GenericEffectExtension object that provides the developer with more functions
+     *     dealing with specific tree nodes.
      */
     public GenericEffectVisitor(BaseTypeChecker checker, GenericEffectExtension ext) {
         super(checker);
@@ -106,25 +105,23 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     /**
-     * This method is here because the inherited version of this method complains about the way that certain
-     * checks are done.
-     * TODO: Please document the use of this with respect to the generic effect checker better.
-     * Note: The GuiEffectChecker uses a similar setup and provides more documentation.
+     * This method is here because the inherited version of this method complains about the way that
+     * certain checks are done. TODO: Please document the use of this with respect to the generic
+     * effect checker better. Note: The GuiEffectChecker uses a similar setup and provides more
+     * documentation.
      *
      * @param method
      * @param node
      */
     @Override
     protected void checkMethodInvocability(
-            AnnotatedExecutableType method, MethodInvocationTree node) {
-    }
-
+            AnnotatedExecutableType method, MethodInvocationTree node) {}
 
     /**
-     * Method override validity is checked manually by the type factory during visitation, so
-     * the method is overridden here.
-     * TODO: Please document the use of this with respect to the generic effect checker better.
-     * Note: The GuiEffectChecker uses a similar setup and provides more documentation.
+     * Method override validity is checked manually by the type factory during visitation, so the
+     * method is overridden here. TODO: Please document the use of this with respect to the generic
+     * effect checker better. Note: The GuiEffectChecker uses a similar setup and provides more
+     * documentation.
      *
      * @param overriderTree
      * @param enclosingType
@@ -160,10 +157,11 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     /**
-     * Method that visits method tree nodes and adds their effects to the stacks set up in the constructor.
+     * Method that visits method tree nodes and adds their effects to the stacks set up in the
+     * constructor.
      *
      * @param node The method tree node that was encountered during checking.
-     * @param p    Void
+     * @param p Void
      * @return Void
      */
     @Override
@@ -211,7 +209,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     /**
      * Method that can be used in a visitor method to see if a node is enclosed by a method.
      *
-     * @return A boolean representing whether the node is enclosed by a method (true) or not (false).
+     * @return A boolean representing whether the node is enclosed by a method (true) or not
+     *     (false).
      */
     private boolean hasEnclosingMethod() {
         MethodTree callerTree = TreeUtils.enclosingMethod(getCurrentPath());
@@ -226,41 +225,54 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      * @param callerEffect Caller effect of node.
      * @return Boolean value representing whether the effects are invalid (true) or not (false)
      */
-    private boolean isInvalid(Class<? extends Annotation> targetEffect, Class<? extends Annotation> callerEffect) {
+    private boolean isInvalid(
+            Class<? extends Annotation> targetEffect, Class<? extends Annotation> callerEffect) {
         if (ignoringEffects)
-            targetEffect = extension.checkIgnoredEffects(checker.getOption("ignoreEffects"), targetEffect);
-        if (!genericEffect.LE(targetEffect, callerEffect))
-            return true;
+            targetEffect =
+                    extension.checkIgnoredEffects(checker.getOption("ignoreEffects"), targetEffect);
+        if (!genericEffect.LE(targetEffect, callerEffect)) return true;
         return false;
     }
 
     /**
-     * Method that reports an error as specified by given parameters. The method also checks which errors are to be ignored.
+     * Method that reports an error as specified by given parameters. The method also checks which
+     * errors are to be ignored.
      *
      * @param node Node for which error should be reported.
      * @param targetEffect Target effect of node.
      * @param callerEffect Caller effect of node.
      * @param failureMsg Error message to be reported.
      */
-    private void checkError(Tree node, Class<? extends Annotation> targetEffect, Class<? extends Annotation> callerEffect, String failureMsg) {
+    private void checkError(
+            Tree node,
+            Class<? extends Annotation> targetEffect,
+            Class<? extends Annotation> callerEffect,
+            @CompilerMessageKey String failureMsg) {
         if (!ignoringErrors)
             checker.report(Result.failure(failureMsg, targetEffect, callerEffect), node);
-        else if (ignoringErrors && !extension.isIgnored(checker.getOption("ignoreErrors"), failureMsg))
+        else if (ignoringErrors
+                && !extension.isIgnored(checker.getOption("ignoreErrors"), failureMsg))
             checker.report(Result.failure(failureMsg, targetEffect, callerEffect), node);
     }
 
     /**
-     * Method that reports a warning as specified by the given parameters. The method also checks which warnings are to be ignored.
+     * Method that reports a warning as specified by the given parameters. The method also checks
+     * which warnings are to be ignored.
      *
      * @param node Node for which warning should be reported.
      * @param targetEffect Target effect of node.
      * @param callerEffect Caller effect of node.
      * @param warningMsg Warning message to be reported.
      */
-    private void checkWarning(Tree node, Class<? extends Annotation> targetEffect, Class<? extends Annotation> callerEffect, String warningMsg) {
+    private void checkWarning(
+            Tree node,
+            Class<? extends Annotation> targetEffect,
+            Class<? extends Annotation> callerEffect,
+            @CompilerMessageKey String warningMsg) {
         if (!ignoringWarnings)
             checker.report(Result.warning(warningMsg, targetEffect, callerEffect), node);
-        else if (ignoringWarnings && !extension.isIgnored(checker.getOption("ignoreWarnings"), warningMsg))
+        else if (ignoringWarnings
+                && !extension.isIgnored(checker.getOption("ignoreWarnings"), warningMsg))
             checker.report(Result.warning(warningMsg, targetEffect, callerEffect), node);
     }
 
@@ -276,7 +288,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     /**
-     * Method that is used in a visitor method to get the default effect a class that a node is within.
+     * Method that is used in a visitor method to get the default effect a class that a node is
+     * within.
      *
      * @return The default effect of a class that a node is within.
      */
@@ -323,7 +336,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     /**
-     * Method that visits all the method invocation tree nodes and raises failures/warnings for unsafe method invocations.
+     * Method that visits all the method invocation tree nodes and raises failures/warnings for
+     * unsafe method invocations.
      *
      * @param node Method invocation tree node that is found during checking.
      * @param p Void
@@ -337,8 +351,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             Class<? extends Annotation> callerEffect = getMethodCallerEffect();
             if (isInvalid(targetEffect, callerEffect))
                 checkError(node, targetEffect, callerEffect, "call.invalid.effect");
-        }
-        else {
+        } else {
             ExecutableElement elt = TreeUtils.elementFromUse(node);
             Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(elt);
             Class<? extends Annotation> callerEffect = getDefaultClassEffect();
@@ -352,7 +365,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      * Method to check if the constructor call is made from a valid context.
      *
      * @param node New class tree node that is found during checking.
-     * @param p    Void
+     * @param p Void
      * @return Void
      */
     @Override
@@ -363,8 +376,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             Class<? extends Annotation> callerEffect = getMethodCallerEffect();
             if (isInvalid(targetEffect, callerEffect))
                 checkError(node, targetEffect, callerEffect, "constructor.call.invalid");
-        }
-        else {
+        } else {
             ExecutableElement elt = TreeUtils.elementFromUse(node);
             Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(elt);
             Class<? extends Annotation> callerEffect = getDefaultClassEffect();
@@ -375,16 +387,17 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     /**
-     * The methods below this comment follow the same format. Each method is a different visit method
-     * for a different kind of tree node. Using the extensions class the developer can activate specific
-     * visitor methods depending on what they want to check.
-     * <p>
-     * The methods work by first checking if the node being checked is enclosed by a method. If it is then
-     * the method obtains the effect of the node and checks it against the method's effect. If the node is not
-     * enclosed by a method, then it checks at the variable level against the class annotation.
+     * The methods below this comment follow the same format. Each method is a different visit
+     * method for a different kind of tree node. Using the extensions class the developer can
+     * activate specific visitor methods depending on what they want to check.
+     *
+     * <p>The methods work by first checking if the node being checked is enclosed by a method. If
+     * it is then the method obtains the effect of the node and checks it against the method's
+     * effect. If the node is not enclosed by a method, then it checks at the variable level against
+     * the class annotation.
      *
      * @param node Specific tree node that is to be checked.
-     * @param p    Void
+     * @param p Void
      * @return Void
      */
     @Override
@@ -474,8 +487,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkAssignment(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -497,8 +509,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkBinary(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -589,8 +600,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkCompoundAssignment(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -606,15 +616,16 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     public Void visitConditionalExpression(ConditionalExpressionTree node, Void p) {
         if (extension.doesConditionalExpressionCheck()) {
             if (hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkConditionalExpression(node);
+                Class<? extends Annotation> targetEffect =
+                        extension.checkConditionalExpression(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
                 if (isInvalid(targetEffect, callerEffect))
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
-                Class<? extends Annotation> targetEffect = extension.checkConditionalExpression(node);
+            } else {
+                Class<? extends Annotation> targetEffect =
+                        extension.checkConditionalExpression(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
@@ -750,8 +761,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkInstanceOf(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -819,8 +829,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkLiteral(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -842,8 +851,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkNewArray(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -1003,8 +1011,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkTypeCast(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -1027,14 +1034,14 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> varTargetEffect = extension.checkUnary(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(varTargetEffect, callerEffect))
                     checkError(node, varTargetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
-                    checkWarning(node, varTargetEffect, callerEffect, extension.reportWarning(node));
+                    checkWarning(
+                            node, varTargetEffect, callerEffect, extension.reportWarning(node));
             }
         }
         return super.visitUnary(node, p);

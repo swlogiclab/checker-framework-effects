@@ -13,6 +13,19 @@ if [[ "${GROUP}" != "all" && "${GROUP}" != "junit" && "${GROUP}" != "nonjunit" &
   exit 1
 fi
 
+# Optional argument $2 is one of:
+#  downloadjdk, buildjdk
+# If it is omitted, this script uses downloadjdk.
+export BUILDJDK=$2
+if [[ "${BUILDJDK}" == "" ]]; then
+  export BUILDJDK=buildjdk
+fi
+
+if [[ "${BUILDJDK}" != "buildjdk" && "${BUILDJDK}" != "downloadjdk" ]]; then
+  echo "Bad argument '${BUILDJDK}'; should be omitted or one of: downloadjdk, buildjdk."
+  exit 1
+fi
+
 # Fail the whole script if any command fails
 set -e
 
@@ -27,8 +40,12 @@ set -o xtrace
 
 export SHELLOPTS
 
+SLUGOWNER=${TRAVIS_REPO_SLUG%/*}
+if [[ "$SLUGOWNER" == "" ]]; then
+  SLUGOWNER=typetools
+fi
 
-./.travis-build-without-test.sh
+./.travis-build-without-test.sh ${BUILDJDK}
 # The above command builds or downloads the JDK, so there is no need for a
 # subsequent command to build it except to test building it.
 
@@ -51,7 +68,7 @@ if [[ "${GROUP}" == "all-tests" || "${GROUP}" == "all" ]]; then
 fi
 
 if [[ "${GROUP}" == "downstream" || "${GROUP}" == "all" ]]; then
-  ## downstream tests:  projects that depend on the the Checker Framework.
+  ## downstream tests:  projects that depend on the Checker Framework.
   ## These are here so they can be run by pull requests.  (Pull requests
   ## currently don't trigger downstream jobs.)
   ## Done in "nonjunit" above:
@@ -60,20 +77,49 @@ if [[ "${GROUP}" == "downstream" || "${GROUP}" == "all" ]]; then
   ##  * daikon-typecheck: (takes 2 hours)
 
   # checker-framework-inference: 18 minutes
-  (cd .. && git clone --depth 1 https://github.com/typetools/checker-framework-inference.git)
+  set +e
+  echo "Running: git ls-remote https://github.com/${SLUGOWNER}/checker-framework-inference.git &>-"
+  git ls-remote https://github.com/${SLUGOWNER}/checker-framework-inference.git &>-
+  if [ "$?" -ne 0 ]; then
+    CFISLUGOWNER=typetools
+  else
+    CFISLUGOWNER=${SLUGOWNER}
+  fi
+  set -e
+  echo "Running:  (cd .. && git clone --depth 1 https://github.com/${CFISLUGOWNER}/checker-framework-inference.git)"
+  (cd .. && git clone --depth 1 https://github.com/${CFISLUGOWNER}/checker-framework-inference.git)
+  echo "... done: (cd .. && git clone --depth 1 https://github.com/${CFISLUGOWNER}/checker-framework-inference.git)"
+
   export AFU=`pwd`/../annotation-tools/annotation-file-utilities
   export PATH=$AFU/scripts:$PATH
   (cd ../checker-framework-inference && gradle dist && ant -f tests.xml run-tests)
 
   # plume-lib-typecheck: 30 minutes
-  (cd .. && git clone https://github.com/mernst/plume-lib.git)
+  set +e
+  echo "Running: git ls-remote https://github.com/${SLUGOWNER}/plume-lib.git &>-"
+  git ls-remote https://github.com/${SLUGOWNER}/plume-lib.git &>-
+  if [ "$?" -ne 0 ]; then
+    PLSLUGOWNER=mernst
+  else
+    PLSLUGOWNER=${SLUGOWNER}
+  fi
+  set -e
+  echo "Running:  (cd .. && git clone --depth 1 https://github.com/${PLSLUGOWNER}/plume-lib.git)"
+  (cd .. && git clone https://github.com/${PLSLUGOWNER}/plume-lib.git)
+  echo "... done: (cd .. && git clone --depth 1 https://github.com/${PLSLUGOWNER}/plume-lib.git)"
+
   export CHECKERFRAMEWORK=`pwd`
   (cd ../plume-lib/java && make check-types)
 
+  if [[ "${BUILDJDK}" = "downloadjdk" ]]; then
+    ## If buildjdk, use "demos" below:
+    ##  * checker-framework.demos (takes 15 minutes)
+    (cd checker && ant check-demos)
+  fi
   # sparta: 1 minute, but the command is "true"!
   # TODO: requires Android installation (and at one time, it caused weird
   # Travis hangs if enabled without Android installation).
-  # (cd .. && git clone --depth 1 https://github.com/typetools/sparta.git)
+  # (cd .. && git clone --depth 1 https://github.com/${SLUGOWNER}/sparta.git)
   # (cd ../sparta && ant jar all-tests)
 
 fi
@@ -96,6 +142,9 @@ if [[ "${GROUP}" == "misc" || "${GROUP}" == "all" ]]; then
   # Code style and formatting
   ant -d check-style
   release/checkPluginUtil.sh
+
+  # Run error-prone
+  (cd checker; ant check-errorprone)
 
   # Documentation
   ant javadoc-private

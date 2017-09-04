@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
 /**
- * This annotation is used for casts where there is an integer being cast down to a smaller integer size.
- * Ex. long to integer, long to short, integer to short
+ * This annotation is used for casts where there is an integer being cast down to a smaller integer
+ * size. Ex. long to integer, long to short, integer to short
  */
 public @interface IntegerOverflow {}

@@ -17,33 +17,38 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import org.checkerframework.checker.index.IndexMethodIdentifier;
 import org.checkerframework.checker.index.IndexUtil;
 import org.checkerframework.checker.index.lowerbound.LowerBoundAnnotatedTypeFactory;
 import org.checkerframework.checker.index.lowerbound.LowerBoundChecker;
-import org.checkerframework.checker.index.minlen.MinLenAnnotatedTypeFactory;
-import org.checkerframework.checker.index.minlen.MinLenChecker;
 import org.checkerframework.checker.index.qual.IndexFor;
 import org.checkerframework.checker.index.qual.IndexOrHigh;
 import org.checkerframework.checker.index.qual.IndexOrLow;
 import org.checkerframework.checker.index.qual.LTEqLengthOf;
 import org.checkerframework.checker.index.qual.LTLengthOf;
 import org.checkerframework.checker.index.qual.LTOMLengthOf;
+import org.checkerframework.checker.index.qual.LengthOf;
+import org.checkerframework.checker.index.qual.NegativeIndexFor;
 import org.checkerframework.checker.index.qual.NonNegative;
 import org.checkerframework.checker.index.qual.PolyIndex;
 import org.checkerframework.checker.index.qual.PolyUpperBound;
 import org.checkerframework.checker.index.qual.Positive;
 import org.checkerframework.checker.index.qual.SameLen;
+import org.checkerframework.checker.index.qual.SearchIndexFor;
 import org.checkerframework.checker.index.qual.UpperBoundBottom;
 import org.checkerframework.checker.index.qual.UpperBoundUnknown;
 import org.checkerframework.checker.index.samelen.SameLenAnnotatedTypeFactory;
 import org.checkerframework.checker.index.samelen.SameLenChecker;
+import org.checkerframework.checker.index.searchindex.SearchIndexAnnotatedTypeFactory;
+import org.checkerframework.checker.index.searchindex.SearchIndexChecker;
 import org.checkerframework.checker.index.upperbound.UBQualifier.LessThanLengthOf;
 import org.checkerframework.checker.index.upperbound.UBQualifier.UpperBoundUnknownQualifier;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
 import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.common.value.qual.BottomVal;
 import org.checkerframework.dataflow.cfg.node.Node;
 import org.checkerframework.framework.qual.PolyAll;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
@@ -82,12 +87,20 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         addAliasedAnnotation(IndexFor.class, createLTLengthOfAnnotation());
         addAliasedAnnotation(IndexOrLow.class, createLTLengthOfAnnotation());
         addAliasedAnnotation(IndexOrHigh.class, createLTEqLengthOfAnnotation());
+        addAliasedAnnotation(SearchIndexFor.class, createLTLengthOfAnnotation());
+        addAliasedAnnotation(NegativeIndexFor.class, createLTLengthOfAnnotation());
+        addAliasedAnnotation(LengthOf.class, createLTEqLengthOfAnnotation());
         addAliasedAnnotation(PolyAll.class, POLY);
         addAliasedAnnotation(PolyIndex.class, POLY);
 
         imf = new IndexMethodIdentifier(processingEnv);
 
         this.postInit();
+    }
+
+    /** Gets a helper object that holds references to methods with special handling. */
+    IndexMethodIdentifier getMethodIdentifier() {
+        return imf;
     }
 
     @Override
@@ -105,18 +118,18 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     /**
      * Provides a way to query the Constant Value Checker, which computes the values of expressions
-     * known at compile time (constant prop + folding).
+     * known at compile time (constant propagation and folding).
      */
     ValueAnnotatedTypeFactory getValueAnnotatedTypeFactory() {
         return getTypeFactoryOfSubchecker(ValueChecker.class);
     }
 
     /**
-     * Provides a way to query the Min Len (minimum length) Checker, which computes the lengths of
-     * arrays.
+     * Provides a way to query the Search Index Checker, which helps the Index Checker type the
+     * results of calling the JDK's binary search methods correctly.
      */
-    MinLenAnnotatedTypeFactory getMinLenAnnotatedTypeFactory() {
-        return getTypeFactoryOfSubchecker(MinLenChecker.class);
+    private SearchIndexAnnotatedTypeFactory getSearchIndexAnnotatedTypeFactory() {
+        return getTypeFactoryOfSubchecker(SearchIndexChecker.class);
     }
 
     /**
@@ -134,6 +147,39 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
      */
     private LowerBoundAnnotatedTypeFactory getLowerBoundAnnotatedTypeFactory() {
         return getTypeFactoryOfSubchecker(LowerBoundChecker.class);
+    }
+
+    @Override
+    public void addComputedTypeAnnotations(Element element, AnnotatedTypeMirror type) {
+        super.addComputedTypeAnnotations(element, type);
+        if (element != null) {
+            AnnotatedTypeMirror valueType =
+                    getValueAnnotatedTypeFactory().getAnnotatedType(element);
+            addUpperBoundTypeFromValueType(valueType, type);
+        }
+    }
+
+    @Override
+    public void addComputedTypeAnnotations(Tree tree, AnnotatedTypeMirror type, boolean iUseFlow) {
+        super.addComputedTypeAnnotations(tree, type, iUseFlow);
+        // If dataflow shouldn't be used to compute this type, then do not use the result from
+        // the Value Checker, because dataflow is used to compute that type.  (Without this,
+        // "int i = 1; --i;" fails.)
+        if (iUseFlow && tree != null && TreeUtils.isExpressionTree(tree)) {
+            AnnotatedTypeMirror valueType = getValueAnnotatedTypeFactory().getAnnotatedType(tree);
+            addUpperBoundTypeFromValueType(valueType, type);
+        }
+    }
+
+    /**
+     * Checks if valueType contains a {@link org.checkerframework.common.value.qual.BottomVal}
+     * annotation. If so, adds an {@link UpperBoundBottom} annotation to type.
+     */
+    private void addUpperBoundTypeFromValueType(
+            AnnotatedTypeMirror valueType, AnnotatedTypeMirror type) {
+        if (AnnotationUtils.containsSameByClass(valueType.getAnnotations(), BottomVal.class)) {
+            type.replaceAnnotation(BOTTOM);
+        }
     }
 
     @Override
@@ -198,7 +244,9 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     @Override
     public AnnotationMirror aliasedAnnotation(AnnotationMirror a) {
-        if (AnnotationUtils.areSameByClass(a, IndexFor.class)) {
+        if (AnnotationUtils.areSameByClass(a, IndexFor.class)
+                || AnnotationUtils.areSameByClass(a, SearchIndexFor.class)
+                || AnnotationUtils.areSameByClass(a, NegativeIndexFor.class)) {
             List<String> stringList =
                     AnnotationUtils.getElementValueArray(a, "value", String.class, true);
             return createLTLengthOfAnnotation(stringList.toArray(new String[0]));
@@ -208,7 +256,8 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     AnnotationUtils.getElementValueArray(a, "value", String.class, true);
             return createLTLengthOfAnnotation(stringList.toArray(new String[0]));
         }
-        if (AnnotationUtils.areSameByClass(a, IndexOrHigh.class)) {
+        if (AnnotationUtils.areSameByClass(a, IndexOrHigh.class)
+                || AnnotationUtils.areSameByClass(a, LengthOf.class)) {
             List<String> stringList =
                     AnnotationUtils.getElementValueArray(a, "value", String.class, true);
             return createLTEqLengthOfAnnotation(stringList.toArray(new String[0]));
@@ -305,16 +354,17 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         @Override
-        public AnnotationMirror widenUpperBound(AnnotationMirror a, AnnotationMirror b) {
-            UBQualifier a1Obj = UBQualifier.createUBQualifier(a);
-            UBQualifier a2Obj = UBQualifier.createUBQualifier(b);
+        public AnnotationMirror widenedUpperBound(
+                AnnotationMirror newQualifier, AnnotationMirror previousQualifier) {
+            UBQualifier a1Obj = UBQualifier.createUBQualifier(newQualifier);
+            UBQualifier a2Obj = UBQualifier.createUBQualifier(previousQualifier);
             UBQualifier lub = a1Obj.widenUpperBound(a2Obj);
             return convertUBQualifierToAnnotation(lub);
         }
 
         @Override
-        public boolean implementsWidening() {
-            return true;
+        public int numberOfIterationsBeforeWidening() {
+            return 10;
         }
 
         /**
@@ -380,8 +430,51 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         @Override
         public Void visitUnary(UnaryTree node, AnnotatedTypeMirror type) {
             // Dataflow refines this type if possible
-            type.addAnnotation(UNKNOWN);
+            if (node.getKind() == Kind.BITWISE_COMPLEMENT) {
+                addAnnotationForBitwiseComplement(
+                        getSearchIndexAnnotatedTypeFactory().getAnnotatedType(node.getExpression()),
+                        type);
+            } else {
+                type.addAnnotation(UNKNOWN);
+            }
             return super.visitUnary(node, type);
+        }
+
+        /**
+         * If a type returned by an {@link SearchIndexAnnotatedTypeFactory} has a {@link
+         * NegativeIndexFor} annotation, then refine the result to be {@link LTEqLengthOf}. This
+         * handles this case:
+         *
+         * <pre>{@code
+         * int i = Arrays.binarySearch(a, x);
+         * if (i >= 0) {
+         *     // do something
+         * } else {
+         *     i = ~i;
+         *     // i is now @LTEqLengthOf("a"), because the bitwise complement of a NegativeIndexFor is an LTL.
+         *     for (int j = 0; j < i; j++) {
+         *          // j is now a valid index for "a"
+         *     }
+         * }
+         * }</pre>
+         *
+         * @param searchIndexType the type of an expression in a bitwise complement. For instance,
+         *     in {@code ~x}, this is the type of {@code x}.
+         * @param typeDst the type of the entire bitwise complement expression. It is modified by
+         *     this method.
+         */
+        private void addAnnotationForBitwiseComplement(
+                AnnotatedTypeMirror searchIndexType, AnnotatedTypeMirror typeDst) {
+            if (AnnotationUtils.containsSameByClass(
+                    searchIndexType.getAnnotations(), NegativeIndexFor.class)) {
+                AnnotationMirror nif = searchIndexType.getAnnotation(NegativeIndexFor.class);
+                List<String> arrays = IndexUtil.getValueOfAnnotationWithStringArgument(nif);
+                List<String> negativeOnes = Collections.nCopies(arrays.size(), "-1");
+                UBQualifier qual = UBQualifier.createUBQualifier(arrays, negativeOnes);
+                typeDst.addAnnotation(convertUBQualifierToAnnotation(qual));
+            } else {
+                typeDst.addAnnotation(UNKNOWN);
+            }
         }
 
         @Override
@@ -445,6 +538,11 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             type.addAnnotation(qualHierarchy.greatestLowerBound(leftResultType, rightResultType));
         }
 
+        /** Gets a sequence tree for a length access tree, or null if it is not a length access. */
+        private ExpressionTree getLengthSequenceTree(ExpressionTree lengthTree) {
+            return IndexUtil.getLengthSequenceTree(lengthTree, imf, processingEnv);
+        }
+
         private void addAnnotationForDivide(
                 ExpressionTree numeratorTree,
                 ExpressionTree divisorTree,
@@ -464,12 +562,13 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
             result = result.glb(plusTreeDivideByVal(divisor.intValue(), numeratorTree));
 
+            ExpressionTree numeratorSequenceTree = getLengthSequenceTree(numeratorTree);
             // If the numerator is an array length access of an array with non-zero length, and the divisor is
             // greater than one, glb the result with an LTL of the array.
-            if (TreeUtils.isArrayLengthAccess(numeratorTree) && divisor > 1) {
-                String arrayName = ((MemberSelectTree) numeratorTree).getExpression().toString();
+            if (numeratorSequenceTree != null && divisor > 1) {
+                String arrayName = numeratorSequenceTree.toString();
                 int minlen =
-                        getMinLenAnnotatedTypeFactory()
+                        getValueAnnotatedTypeFactory()
                                 .getMinLenFromString(
                                         arrayName, numeratorTree, getPath(numeratorTree));
                 if (minlen > 0) {
@@ -482,7 +581,7 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
         /**
          * if numeratorTree is a + b and divisor greater than 1, and a and b are less than the
-         * length of some array, then (a + b) / divisor is less than the length of that array.
+         * length of some sequence, then (a + b) / divisor is less than the length of that sequence.
          */
         private UBQualifier plusTreeDivideByVal(int divisor, ExpressionTree numeratorTree) {
             numeratorTree = TreeUtils.skipParens(numeratorTree);
@@ -499,14 +598,16 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (left.isLessThanLengthQualifier() && right.isLessThanLengthQualifier()) {
                 LessThanLengthOf leftLTL = (LessThanLengthOf) left;
                 LessThanLengthOf rightLTL = (LessThanLengthOf) right;
-                List<String> arrays = new ArrayList<>();
-                for (String array : leftLTL.getArrays()) {
-                    if (rightLTL.isLessThanLengthOf(array) && leftLTL.isLessThanLengthOf(array)) {
-                        arrays.add(array);
+                List<String> sequences = new ArrayList<>();
+                for (String sequence : leftLTL.getSequences()) {
+                    if (rightLTL.isLessThanLengthOf(sequence)
+                            && leftLTL.isLessThanLengthOf(sequence)) {
+                        sequences.add(sequence);
                     }
                 }
-                if (!arrays.isEmpty()) {
-                    return UBQualifier.createUBQualifier(arrays, Collections.<String>emptyList());
+                if (!sequences.isEmpty()) {
+                    return UBQualifier.createUBQualifier(
+                            sequences, Collections.<String>emptyList());
                 }
             }
 
@@ -514,23 +615,23 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         private boolean checkForMathRandomSpecialCase(
-                ExpressionTree randTree, ExpressionTree arrLenTree, AnnotatedTypeMirror type) {
-            if (randTree.getKind() == Tree.Kind.METHOD_INVOCATION
-                    && TreeUtils.isArrayLengthAccess(arrLenTree)) {
-                MemberSelectTree mstree = (MemberSelectTree) arrLenTree;
+                ExpressionTree randTree, ExpressionTree seqLenTree, AnnotatedTypeMirror type) {
+
+            ExpressionTree seqTree = getLengthSequenceTree(seqLenTree);
+
+            if (randTree.getKind() == Tree.Kind.METHOD_INVOCATION && seqTree != null) {
+
                 MethodInvocationTree mitree = (MethodInvocationTree) randTree;
 
                 if (imf.isMathRandom(mitree, processingEnv)) {
                     // Okay, so this is Math.random() * array.length, which must be NonNegative
-                    type.addAnnotation(
-                            createLTLengthOfAnnotation(mstree.getExpression().toString()));
+                    type.addAnnotation(createLTLengthOfAnnotation(seqTree.toString()));
                     return true;
                 }
 
                 if (imf.isRandomNextDouble(mitree, processingEnv)) {
                     // Okay, so this is Random.nextDouble() * array.length, which must be NonNegative
-                    type.addAnnotation(
-                            createLTLengthOfAnnotation(mstree.getExpression().toString()));
+                    type.addAnnotation(createLTLengthOfAnnotation(seqTree.toString()));
                     return true;
                 }
             }
