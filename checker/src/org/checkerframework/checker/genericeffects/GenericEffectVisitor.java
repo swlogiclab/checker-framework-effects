@@ -4,24 +4,45 @@ import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Stack;
 
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
-import com.sun.source.tree.ArrayAccessTree;
-import com.sun.source.tree.AssignmentTree;
-import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompoundAssignmentTree;
-import com.sun.source.tree.ConditionalExpressionTree;
-import com.sun.source.tree.InstanceOfTree;
 import com.sun.source.tree.LambdaExpressionTree;
-import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.ArrayAccessTree;
+import com.sun.source.tree.ArrayTypeTree;
+import com.sun.source.tree.AssertTree;
+import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.BinaryTree;
+import com.sun.source.tree.BreakTree;
+import com.sun.source.tree.CaseTree;
+import com.sun.source.tree.CatchTree;
+import com.sun.source.tree.CompoundAssignmentTree;
+import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.ContinueTree;
+import com.sun.source.tree.DoWhileLoopTree;
+import com.sun.source.tree.EnhancedForLoopTree;
+import com.sun.source.tree.ForLoopTree;
+import com.sun.source.tree.IfTree;
+import com.sun.source.tree.InstanceOfTree;
+import com.sun.source.tree.IntersectionTypeTree;
+import com.sun.source.tree.LabeledStatementTree;
+import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.NewArrayTree;
-import com.sun.source.tree.Tree;
+import com.sun.source.tree.PrimitiveTypeTree;
+import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.SwitchTree;
+import com.sun.source.tree.SynchronizedTree;
+import com.sun.source.tree.ThrowTree;
+import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
+import com.sun.source.tree.UnionTypeTree;
+import com.sun.source.tree.WhileLoopTree;
+import com.sun.source.tree.WildcardTree;
 
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
@@ -397,6 +418,52 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     @Override
+    public Void visitArrayType(ArrayTypeTree node, Void p) {
+        if (extension.doesArrayTypeCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkArrayType(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkArrayType(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitArrayType(node, p);
+    }
+
+    @Override
+    public Void visitAssert(AssertTree node, Void p) {
+        if(extension.doesAssertCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkAssert(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkAssert(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitAssert(node, p);
+    }
+
+    @Override
     public Void visitAssignment(AssignmentTree node, Void p) {
         if (extension.doesAssignmentCheck()) {
             if (hasEnclosingMethod()) {
@@ -440,6 +507,75 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             }
         }
         return super.visitBinary(node, p);
+    }
+
+    @Override
+    public Void visitBreak(BreakTree node, Void p) {
+        if(extension.doesBreakCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkBreak(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkBreak(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitBreak(node, p);
+    }
+
+    @Override
+    public Void visitCase(CaseTree node, Void p) {
+        if(extension.doesCaseCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkCase(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkCase(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitCase(node, p);
+    }
+
+    @Override
+    public Void visitCatch(CatchTree node, Void p) {
+        if(extension.doesCatchCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkCatch(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkCatch(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitCatch(node, p);
     }
 
     @Override
@@ -489,6 +625,121 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     @Override
+    public Void visitContinue(ContinueTree node, Void p) {
+        if(extension.doesContinueCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkContinue(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkContinue(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitContinue(node, p);
+    }
+
+    @Override
+    public Void visitDoWhileLoop(DoWhileLoopTree node, Void p) {
+        if(extension.doesDoWhileLoopCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkDoWhileLoop(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkDoWhileLoop(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitDoWhileLoop(node, p);
+    }
+
+    @Override
+    public Void visitEnhancedForLoop(EnhancedForLoopTree node, Void p) {
+        if(extension.doesEnhancedForLoopCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkEnhancedForLoop(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkEnhancedForLoop(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitEnhancedForLoop(node, p);
+    }
+
+    @Override
+    public Void visitForLoop(ForLoopTree node, Void p) {
+        if(extension.doesForLoopCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkForLoop(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkForLoop(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitForLoop(node, p);
+    }
+
+    @Override
+    public Void visitIf(IfTree node, Void p) {
+        if(extension.doesIfCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkIf(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkIf(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitIf(node, p);
+    }
+
+    @Override
     public Void visitInstanceOf(InstanceOfTree node, Void p) {
         if (extension.doesInstanceOfCheck()) {
             if (hasEnclosingMethod()) {
@@ -509,6 +760,52 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             }
         }
         return super.visitInstanceOf(node, p);
+    }
+
+    @Override
+    public Void visitIntersectionType(IntersectionTypeTree node, Void p) {
+        if(extension.doesIntersectionTypeCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkIntersectionType(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkIntersectionType(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitIntersectionType(node, p);
+    }
+
+    @Override
+    public Void visitLabeledStatement(LabeledStatementTree node, Void p) {
+        if(extension.doesLabeledStatementCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkLabeledStatement(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkLabeledStatement(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitLabeledStatement(node, p);
     }
 
     @Override
@@ -558,6 +855,144 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     @Override
+    public Void visitPrimitiveType(PrimitiveTypeTree node, Void p) {
+        if(extension.doesPrimitiveTypeCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkPrimitiveType(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkPrimitiveType(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitPrimitiveType(node, p);
+    }
+
+    @Override
+    public Void visitReturn(ReturnTree node, Void p) {
+        if(extension.doesReturnCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkReturn(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkReturn(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitReturn(node, p);
+    }
+
+    @Override
+    public Void visitSwitch(SwitchTree node, Void p) {
+        if(extension.doesSwitchCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkSwitch(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkSwitch(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitSwitch(node, p);
+    }
+
+    @Override
+    public Void visitSynchronized(SynchronizedTree node, Void p) {
+        if(extension.doesSynchronizedCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkSynchronized(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkSynchronized(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitSynchronized(node, p);
+    }
+
+    @Override
+    public Void visitThrow(ThrowTree node, Void p) {
+        if(extension.doesThrowCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkThrow(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkThrow(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitThrow(node, p);
+    }
+
+    @Override
+    public Void visitTry(TryTree node, Void p) {
+        if(extension.doesTryCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkTry(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkTry(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitTry(node, p);
+    }
+
+    @Override
     public Void visitTypeCast(TypeCastTree node, Void p) {
         if (extension.doesTypeCastCheck()) {
             if (hasEnclosingMethod()) {
@@ -604,4 +1039,74 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         return super.visitUnary(node, p);
     }
 
+    @Override
+    public Void visitUnionType(UnionTypeTree node, Void p) {
+        if(extension.doesUnionTypeCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkUnionType(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkUnionType(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitUnionType(node, p);
+    }
+
+    @Override
+    public Void visitWhileLoop(WhileLoopTree node, Void p) {
+        if(extension.doesWhileLoopCheck()) {
+            if (hasEnclosingMethod()) {
+                if (hasEnclosingMethod()) {
+                    Class<? extends Annotation> targetEffect = extension.checkWhileLoop(node);
+                    Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                    if (isInvalid(targetEffect, callerEffect))
+                        checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                    else if (extension.reportWarning(node) != null)
+                        checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+                }
+                else {
+                    Class<? extends Annotation> targetEffect = extension.checkWhileLoop(node);
+                    Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                    if (isInvalid(targetEffect, callerEffect))
+                        checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                    else if (extension.reportWarning(node) != null)
+                        checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+                }
+            }
+        }
+        return super.visitWhileLoop(node, p);
+    }
+
+    @Override
+    public Void visitWildcard(WildcardTree node, Void p) {
+        if(extension.doesWildcardCheck()) {
+            if (hasEnclosingMethod()) {
+                Class<? extends Annotation> targetEffect = extension.checkWildcard(node);
+                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+            else {
+                Class<? extends Annotation> targetEffect = extension.checkWildcard(node);
+                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
+                if (isInvalid(targetEffect, callerEffect))
+                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
+                else if (extension.reportWarning(node) != null)
+                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+            }
+        }
+        return super.visitWildcard(node, p);
+    }
 }
