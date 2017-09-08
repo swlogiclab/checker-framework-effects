@@ -64,7 +64,7 @@ public final class CastingEffects implements GenericEffectLattice {
             return left.equals(DecimalPrecisionLoss.class)
                     || left.equals(DecimalOverflow.class)
                     || left.equals(SafeCast.class)
-                    || left.equals(DecimalPrecisionLoss.class);
+                    || left.equals(UnsafeDecimalCast.class);
         else if (right.equals(NumberOverflow.class))
             return left.equals(IntegerOverflow.class)
                     || left.equals(DecimalOverflow.class)
