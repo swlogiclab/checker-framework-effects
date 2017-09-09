@@ -1,4 +1,9 @@
-import org.checkerframework.checker.genericeffects.qual.*;
+import org.checkerframework.checker.genericeffects.qual.NumberOverflow;
+import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
+import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;
+import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 
 public class InnerClassEffect {
 
