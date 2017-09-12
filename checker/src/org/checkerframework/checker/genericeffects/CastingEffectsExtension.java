@@ -5,6 +5,7 @@ import com.sun.source.tree.TypeCastTree;
 import java.lang.annotation.Annotation;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;
 import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
 import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
@@ -83,20 +84,25 @@ public class CastingEffectsExtension extends GenericEffectExtension {
         if (node.getExpression().getKind().equals(Tree.Kind.INT_LITERAL)) {
             int val = Integer.parseInt(node.getExpression().toString());
             if (t.getKind().equals(TypeKind.BYTE)) {
-                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE) return false;
+                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE)
+                    return false;
             } else if (t.getKind().equals(TypeKind.SHORT)) {
-                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE) return false;
+                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE)
+                    return false;
             }
             return true;
         }
         else if (node.getExpression().getKind().equals(Tree.Kind.LONG_LITERAL)) {
             long val = Long.parseLong(node.getExpression().toString().replace("L", ""));
             if (t.getKind().equals(TypeKind.BYTE)) {
-                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE) return false;
+                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE)
+                    return false;
             } else if (t.getKind().equals(TypeKind.SHORT)) {
-                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE) return false;
+                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE)
+                    return false;
             } else if (t.getKind().equals(TypeKind.INT)) {
-                if (val > Integer.MAX_VALUE || val < Integer.MIN_VALUE) return false;
+                if (val > Integer.MAX_VALUE || val < Integer.MIN_VALUE)
+                    return false;
             }
             return true;
         }
@@ -113,7 +119,8 @@ public class CastingEffectsExtension extends GenericEffectExtension {
      */
     @Override
     public @CompilerMessageKey String reportError(Tree node) {
-        if (node.getKind().equals(Tree.Kind.TYPE_CAST)) return "cast.invalid";
+        if (node.getKind().equals(Tree.Kind.TYPE_CAST))
+            return "cast.invalid";
         return null;
     }
 
@@ -131,7 +138,8 @@ public class CastingEffectsExtension extends GenericEffectExtension {
             TypeCastTree typeCastNode = (TypeCastTree) node;
             TypeKind castTo = InternalUtils.typeOf(typeCastNode.getType()).getKind();
             TypeKind beingCast = InternalUtils.typeOf(typeCastNode.getExpression()).getKind();
-            if (beingCast.equals(castTo)) return "cast.redundant";
+            if (beingCast.isPrimitive() && !beingCast.equals(TypeKind.CHAR) && !beingCast.equals(TypeKind.BOOLEAN) && beingCast.equals(castTo))
+                return "cast.redundant";
         }
         return null;
     }

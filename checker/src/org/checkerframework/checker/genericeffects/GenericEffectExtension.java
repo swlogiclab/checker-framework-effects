@@ -312,42 +312,6 @@ public class GenericEffectExtension {
         throw new UnsupportedOperationException();
     }
 
-    public Class<? extends Annotation> checkAssignment(AssignmentTree node) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Class<? extends Annotation> checkBinary(BinaryTree node) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Class<? extends Annotation> checkCompoundAssignment(CompoundAssignmentTree node) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Class<? extends Annotation> checkConditionalExpression(ConditionalExpressionTree node) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Class<? extends Annotation> checkInstanceOf(InstanceOfTree node) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Class<? extends Annotation> checkLiteral(LiteralTree node) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Class<? extends Annotation> checkNewArray(NewArrayTree node) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Class<? extends Annotation> checkTypeCast(TypeCastTree node) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Class<? extends Annotation> checkUnary(UnaryTree node) {
-        throw new UnsupportedOperationException();
-    }
-
     /**
      * This method should be overridden in a new class to define errors that should occur during
      * checking.
