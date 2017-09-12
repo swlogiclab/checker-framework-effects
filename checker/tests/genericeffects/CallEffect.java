@@ -1,13 +1,13 @@
-import org.checkerframework.checker.genericeffects.qual.UnsafeCast;
-import org.checkerframework.checker.genericeffects.qual.NumberOverflow;
-import org.checkerframework.checker.genericeffects.qual.UnsafeIntegerCast;
-import org.checkerframework.checker.genericeffects.qual.UnsafeDecimalCast;
-import org.checkerframework.checker.genericeffects.qual.NumberPrecisionLoss;
-import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
-import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
 import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;
 import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
+import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
+import org.checkerframework.checker.genericeffects.qual.NumberOverflow;
+import org.checkerframework.checker.genericeffects.qual.NumberPrecisionLoss;
 import org.checkerframework.checker.genericeffects.qual.SafeCast;
+import org.checkerframework.checker.genericeffects.qual.UnsafeCast;
+import org.checkerframework.checker.genericeffects.qual.UnsafeDecimalCast;
+import org.checkerframework.checker.genericeffects.qual.UnsafeIntegerCast;
 
 public class CallEffect {
 
@@ -155,7 +155,6 @@ public class CallEffect {
         safeCastEffect();
     }
 
-
     @IntegerPrecisionLoss
     public void integerPrecisionLossEffect() {
         //:: error: (call.invalid.effect)
@@ -229,8 +228,7 @@ public class CallEffect {
     }
 
     @SafeCast
-    public void safeCastEffect()
-    {
+    public void safeCastEffect() {
         //:: error: (call.invalid.effect)
         unsafeEffect();
         //:: error: (call.invalid.effect)

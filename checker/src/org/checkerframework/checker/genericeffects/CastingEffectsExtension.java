@@ -70,10 +70,10 @@ public class CastingEffectsExtension extends GenericEffectExtension {
     }
 
     /**
-     * Private method for checking if a type cast involving a literal is safe.
-     * Note: This method only accounts for integer literals such as ints and longs.
-     * Floats, doubles, and chars are not included due to their strange behavior/representation.
-     * TODO: Find a way to check float literals.
+     * Private method for checking if a type cast involving a literal is safe. Note: This method
+     * only accounts for integer literals such as ints and longs. Floats, doubles, and chars are not
+     * included due to their strange behavior/representation. TODO: Find a way to check float
+     * literals.
      *
      * @param node A type cast tree node that is encountered while checking.
      * @return A boolean value representing whether the type cast tree node is safe for a casting
@@ -84,25 +84,19 @@ public class CastingEffectsExtension extends GenericEffectExtension {
         if (node.getExpression().getKind().equals(Tree.Kind.INT_LITERAL)) {
             int val = Integer.parseInt(node.getExpression().toString());
             if (t.getKind().equals(TypeKind.BYTE)) {
-                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE)
-                    return false;
+                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE) return false;
             } else if (t.getKind().equals(TypeKind.SHORT)) {
-                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE)
-                    return false;
+                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE) return false;
             }
             return true;
-        }
-        else if (node.getExpression().getKind().equals(Tree.Kind.LONG_LITERAL)) {
+        } else if (node.getExpression().getKind().equals(Tree.Kind.LONG_LITERAL)) {
             long val = Long.parseLong(node.getExpression().toString().replace("L", ""));
             if (t.getKind().equals(TypeKind.BYTE)) {
-                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE)
-                    return false;
+                if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE) return false;
             } else if (t.getKind().equals(TypeKind.SHORT)) {
-                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE)
-                    return false;
+                if (val > Short.MAX_VALUE || val < Short.MIN_VALUE) return false;
             } else if (t.getKind().equals(TypeKind.INT)) {
-                if (val > Integer.MAX_VALUE || val < Integer.MIN_VALUE)
-                    return false;
+                if (val > Integer.MAX_VALUE || val < Integer.MIN_VALUE) return false;
             }
             return true;
         }
@@ -119,8 +113,7 @@ public class CastingEffectsExtension extends GenericEffectExtension {
      */
     @Override
     public @CompilerMessageKey String reportError(Tree node) {
-        if (node.getKind().equals(Tree.Kind.TYPE_CAST))
-            return "cast.invalid";
+        if (node.getKind().equals(Tree.Kind.TYPE_CAST)) return "cast.invalid";
         return null;
     }
 
@@ -138,8 +131,10 @@ public class CastingEffectsExtension extends GenericEffectExtension {
             TypeCastTree typeCastNode = (TypeCastTree) node;
             TypeKind castTo = InternalUtils.typeOf(typeCastNode.getType()).getKind();
             TypeKind beingCast = InternalUtils.typeOf(typeCastNode.getExpression()).getKind();
-            if (beingCast.isPrimitive() && !beingCast.equals(TypeKind.CHAR) && !beingCast.equals(TypeKind.BOOLEAN) && beingCast.equals(castTo))
-                return "cast.redundant";
+            if (beingCast.isPrimitive()
+                    && !beingCast.equals(TypeKind.CHAR)
+                    && !beingCast.equals(TypeKind.BOOLEAN)
+                    && beingCast.equals(castTo)) return "cast.redundant";
         }
         return null;
     }

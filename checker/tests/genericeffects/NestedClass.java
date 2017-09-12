@@ -2,12 +2,12 @@ import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
 
-@DefaultEffect(IntegerOverflow.class) public class NestedClass {
+@DefaultEffect(IntegerOverflow.class)
+public class NestedClass {
     public class Nest1 {
         @DecimalPrecisionLoss
-        public void nest1Test() {
+        public void nest1Test() {}
 
-        }
         public class Nest2 {
             public void nest2Test() {
                 //okay

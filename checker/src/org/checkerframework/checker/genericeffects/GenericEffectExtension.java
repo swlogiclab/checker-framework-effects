@@ -1,6 +1,5 @@
 package org.checkerframework.checker.genericeffects;
 
-import com.sun.source.tree.Tree;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssertTree;
@@ -26,6 +25,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.SwitchTree;
 import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.ThrowTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
@@ -49,9 +49,9 @@ public class GenericEffectExtension {
     }
 
     /**
-     * These methods should be overridden in a new class depending on the type of checker the developer is creating.
-     * Note: Mostly all trees are checked except for ones that have been judged to be unhelpful or
-     * encompass too many things.
+     * These methods should be overridden in a new class depending on the type of checker the
+     * developer is creating. Note: Mostly all trees are checked except for ones that have been
+     * judged to be unhelpful or encompass too many things.
      *
      * @return A boolean value representing whether a check should take place (true) or not (false).
      */
@@ -166,7 +166,7 @@ public class GenericEffectExtension {
     public boolean doesUnaryCheck() {
         return false;
     }
-  
+
     public boolean doesUnionTypeCheck() {
         return false;
     }
@@ -180,9 +180,9 @@ public class GenericEffectExtension {
     }
 
     /**
-     * These methods should be overridden in a new class depending on the type of checker the developer is creating.
-     * Note: Mostly all trees are checked except for ones that have been judged to be unhelpful or
-     * encompass too many things.
+     * These methods should be overridden in a new class depending on the type of checker the
+     * developer is creating. Note: Mostly all trees are checked except for ones that have been
+     * judged to be unhelpful or encompass too many things.
      *
      * @param node The specific tree node that the developer wants to check.
      * @return The effect of the specific tree node or throws an UnsupportedOperationException if

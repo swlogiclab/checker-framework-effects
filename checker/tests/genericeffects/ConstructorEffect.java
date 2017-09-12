@@ -20,6 +20,4 @@ public class ConstructorEffect {
         //okay
         new ConstructorEffect();
     }
-
-
 }

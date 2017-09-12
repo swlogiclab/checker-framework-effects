@@ -5,21 +5,15 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeCast;
 public class OverrideEffect extends DummyClass {
 
     @IntegerOverflow
-    public OverrideEffect() {
-
-    }
+    public OverrideEffect() {}
 
     @Override
     @SafeCast
     //okay
-    public void integerPrecisionLoss() {
-
-    }
+    public void integerPrecisionLoss() {}
 
     @Override
     @UnsafeCast
     //:: error: (override.effect.invalid)
-    public void decimalPrecisionLoss() {
-
-    }
+    public void decimalPrecisionLoss() {}
 }

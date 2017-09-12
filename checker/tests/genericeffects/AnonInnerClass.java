@@ -1,7 +1,8 @@
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
 
-@DefaultEffect(IntegerOverflow.class) public class AnonInnerClass {
+@DefaultEffect(IntegerOverflow.class)
+public class AnonInnerClass {
 
     public void test() {
         new DummyInterface() {

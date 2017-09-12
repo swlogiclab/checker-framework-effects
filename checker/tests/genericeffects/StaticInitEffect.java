@@ -2,7 +2,8 @@ import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
 import org.checkerframework.checker.genericeffects.qual.UnsafeDecimalCast;
 
-@DefaultEffect(UnsafeDecimalCast.class) public class StaticInitEffect {
+@DefaultEffect(UnsafeDecimalCast.class)
+public class StaticInitEffect {
     static {
         int a = 1234;
         //:: error: (cast.invalid)
@@ -17,7 +18,5 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeDecimalCast;
     }
 
     @IntegerOverflow
-    public static void integerOverflow() {
-
-    }
+    public static void integerOverflow() {}
 }

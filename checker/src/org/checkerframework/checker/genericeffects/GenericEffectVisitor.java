@@ -50,8 +50,8 @@ import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.Result;
-import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
+import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
 import org.checkerframework.javacutil.TreeUtils;
 
 public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFactory> {
@@ -59,7 +59,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     protected final boolean debugSpew;
     private GenericEffectLattice genericEffect;
     private GenericEffectExtension extension;
-    
+
     // effStack and currentMethods should always be the same size.
     protected final Stack<Class<? extends Annotation>> effStack;
     protected final Stack<MethodTree> currentMethods;
@@ -442,8 +442,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkArrayType(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -457,7 +456,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitAssert(AssertTree node, Void p) {
-        if(extension.doesAssertCheck()) {
+        if (extension.doesAssertCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkAssert(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -465,8 +464,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkAssert(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -524,7 +522,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitBreak(BreakTree node, Void p) {
-        if(extension.doesBreakCheck()) {
+        if (extension.doesBreakCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkBreak(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -532,8 +530,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkBreak(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -547,7 +544,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitCase(CaseTree node, Void p) {
-        if(extension.doesCaseCheck()) {
+        if (extension.doesCaseCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkCase(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -555,8 +552,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkCase(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -570,7 +566,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitCatch(CatchTree node, Void p) {
-        if(extension.doesCatchCheck()) {
+        if (extension.doesCatchCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkCatch(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -578,8 +574,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkCatch(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -639,7 +634,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitContinue(ContinueTree node, Void p) {
-        if(extension.doesContinueCheck()) {
+        if (extension.doesContinueCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkContinue(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -647,8 +642,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkContinue(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -662,7 +656,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitDoWhileLoop(DoWhileLoopTree node, Void p) {
-        if(extension.doesDoWhileLoopCheck()) {
+        if (extension.doesDoWhileLoopCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkDoWhileLoop(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -670,8 +664,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkDoWhileLoop(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -685,7 +678,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitEnhancedForLoop(EnhancedForLoopTree node, Void p) {
-        if(extension.doesEnhancedForLoopCheck()) {
+        if (extension.doesEnhancedForLoopCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkEnhancedForLoop(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -693,8 +686,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkEnhancedForLoop(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -708,7 +700,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitForLoop(ForLoopTree node, Void p) {
-        if(extension.doesForLoopCheck()) {
+        if (extension.doesForLoopCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkForLoop(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -716,8 +708,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkForLoop(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -731,7 +722,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitIf(IfTree node, Void p) {
-        if(extension.doesIfCheck()) {
+        if (extension.doesIfCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkIf(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -739,8 +730,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkIf(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -776,7 +766,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitIntersectionType(IntersectionTypeTree node, Void p) {
-        if(extension.doesIntersectionTypeCheck()) {
+        if (extension.doesIntersectionTypeCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkIntersectionType(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -784,8 +774,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkIntersectionType(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -799,7 +788,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitLabeledStatement(LabeledStatementTree node, Void p) {
-        if(extension.doesLabeledStatementCheck()) {
+        if (extension.doesLabeledStatementCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkLabeledStatement(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -807,8 +796,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkLabeledStatement(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -866,7 +854,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitPrimitiveType(PrimitiveTypeTree node, Void p) {
-        if(extension.doesPrimitiveTypeCheck()) {
+        if (extension.doesPrimitiveTypeCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkPrimitiveType(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -874,8 +862,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkPrimitiveType(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -889,7 +876,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitReturn(ReturnTree node, Void p) {
-        if(extension.doesReturnCheck()) {
+        if (extension.doesReturnCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkReturn(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -897,8 +884,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkReturn(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -912,7 +898,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitSwitch(SwitchTree node, Void p) {
-        if(extension.doesSwitchCheck()) {
+        if (extension.doesSwitchCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkSwitch(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -920,8 +906,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkSwitch(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -935,7 +920,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitSynchronized(SynchronizedTree node, Void p) {
-        if(extension.doesSynchronizedCheck()) {
+        if (extension.doesSynchronizedCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkSynchronized(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -943,8 +928,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkSynchronized(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -958,7 +942,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitThrow(ThrowTree node, Void p) {
-        if(extension.doesThrowCheck()) {
+        if (extension.doesThrowCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkThrow(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -966,8 +950,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkThrow(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -981,7 +964,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitTry(TryTree node, Void p) {
-        if(extension.doesTryCheck()) {
+        if (extension.doesTryCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkTry(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -989,8 +972,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkTry(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -1050,7 +1032,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitUnionType(UnionTypeTree node, Void p) {
-        if(extension.doesUnionTypeCheck()) {
+        if (extension.doesUnionTypeCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkUnionType(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -1058,8 +1040,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkUnionType(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))
@@ -1073,7 +1054,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitWhileLoop(WhileLoopTree node, Void p) {
-        if(extension.doesWhileLoopCheck()) {
+        if (extension.doesWhileLoopCheck()) {
             if (hasEnclosingMethod()) {
                 if (hasEnclosingMethod()) {
                     Class<? extends Annotation> targetEffect = extension.checkWhileLoop(node);
@@ -1081,15 +1062,16 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     if (isInvalid(targetEffect, callerEffect))
                         checkError(node, targetEffect, callerEffect, extension.reportError(node));
                     else if (extension.reportWarning(node) != null)
-                        checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-                }
-                else {
+                        checkWarning(
+                                node, targetEffect, callerEffect, extension.reportWarning(node));
+                } else {
                     Class<? extends Annotation> targetEffect = extension.checkWhileLoop(node);
                     Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                     if (isInvalid(targetEffect, callerEffect))
                         checkError(node, targetEffect, callerEffect, extension.reportError(node));
                     else if (extension.reportWarning(node) != null)
-                        checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+                        checkWarning(
+                                node, targetEffect, callerEffect, extension.reportWarning(node));
                 }
             }
         }
@@ -1098,7 +1080,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     @Override
     public Void visitWildcard(WildcardTree node, Void p) {
-        if(extension.doesWildcardCheck()) {
+        if (extension.doesWildcardCheck()) {
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkWildcard(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
@@ -1106,8 +1088,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-            else {
+            } else {
                 Class<? extends Annotation> targetEffect = extension.checkWildcard(node);
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
                 if (isInvalid(targetEffect, callerEffect))

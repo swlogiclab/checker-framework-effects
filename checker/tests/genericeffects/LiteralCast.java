@@ -43,5 +43,4 @@ public class LiteralCast {
         //:: error: (cast.invalid)
         int t = (int) 2147483648L;
     }
-
 }
