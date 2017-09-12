@@ -43,6 +43,7 @@ public class AndroidThreadingChecker extends GenericEffectChecker {
      *
      * @return A GenericEffectLattice object that represents the lattice of the checker.
      */
+    @Override
     public GenericEffectLattice getEffectLattice() {
         if (lattice == null) {
             try {
