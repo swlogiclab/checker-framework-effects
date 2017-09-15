@@ -96,7 +96,6 @@ public class DefaultAnnoCheck() \{
 \}
 \end{alltt}
 
-
 \section{What the Casting Effect Checker checks\label{castingeffect-checks}}
 
 The casting effect checker checks if unsafe casts are made in the correct context. This means that methods or constructors that perform casts can be annotated by the developer with a specific effect depending on the casts that should be allowed within those methods or constructors. If a cast that has a certain effect is called in the wrong context then an error will be raised. The checker also ensures that method calls and constructor calls in another method or constructor are called in the correct context by checking their effects too.
@@ -132,7 +131,6 @@ public class Boo extends Foo \{
 
 Each cast that is possible using primitives has been determined to be safe or unsafe and put into its respective group. Casts which are unsafe are checked to be in the correct context by the casting effect checker.
 
-
 The casts that have been deemed unsafe and placed in \emph{Integer Overflow} are casts from larger integer primitives to smaller integer primitives. Casting from a larger integer type to a smaller integer type has a chance of overflowing because the same amount of bits cannot be represented; therefore, it is raises an error if used in the incorrect context. Here are the casts that have a chance of doing this:
 \begin{itemize}
 \item
@@ -148,7 +146,6 @@ long to short
 \item
 long to byte
 \end{itemize}
-
 
 The casts that have been deemed unsafe and placed in \emph{Integer Precision Loss} are casts from integer primitives to floating-point primitives. Casting from an integer type to a floating-point type that cannot represent the integer type with its mantissa will lose precision; therefore, it raises an error if used in the incorrect context. Here are the casts that have a chance of doing this:
 \begin{itemize}
@@ -193,23 +190,6 @@ The casting effect checker also has the basic ability to check literals and ensu
 public void testLiteral() \{
     short a = (short) 123; //No effect because literal is within bounds of short
     short b = (short) 123456; //IntegerOverflow because literal is outside the bounds of short
-\}
-\end{alltt}
-
-Overriding a method that already has an effect with another effect will be checked. If the new effect is greater than the overridden effect, an error will be raised.
-
-\begin{alltt}
-public class Foo \{
-    @IntegerOverflow
-    public void intOver() \{
-        //do nothing
-    \}
-\}
-public class Boo extends Foo \{
-    @UnsafeCast
-    public void intOver() \{
-        //Invalid override because UnsafeCast is higher than IntegerOverflow
-    \}
 \}
 \end{alltt}
 
