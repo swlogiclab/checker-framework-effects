@@ -12,7 +12,7 @@ import org.checkerframework.checker.genericeffects.GenericEffectLattice;
  */
 public final class AndroidThreadEffects implements GenericEffectLattice {
 
-    private ArrayList<Class<? extends Annotation>> effects;
+    private ArrayList<Class<? extends Annotation>> effects = new ArrayList<>();
     public final Class<? extends Annotation> MainThread;
     public final Class<? extends Annotation> UiThread;
     public final Class<? extends Annotation> WorkerThread;
@@ -24,25 +24,18 @@ public final class AndroidThreadEffects implements GenericEffectLattice {
     }
 
     @SuppressWarnings("unchecked")
-    private AndroidThreadEffects() throws ClassNotFoundException {
-        effects = new ArrayList<>();
+    private Class<? extends Annotation> getAnnotation(String s) throws ClassNotFoundException {
+        return (Class<? extends Annotation>) Class.forName(s);
+    }
 
+    private AndroidThreadEffects() throws ClassNotFoundException {
         // To avoid having the Checker Framework depend on the Android
         // SDK, we retrieve these qualifiers by reflection.
-        MainThread =
-                (Class<? extends Annotation>)
-                        Class.forName("android.support.annotation.MainThread");
-        UiThread =
-                (Class<? extends Annotation>) Class.forName("android.support.annotation.UiThread");
-        WorkerThread =
-                (Class<? extends Annotation>)
-                        Class.forName("android.support.annotation.WorkerThread");
-        BinderThread =
-                (Class<? extends Annotation>)
-                        Class.forName("android.support.annotation.BinderThread");
-        AnyThread =
-                (Class<? extends Annotation>) Class.forName("android.support.annotation.AnyThread");
-
+        MainThread = getAnnotation("android.support.annotation.MainThread");
+        UiThread = getAnnotation("android.support.annotation.UiThread");
+        WorkerThread = getAnnotation("android.support.annotation.WorkerThread");
+        BinderThread = getAnnotation("android.support.annotation.BinderThread");
+        AnyThread = getAnnotation("android.support.annotation.AnyThread");
         effects.add(MainThread);
         effects.add(UiThread);
         effects.add(WorkerThread);
@@ -67,38 +60,10 @@ public final class AndroidThreadEffects implements GenericEffectLattice {
         return left.equals(right) || left.equals(AnyThread);
     }
 
-    /**
-     * Method to get minimum of (l, r)
-     *
-     * @param l : left effect
-     * @param r : right effect
-     * @return minimum(l,r)
-     */
-    @Deprecated
-    @Override
-    public Class<? extends Annotation> min(
-            Class<? extends Annotation> l, Class<? extends Annotation> r) {
-        if (LE(l, r)) {
-            return l;
-        } else {
-            return r;
-        }
-    }
-
     /** Get the collection of valid effects. */
     @Override
     public ArrayList<Class<? extends Annotation>> getValidEffects() {
         return effects;
-    }
-
-    /**
-     * Get the Top Most Effect of Lattice. For IO EFfect checker: Top Most Effect of Lattice:
-     * IOEffect
-     */
-    @Deprecated
-    @Override
-    public Class<? extends Annotation> getTopMostEffectInLattice() {
-        return null;
     }
 
     /**

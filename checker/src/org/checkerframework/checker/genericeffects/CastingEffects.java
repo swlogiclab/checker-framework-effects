@@ -84,23 +84,6 @@ public final class CastingEffects implements GenericEffectLattice {
     }
 
     /**
-     * Method to get minimum of (l, r)
-     *
-     * @param l : left effect
-     * @param r : right effect
-     * @return minimum(l,r)
-     */
-    @Override
-    public Class<? extends Annotation> min(
-            Class<? extends Annotation> l, Class<? extends Annotation> r) {
-        if (LE(l, r)) {
-            return l;
-        } else {
-            return r;
-        }
-    }
-
-    /**
      * Method that gets the valid list of effects.
      *
      * @return ArrayList containing the list of effects.
@@ -108,16 +91,6 @@ public final class CastingEffects implements GenericEffectLattice {
     @Override
     public ArrayList<Class<? extends Annotation>> getValidEffects() {
         return listOfEffects;
-    }
-
-    /**
-     * Method that gets the top most effect in the lattice as defined by the developer.
-     *
-     * @return The top most effect (UnsafeCast).
-     */
-    @Override
-    public Class<? extends Annotation> getTopMostEffectInLattice() {
-        return UnsafeCast.class;
     }
 
     /**

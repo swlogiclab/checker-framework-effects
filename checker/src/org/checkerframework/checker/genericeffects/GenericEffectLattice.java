@@ -9,8 +9,21 @@ public interface GenericEffectLattice {
     // Method to check Less than equal to Effect
     boolean LE(Class<? extends Annotation> left, Class<? extends Annotation> right);
 
-    // Method to get minimum of (l, r)
-    Class<? extends Annotation> min(Class<? extends Annotation> l, Class<? extends Annotation> r);
+    /**
+     * Method to get minimum of (l, r)
+     *
+     * @param l : left effect
+     * @param r : right effect
+     * @return minimum(l,r)
+     */
+    public default Class<? extends Annotation> min(
+            Class<? extends Annotation> l, Class<? extends Annotation> r) {
+        if (LE(l, r)) {
+            return l;
+        } else {
+            return r;
+        }
+    }
 
     class EffectRange {
         Class<? extends Annotation> min, max;
@@ -25,9 +38,6 @@ public interface GenericEffectLattice {
 
     // Get the collection of valid effects.
     ArrayList<Class<? extends Annotation>> getValidEffects();
-
-    // Get the Top Most Effect of Lattice
-    public Class<? extends Annotation> getTopMostEffectInLattice();
 
     // Get the Bottom Most Effect of Lattice
     public Class<? extends Annotation> getBottomMostEffectInLattice();

@@ -33,23 +33,6 @@ public final class DefaultEffects implements GenericEffectLattice {
     }
 
     /**
-     * Method to get minimum of (l, r)
-     *
-     * @param l : left effect
-     * @param r : right effect
-     * @return minimum(l,r)
-     */
-    @Override
-    public Class<? extends Annotation> min(
-            Class<? extends Annotation> l, Class<? extends Annotation> r) {
-        if (LE(l, r)) {
-            return l;
-        } else {
-            return r;
-        }
-    }
-
-    /**
      * Get the collection of valid effects. For IO EFfect checker: Valid Effects: IOEffect, and
      * NoIOEffect
      */
@@ -61,15 +44,6 @@ public final class DefaultEffects implements GenericEffectLattice {
         listOfEffects.add(IOEffect.class);
 
         return listOfEffects;
-    }
-
-    /**
-     * Get the Top Most Effect of Lattice. For IO EFfect checker: Top Most Effect of Lattice:
-     * IOEffect
-     */
-    @Override
-    public Class<? extends Annotation> getTopMostEffectInLattice() {
-        return IOEffect.class;
     }
 
     /**
