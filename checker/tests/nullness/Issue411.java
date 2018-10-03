@@ -1,9 +1,6 @@
 // Test case for issue 411:
 // https://github.com/typetools/checker-framework/issues/411
 
-// Skip the test until Issue 411 is fixed.
-// @skip-test
-
 import org.checkerframework.checker.nullness.qual.*;
 
 class Test {
@@ -15,7 +12,7 @@ class Test {
         if (field1 != null) {
             new Object() {
                 void f() {
-                    field1.toString(); // dereference of possibly-null reference
+                    field1.toString();
                 }
             };
         }
@@ -25,7 +22,7 @@ class Test {
         if (field2 != null) {
             new Object() {
                 void f() {
-                    field2.toString(); // dereference of possibly-null reference
+                    field2.toString();
                 }
             };
         }

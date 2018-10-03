@@ -3,13 +3,14 @@
  * @summary Ensure that the Java Compiler API can be used multiple times
  *   to execute the Checker Framework.
  *
- * @compile -source 7 -target 7 Main.java
+ * @compile Main.java
  * @run main Main
  */
 /*
  * Test based on message by Daniil Ovchinnikov:
  * https://groups.google.com/d/msg/checker-framework-dev/FvWmCxB8OpE/Cgp1DsPwnWwJ
  */
+
 import java.io.File;
 import java.util.Arrays;
 import javax.tools.JavaCompiler;
@@ -43,10 +44,14 @@ public class Main {
                         null,
                         Arrays.asList(
                                 "-classpath",
-                                "../../dist/javac.jar:../../dist/checker.jar",
+                                "../../dist/checker.jar",
                                 "-proc:only",
-                                "-AprintErrorStack",
-                                "-AprintAllQualifiers"),
+                                "-AprintAllQualifiers",
+                                "-source",
+                                "8",
+                                "-target",
+                                "8",
+                                "-Xlint:-options"),
                         null,
                         fileManager.getJavaFileObjects(testfile));
         task.setProcessors(Arrays.asList(new RegexChecker()));

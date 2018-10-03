@@ -2,7 +2,6 @@ import org.checkerframework.checker.nullness.NullnessUtil;
 import org.checkerframework.checker.nullness.qual.*;
 
 /** Test class org.checkerframework.checker.nullness.NullnessUtil. */
-// @non-308-skip-test
 class TestNullnessUtil {
     void testRef1(@Nullable Object o) {
         // one way to use as a cast:
@@ -24,7 +23,7 @@ class TestNullnessUtil {
         // one way to use as a cast:
         @NonNull Object[] l2 = NullnessUtil.castNonNullDeep(a);
         // Careful, the non-deep version only casts the main modifier.
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         @NonNull Object[] l2b = NullnessUtil.castNonNull(a);
         // OK
         @Nullable Object[] l2c = NullnessUtil.castNonNull(a);
@@ -34,7 +33,7 @@ class TestNullnessUtil {
         // one way to use as a cast:
         @NonNull Object[] l2 = NullnessUtil.castNonNullDeep(a);
         // Careful, the non-deep version only casts the main modifier.
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         @NonNull Object[] l2b = NullnessUtil.castNonNull(a);
         // OK
         @Nullable Object[] l2c = NullnessUtil.castNonNull(a);
@@ -64,7 +63,7 @@ class TestNullnessUtil {
     */
 
     void testMultiArr1(@Nullable Object @NonNull [] @Nullable [] a) {
-        //:: error: (assignment.type.incompatible) :: error: (accessing.nullable)
+        // :: error: (assignment.type.incompatible) :: error: (accessing.nullable)
         @NonNull Object l3 = a[0][0];
         // one way to use as a cast:
         @NonNull Object[][] l4 = NullnessUtil.castNonNullDeep(a);
@@ -76,7 +75,7 @@ class TestNullnessUtil {
     }
 
     void testMultiArr3(@Nullable Object @Nullable [] @Nullable [] @Nullable [] a) {
-        //:: error: (dereference.of.nullable) :: error: (accessing.nullable)
+        // :: error: (dereference.of.nullable) :: error: (accessing.nullable)
         a[0][0][0].toString();
         // another way to use as a cast:
         NullnessUtil.castNonNullDeep(a)[0][0][0].toString();

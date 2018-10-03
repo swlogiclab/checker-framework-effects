@@ -1,8 +1,6 @@
 // Test case for issue 266: https://github.com/typetools/checker-framework/issues/266
 // The problem is limited refinement of final variables.
 
-// @skip-test
-
 import org.checkerframework.checker.nullness.qual.*;
 
 class FinalVar2 {
@@ -37,7 +35,7 @@ class FinalVar2 {
         Object result =
                 new Object() {
                     public void useFinalVar() {
-                        //:: error: (dereference.of.nullable)
+                        // :: error: (dereference.of.nullable)
                         tmp.hashCode();
                     }
                 };

@@ -14,43 +14,40 @@ public class DefaultAnnotation {
 
     @DefaultQualifiers(
             @DefaultQualifier(
-                value = org.checkerframework.checker.nullness.qual.NonNull.class,
-                locations = {TypeUseLocation.ALL}
-            ))
+                    value = org.checkerframework.checker.nullness.qual.NonNull.class,
+                    locations = {TypeUseLocation.ALL}))
     public void testDefault() {
 
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         String s = null; // error
         List<String> lst = new List<String>(); // valid
-        //:: error: (argument.type.incompatible)
+        // :: error: (argument.type.incompatible)
         lst.add(null); // error
     }
 
     @DefaultQualifier(
-        value = org.checkerframework.checker.nullness.qual.NonNull.class,
-        locations = {TypeUseLocation.ALL}
-    )
+            value = org.checkerframework.checker.nullness.qual.NonNull.class,
+            locations = {TypeUseLocation.ALL})
     public class InnerDefault {
 
         public void testDefault() {
-            //:: error: (assignment.type.incompatible)
+            // :: error: (assignment.type.incompatible)
             String s = null; // error
             List<String> lst = new List<String>(); // valid
-            //:: error: (argument.type.incompatible)
+            // :: error: (argument.type.incompatible)
             lst.add(null); // error
             s = lst.get(0); // valid
 
             List<@Nullable String> nullList = new List<@Nullable String>(); // valid
             nullList.add(null); // valid
-            //:: error: (assignment.type.incompatible)
+            // :: error: (assignment.type.incompatible)
             s = nullList.get(0); // error
         }
     }
 
     @DefaultQualifier(
-        value = org.checkerframework.checker.nullness.qual.NonNull.class,
-        locations = {TypeUseLocation.ALL}
-    )
+            value = org.checkerframework.checker.nullness.qual.NonNull.class,
+            locations = {TypeUseLocation.ALL})
     public static class DefaultDefs {
 
         public String getNNString() {
@@ -58,17 +55,17 @@ public class DefaultAnnotation {
         }
 
         public String getNNString2() {
-            //:: error: (return.type.incompatible)
+            // :: error: (return.type.incompatible)
             return null; // error
         }
 
         public <T extends @Nullable Object> T getNull(T t) {
-            //:: error: (return.type.incompatible)
+            // :: error: (return.type.incompatible)
             return null; // invalid
         }
 
         public <T extends @NonNull Object> T getNonNull(T t) {
-            //:: error: (return.type.incompatible)
+            // :: error: (return.type.incompatible)
             return null; // error
         }
     }
@@ -83,17 +80,16 @@ public class DefaultAnnotation {
         }
 
         @DefaultQualifier(
-            value = org.checkerframework.checker.nullness.qual.NonNull.class,
-            locations = {TypeUseLocation.ALL}
-        )
+                value = org.checkerframework.checker.nullness.qual.NonNull.class,
+                locations = {TypeUseLocation.ALL})
         public void testDefaultArgs() {
 
             DefaultDefs d = new DefaultDefs();
 
-            //:: error: (assignment.type.incompatible)
+            // :: error: (assignment.type.incompatible)
             String s1 = d.<@Nullable String>getNull(null); // error
             String s2 = d.<String>getNonNull("foo"); // valid
-            //:: error: (type.argument.type.incompatible) :: error: (assignment.type.incompatible)
+            // :: error: (type.argument.type.incompatible) :: error: (assignment.type.incompatible)
             String s3 = d.<@Nullable String>getNonNull("foo"); // error
         }
     }
@@ -135,10 +131,10 @@ public class DefaultAnnotation {
     @DefaultQualifier(value = NonNull.class)
     public void testDefaultUnqualified() {
 
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         String s = null; // error
         List<String> lst = new List<String>(); // valid
-        //:: error: (argument.type.incompatible)
+        // :: error: (argument.type.incompatible)
         lst.add(null); // error
     }
 }

@@ -41,29 +41,29 @@ class NNOEStaticFields {
     }
 
     @RequiresNonNull("NoClueWhatThisShouldBe")
-    //:: error: (flowexpr.parse.error)
+    // :: error: (flowexpr.parse.error)
     void testF5() {
-        //:: error: (dereference.of.nullable)
+        // :: error: (dereference.of.nullable)
         NNOEStaticFields.nullable.toString();
     }
 
     void trueNegative() {
-        //:: error: (dereference.of.nullable)
+        // :: error: (dereference.of.nullable)
         nullable.toString();
-        //:: error: (dereference.of.nullable)
+        // :: error: (dereference.of.nullable)
         otherNullable.toString();
     }
 
     @RequiresNonNull("nullable")
     void test1() {
         nullable.toString();
-        //:: error: (dereference.of.nullable)
+        // :: error: (dereference.of.nullable)
         otherNullable.toString();
     }
 
     @RequiresNonNull("otherNullable")
     void test2() {
-        //:: error: (dereference.of.nullable)
+        // :: error: (dereference.of.nullable)
         nullable.toString();
         otherNullable.toString();
     }
@@ -94,7 +94,7 @@ class NNOEStaticFields {
         // this postcondition cannot be proved with the Checker Framework, as the relation
         // between doPurity and pureMethods is not explicit
         public static boolean shouldDoPurity() {
-            //:: error: (contracts.conditional.postcondition.not.satisfied)
+            // :: error: (contracts.conditional.postcondition.not.satisfied)
             return doPurity;
         }
 
@@ -105,7 +105,6 @@ class NNOEStaticFields {
     }
 
     static class ClassInfo1 {
-        @SuppressWarnings("contracts.precondition.not.satisfied") // TODO FIXME
         public void initViaReflection() {
             if (ChicoryPremain1.shouldDoPurity()) {
                 for (String pureMeth : ChicoryPremain1.getPureMethods()) {}

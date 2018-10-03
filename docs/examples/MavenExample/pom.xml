@@ -13,39 +13,23 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <!-- These properties will be set by the Maven Dependency plugin -->
-    <!-- Change to jdk7 if using Java 7 -->
     <annotatedJdk>${org.checkerframework:jdk8:jar}</annotatedJdk>
-    <checkerFrameworkVersion><!-- checker-framework-version -->2.1.14<!-- /checker-framework-version --></checkerFrameworkVersion>
-     <!-- The type annotations compiler is required if using Java 7. -->
-     <!-- Uncomment the following line if using Java 7. -->
-     <!--<typeAnnotationsJavac>${org.checkerframework:compiler:jar}</typeAnnotationsJavac>-->
+    <checkerFrameworkVersion><!-- checker-framework-version -->2.5.6<!-- /checker-framework-version --></checkerFrameworkVersion>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>3.8.1</version>
+      <version>4.12</version>
       <scope>test</scope>
     </dependency>
-    <!-- annotations from the Checker Framework: nullness, interning, locking, ... -->
+    <!-- Annotations from the Checker Framework: nullness, interning, locking, ... -->
     <dependency>
       <groupId>org.checkerframework</groupId>
       <artifactId>checker-qual</artifactId>
       <version>${checkerFrameworkVersion}</version>
     </dependency>
-    <dependency>
-      <groupId>org.checkerframework</groupId>
-      <artifactId>checker</artifactId>
-      <version>${checkerFrameworkVersion}</version>
-    </dependency>
-    <!-- The type annotations compiler - uncomment if using Java 7 -->
-    <!--<dependency>
-      <groupId>org.checkerframework</groupId>
-      <artifactId>compiler</artifactId>
-      <version>${checkerFrameworkVersion}</version>
-    </dependency>-->
-    <!-- The annotated JDK to use (change to jdk7 if using Java 7) -->
     <dependency>
       <groupId>org.checkerframework</groupId>
       <artifactId>jdk8</artifactId>
@@ -82,11 +66,16 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.6.1</version>
           <configuration>
-              <!-- Change source and target to 1.7 if using Java 7 -->
               <source>1.8</source>
               <target>1.8</target>
-              <fork>true</fork>
               <showWarnings>true</showWarnings>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>checker</artifactId>
+                  <version>${checkerFrameworkVersion}</version>
+                </path>
+              </annotationProcessorPaths>
               <annotationProcessors>
                   <!-- Add all the checkers you want to enable here -->
                   <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
@@ -94,9 +83,8 @@
               <compilerArgs>
                   <!-- location of the annotated JDK, which comes from a Maven dependency -->
                   <arg>-Xbootclasspath/p:${annotatedJdk}</arg>
-                  <!--treat Checker Framework errors as warnings-->
+                  <!-- -Awarns treats Checker Framework errors as warnings -->
                   <!-- <arg>-Awarns</arg> -->
-                  <arg>-classpath ${typeAnnotationsJavac}</arg>
                   <arg>-Alint</arg>
               </compilerArgs>
           </configuration>

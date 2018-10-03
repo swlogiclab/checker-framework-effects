@@ -4,6 +4,7 @@ import org.checkerframework.framework.qual.DefaultQualifier;
 import org.checkerframework.framework.qual.DefaultQualifiers;
 import org.checkerframework.framework.qual.TypeUseLocation;
 import polyall.quals.*;
+
 /**
  * This test is solely to ensure that if bounds in type parameters and wildcards are invalid then
  * they are reported as such using a "bound.type.incompatible" error.
@@ -17,13 +18,11 @@ import polyall.quals.*;
 // set the defaults in the H2 hierarchy such that do not report errors in this test
 @DefaultQualifiers({
     @DefaultQualifier(
-        value = H2Top.class,
-        locations = {TypeUseLocation.UPPER_BOUND}
-    ),
+            value = H2Top.class,
+            locations = {TypeUseLocation.UPPER_BOUND}),
     @DefaultQualifier(
-        value = H2Bot.class,
-        locations = {TypeUseLocation.LOWER_BOUND}
-    )
+            value = H2Bot.class,
+            locations = {TypeUseLocation.LOWER_BOUND})
 })
 public class IncompatibleBounds {
 
@@ -44,23 +43,23 @@ public class IncompatibleBounds {
     }
 
     // invalid combinations
-    //:: error: (bound.type.incompatible)
+    // :: error: (bound.type.incompatible)
     class BottomToTop<@H1Top U extends @H1Bot Object> {}
-    //:: error: (bound.type.incompatible)
+    // :: error: (bound.type.incompatible)
     class H1S1ToTop<@H1Top UU extends @H1S1 Object> {}
-    //:: error: (bound.type.incompatible)
+    // :: error: (bound.type.incompatible)
     class BottomToH1S1<@H1S1 UUU extends @H1Bot Object> {}
-    //:: error: (bound.type.incompatible)
+    // :: error: (bound.type.incompatible)
     class H1S2ToH1S1<@H1S1 UUUU extends @H1S2 Object> {}
 
     class InvalidContext {
-        //:: error: (bound.type.incompatible)
+        // :: error: (bound.type.incompatible)
         BottomToTop<@H1Top ? extends @H1Bot Object> bottomToTop;
-        //:: error: (bound.type.incompatible)
+        // :: error: (bound.type.incompatible)
         H1S1ToTop<@H1Top ? extends @H1S1 Object> h1S1ToTop;
-        //:: error: (bound.type.incompatible)
+        // :: error: (bound.type.incompatible)
         BottomToH1S1<@H1S1 ? extends @H1Bot Object> bottomToH1S1;
-        //:: error: (bound.type.incompatible)
+        // :: error: (bound.type.incompatible)
         H1S2ToH1S1<@H1S1 ? extends @H1S2 Object> h1S2ToH1S1;
     }
 }

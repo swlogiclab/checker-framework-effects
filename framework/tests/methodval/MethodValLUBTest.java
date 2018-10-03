@@ -16,14 +16,13 @@ public class MethodValLUBTest {
             unknown = c2m21;
         }
         @MethodVal(
-            className = {"c1", "c2"},
-            methodName = {"m1", "m2"},
-            params = {0, 1}
-        )
+                className = {"c1", "c2"},
+                methodName = {"m1", "m2"},
+                params = {0, 1})
         Object lub = unknown;
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         c1m10 = unknown;
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         c2m21 = unknown;
     }
 
@@ -47,29 +46,26 @@ public class MethodValLUBTest {
             unknown = c1m11;
         }
         @MethodVal(
-            className = {"c1", "c1"},
-            methodName = {"m1", "m1"},
-            params = {0, 1}
-        )
+                className = {"c1", "c1"},
+                methodName = {"m1", "m1"},
+                params = {0, 1})
         Object lub = unknown;
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         c1m10 = unknown;
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         c1m11 = unknown;
     }
 
     @MethodVal(
-        className = {"class", "class2"},
-        methodName = {"method", "method2"},
-        params = {0, 1}
-    )
+            className = {"class", "class2"},
+            methodName = {"method", "method2"},
+            params = {0, 1})
     Object classClass2Method0 = null;
 
     @MethodVal(
-        className = {"class2", "class"},
-        methodName = {"method", "method2"},
-        params = {0, 1}
-    )
+            className = {"class2", "class"},
+            methodName = {"method", "method2"},
+            params = {0, 1})
     Object class2classMethod0 = null;
 
     void setsLub() {
@@ -79,14 +75,13 @@ public class MethodValLUBTest {
             unknown = class2classMethod0;
         }
         @MethodVal(
-            className = {"class2", "class", "class", "class2"},
-            methodName = {"method", "method2", "method", "method2"},
-            params = {0, 1, 0, 1}
-        )
+                className = {"class2", "class", "class", "class2"},
+                methodName = {"method", "method2", "method", "method2"},
+                params = {0, 1, 0, 1})
         Object lub = unknown;
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         classClass2Method0 = unknown;
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         class2classMethod0 = unknown;
     }
 
@@ -99,10 +94,9 @@ public class MethodValLUBTest {
             m = c.getMethod("getB", new Class[0]);
         }
         @MethodVal(
-            className = {"MethodValInferenceTest", "MethodValInferenceTest"},
-            methodName = {"getA", "getB"},
-            params = {0, 0}
-        )
+                className = {"MethodValInferenceTest", "MethodValInferenceTest"},
+                methodName = {"getA", "getB"},
+                params = {0, 0})
         Method lub = m;
     }
 }

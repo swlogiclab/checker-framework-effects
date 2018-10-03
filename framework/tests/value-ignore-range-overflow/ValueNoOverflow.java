@@ -2,7 +2,8 @@ import org.checkerframework.common.value.qual.*;
 
 class ValueNoOverflow {
 
-    // This file contains a series of simple smoke tests for IntRange and ArrayLenRange with no overflow.
+    // This file contains a series of simple smoke tests for IntRange and ArrayLenRange with no
+    // overflow.
 
     void test_plus(@IntRange(from = 0) int x, @IntRange(from = -1) int z) {
         @IntRange(from = 1) int y = x + 1; // IntRange(from = 0) to IntRange(from = 1)
@@ -47,6 +48,19 @@ class ValueNoOverflow {
     void testShort_mult(@IntRange(from = 0) short x, @IntRange(from = 1) short z) {
         @IntRange(from = 0) short y = (short) (x * z);
         @IntRange(from = 1) short w = (short) (z * z);
+    }
+
+    void testChar_plus(@IntRange(from = 0) char x) {
+        @IntRange(from = 1) char y = (char) (x + 1); // IntRange(from = 0) to IntRange(from = 1)
+    }
+
+    void testChar_minus(@IntRange(to = 65534) char z) {
+        @IntRange(to = 65533) char w = (char) (z - 1); // IntRange(to = 65535) to IntRange(to = 65535)
+    }
+
+    void testChar_mult(@IntRange(from = 0) char x, @IntRange(from = 1) char z) {
+        @IntRange(from = 0) char y = (char) (x * z);
+        @IntRange(from = 1) char w = (char) (z * z);
     }
 
     void testByte_plus(@IntRange(from = 0) byte x, @IntRange(from = -1) byte z) {

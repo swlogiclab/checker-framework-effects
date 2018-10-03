@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.KeyFor;
+import org.checkerframework.checker.nullness.qual.KeyForBottom;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.dataflow.qual.Pure;
@@ -15,9 +16,10 @@ import org.checkerframework.framework.qual.TypeUseLocation;
 @DefaultQualifier(value = NonNull.class, locations = TypeUseLocation.IMPLICIT_UPPER_BOUND)
 public class KeyForChecked {
 
-    interface KFMap<K extends @NonNull Object, V extends @NonNull Object> {
+    interface KFMap<@KeyForBottom K extends @NonNull Object, V extends @NonNull Object> {
         @Covariant(0)
-        public static interface Entry<K1 extends @Nullable Object, V1 extends @Nullable Object> {
+        public static interface Entry<
+                @KeyForBottom K1 extends @Nullable Object, V1 extends @Nullable Object> {
             K1 getKey();
 
             V1 getValue();
@@ -38,7 +40,7 @@ public class KeyForChecked {
         KFIterator<K> iterator();
     }
 
-    class KFHashMap<K2 extends @NonNull Object, V2 extends @NonNull Object>
+    class KFHashMap<@KeyForBottom K2 extends @NonNull Object, V2 extends @NonNull Object>
             implements KFMap<K2, V2> {
         @Pure
         public boolean containsKey(@Nullable Object a1) {
@@ -68,11 +70,11 @@ public class KeyForChecked {
     }
 
     @Covariant(0)
-    class KFIterator<E extends @Nullable Object> {}
+    class KFIterator<@KeyForBottom E extends @Nullable Object> {}
 
     void incorrect1(Object map) {
         String nonkey = "";
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         @KeyFor("map") String key = nonkey;
     }
 
@@ -124,7 +126,7 @@ public class KeyForChecked {
         for (@KeyFor("emap") String st : s) {}
         for (String st : s) {}
         Object bubu = new Object();
-        //:: error: (enhancedfor.type.incompatible)
+        // :: error: (enhancedfor.type.incompatible)
         for (@KeyFor("bubu") String st : s) {}
     }
 
@@ -141,7 +143,7 @@ public class KeyForChecked {
         // KeyFor has to be explicit on the component to Entry sets because
         //   a) it's not clear which map the Entry set may have come from
         //   b) and there is no guarantee the map is still accessible
-        //:: error: (assignment.type.incompatible)
+        // :: error: (assignment.type.incompatible)
         Set<KFMap.Entry<String, Object>> es2 = emap.entrySet();
     }
 

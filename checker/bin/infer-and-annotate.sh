@@ -19,8 +19,8 @@
 
 # Example of usage:
 # ./infer-and-annotate.sh "LockChecker,NullnessChecker" \
-#     $JSR308/plume-lib/java/plume.jar -AprintErrorStack \
-#     `find $JSR308/plume-lib/java/src/plume/ -name "*.java"`
+#     plume-util/build/libs/plume-util-all.jar \
+#     `find plume-util/src/main/java/ -name "*.java"`
 
 # In case of using this script for Android projects, the classpath must include
 # paths to: android.jar, gen folder, all libs used, source code folder.
@@ -52,6 +52,8 @@ interactive=
 # debug=1
 # Require user confirmation before running each command
 # interactive=1
+
+CHECKERBIN=$(dirname "$0")
 
 # This function separates extra arguments passed to the checker from Java files
 # received as arguments.
@@ -127,7 +129,7 @@ infer_and_annotate() {
         mkdir -p $WHOLE_PROGRAM_INFERENCE_DIR
 
         # Runs CF's javac
-        command="./javac -d $TEMP_DIR/ -cp $cp -processor $processor -Ainfer -Awarns -Xmaxwarns 10000 $extra_args $java_files"
+        command="$CHECKERBIN/javac -d $TEMP_DIR/ -cp $cp -processor $processor -Ainfer -Awarns -Xmaxwarns 10000 $extra_args $java_files"
         echo "About to run: ${command}"
         if [ $interactive ]; then
             echo "Press any key to run command... "
