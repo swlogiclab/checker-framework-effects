@@ -120,7 +120,8 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
      * @return The default effect of the class element that was passed as a parameter.
      */
     private Class<? extends Annotation> getClassType(Element clsElt) {
-        //TODO: There may be a better approach to getting the information that is needed than raising an exception
+        // TODO: There may be a better approach to getting the information that is needed than
+        // raising an exception
         TypeMirror clsAnno = null;
         try {
             clsElt.getAnnotation(DefaultEffect.class).value();
@@ -129,7 +130,8 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
         } catch (MirroredTypeException e) {
             clsAnno = e.getTypeMirror();
         }
-        //TODO: Find a way to extract the class type from the TypeElement object without making use of Strings.
+        // TODO: Find a way to extract the class type from the TypeElement object without making use
+        // of Strings.
         Types TypeUtils = this.processingEnv.getTypeUtils();
         TypeElement typeElt = (TypeElement) TypeUtils.asElement(clsAnno);
         String name = typeElt.getSimpleName().toString();

@@ -64,7 +64,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     protected final Stack<Class<? extends Annotation>> effStack;
     protected final Stack<MethodTree> currentMethods;
 
-    //fields for compiler arguments
+    // fields for compiler arguments
     boolean ignoringEffects;
     boolean ignoringWarnings;
     boolean ignoringErrors;
@@ -403,28 +403,28 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      */
     @Override
     public Void visitArrayAccess(ArrayAccessTree node, Void p) {
-        //checks if check is active
+        // checks if check is active
         if (extension.doesArrayAccessCheck()) {
-            //checks if node is enclosed by method
+            // checks if node is enclosed by method
             if (hasEnclosingMethod()) {
                 Class<? extends Annotation> targetEffect = extension.checkArrayAccess(node);
                 Class<? extends Annotation> callerEffect = getMethodCallerEffect();
-                //checks if the effect of the node is less than or equal to the methods
+                // checks if the effect of the node is less than or equal to the methods
                 if (isInvalid(targetEffect, callerEffect))
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
-                //checks if the node should output any warnings
+                // checks if the node should output any warnings
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }
-            //if node is not within a method, then node is compared to default effect of class
+            // if node is not within a method, then node is compared to default effect of class
             else {
                 Class<? extends Annotation> targetEffect = extension.checkArrayAccess(node);
-                //gets node's default effect
+                // gets node's default effect
                 Class<? extends Annotation> callerEffect = getDefaultClassEffect();
-                //checks if effect of the node is less than or equal to the default effects
+                // checks if effect of the node is less than or equal to the default effects
                 if (isInvalid(targetEffect, callerEffect))
                     checkError(node, targetEffect, callerEffect, extension.reportError(node));
-                //checks if the node should output and warnings
+                // checks if the node should output and warnings
                 else if (extension.reportWarning(node) != null)
                     checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
             }

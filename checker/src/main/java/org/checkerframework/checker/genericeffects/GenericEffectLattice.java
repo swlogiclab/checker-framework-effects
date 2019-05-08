@@ -3,7 +3,7 @@ package org.checkerframework.checker.genericeffects;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 
-//This lattice is used by other effect checkers
+// This lattice is used by other effect checkers
 public interface GenericEffectLattice {
 
     // Method to check Less than equal to Effect
