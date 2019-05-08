@@ -203,6 +203,12 @@ def check_tools(tools):
     map(check_command, tools)
     print ''
 
+def continue_or_exit(msg):
+    "Prompts the user whether to continue executing the script."
+    continue_script = prompt_w_default(msg + " Continue ('no' will exit the script)?", "yes", "^(Yes|yes|No|no)$")
+    if continue_script == "no" or continue_script == "No":
+        raise Exception("User elected NOT to continue at prompt: " + msg)
+
 #=========================================================================================
 # Version Utils
 
@@ -822,16 +828,15 @@ def get_announcement_email(version):
     Subject: Release %s of the Checker Framework
 
     We have released a new version of the Checker Framework.
+    The Checker Framework lets you create and/or run pluggable type checkers, in order to detect and prevent bugs in your code.
 
-    * The Checker Framework lets you create and/or run pluggable type checkers, in order to detect and prevent bugs in your code.
-
-    You can find documentation and download links for these projects at:
+    You can find documentation and download links at:
     http://CheckerFramework.org/
 
-    Changes for the Checker Framework
+    Changes for Checker Framework version %s:
 
     <<Insert latest Checker Framework changelog entry, omitting the first line with the release version and date, and with hard line breaks removed>>
-    """ % (version)
+    """ % (version, version)
 
 #=========================================================================================
 # Testing

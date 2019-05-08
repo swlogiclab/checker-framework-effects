@@ -323,9 +323,9 @@ public class AsSuperVisitor extends AbstractAtmComboVisitor<AnnotatedTypeMirror,
             return type;
         }
 
-        // Not same erased Java type
+        // Not same erased Java type.
         // Walk up the directSuperTypes.
-        // directSuperTypes() annotates type variables correctly and handles substitution
+        // directSuperTypes() annotates type variables correctly and handles substitution.
         for (AnnotatedDeclaredType dst : type.directSuperTypes()) {
             if (isErasedJavaSubtype(dst, superType)) {
                 // If two direct supertypes of type, dst1 and dst2, are subtypes of superType then
@@ -345,8 +345,10 @@ public class AsSuperVisitor extends AbstractAtmComboVisitor<AnnotatedTypeMirror,
         // Each type in the intersection must be a supertype of type, so call asSuper on all types
         // in the intersection.
         for (AnnotatedDeclaredType superDirect : superType.directSuperTypes()) {
-            AnnotatedDeclaredType found = (AnnotatedDeclaredType) visit(type, superDirect, p);
-            newDirectSupertypes.add(found);
+            if (types.isSubtype(type.getUnderlyingType(), superDirect.getUnderlyingType())) {
+                AnnotatedDeclaredType found = (AnnotatedDeclaredType) visit(type, superDirect, p);
+                newDirectSupertypes.add(found);
+            }
         }
         // The ATM for each type in an intersection is stored in the direct super types field.
         superType.setDirectSuperTypes(newDirectSupertypes);
@@ -789,9 +791,26 @@ public class AsSuperVisitor extends AbstractAtmComboVisitor<AnnotatedTypeMirror,
             isUninferredTypeAgrument = true;
             superType.setUninferredTypeArgument();
         }
-        AnnotatedTypeMirror upperBound =
-                visit(type.getExtendsBound(), superType.getExtendsBound(), p);
-        superType.setExtendsBound(upperBound);
+        if (types.isSubtype(
+                type.getExtendsBound().getUnderlyingType(),
+                superType.getExtendsBound().getUnderlyingType())) {
+            AnnotatedTypeMirror upperBound =
+                    visit(type.getExtendsBound(), superType.getExtendsBound(), p);
+            superType.setExtendsBound(upperBound);
+        } else {
+            // The upper bound of a wildcard can be a super type of upper bound of the type
+            // parameter for which it is an argument.
+            // See org.checkerframework.framework.type.AnnotatedTypeFactory.widenToUpperBound for an
+            // example.  In these cases, the upper bound of type might be a super type of the
+            // upper bound of superType.
+
+            // The underlying type of the annotated type mirror returned by asSuper must be the
+            // same as the passed type, so just copy the primary annotations.
+            copyPrimaryAnnos(type.getExtendsBound(), superType.getExtendsBound());
+
+            // Add defaults in case any locations are missing annotations.
+            annotatedTypeFactory.addDefaultAnnotations(superType.getExtendsBound());
+        }
 
         AnnotatedTypeMirror lowerBound;
         if (type.getSuperBound().getKind() == TypeKind.NULL

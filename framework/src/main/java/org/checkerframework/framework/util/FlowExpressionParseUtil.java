@@ -50,6 +50,7 @@ import org.checkerframework.dataflow.cfg.node.Node;
 import org.checkerframework.dataflow.cfg.node.ObjectCreationNode;
 import org.checkerframework.framework.source.Result;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
+import org.checkerframework.framework.util.dependenttypes.DependentTypesError;
 import org.checkerframework.javacutil.ElementUtils;
 import org.checkerframework.javacutil.Pair;
 import org.checkerframework.javacutil.Resolver;
@@ -124,7 +125,7 @@ public class FlowExpressionParseUtil {
             TreePath localScope,
             boolean useLocalScope)
             throws FlowExpressionParseException {
-        context.useLocalScope = useLocalScope;
+        context = context.copyAndSetUseLocalScope(useLocalScope);
         FlowExpressions.Receiver result = parseHelper(expression, context, localScope);
         if (result instanceof ClassName && !expression.endsWith("class")) {
             throw constructParserException(
@@ -142,7 +143,7 @@ public class FlowExpressionParseUtil {
         Types types = env.getTypeUtils();
 
         if (isNullLiteral(expression, context)) {
-            return parseNullLiteral(expression, types);
+            return parseNullLiteral(types);
         } else if (isIntLiteral(expression, context)) {
             return parseIntLiteral(expression, types);
         } else if (isLongLiteral(expression, context)) {
@@ -150,34 +151,41 @@ public class FlowExpressionParseUtil {
         } else if (isFloatLiteral(expression, context)) {
             throw constructParserException(
                     expression,
-                    String.format("Cannot parse floating-point values '%s'", expression));
+                    String.format("floating-point values '%s' cannot be parsed", expression));
         } else if (isStringLiteral(expression, context)) {
             return parseStringLiteral(expression, types, env.getElementUtils());
         } else if (isThisLiteral(expression, context)) {
-            return parseThis(expression, context);
+            return parseThis(context);
         } else if (isSuperLiteral(expression, context)) {
             return parseSuper(expression, types, context);
-        } else if (isIdentifier(expression, context)) {
+        } else if (isIdentifier(expression)) {
             return parseIdentifier(expression, env, path, context);
         } else if (isParameter(expression, context)) {
             return parseParameter(expression, context);
-        } else if (isArray(expression, context)) {
+        } else if (isArray(expression)) {
             return parseArray(expression, context, path);
-        } else if (isMethodCall(expression, context)) {
+        } else if (isMethodCall(expression)) {
             return parseMethodCall(expression, context, path, env);
-        } else if (isMemberSelect(expression, context)) {
+        } else if (isMemberSelect(expression)) {
             return parseMemberSelect(expression, env, context, path);
         } else if (isParentheses(expression, context)) {
             return parseParentheses(expression, context, path);
         } else {
-            throw constructParserException(
-                    expression,
-                    String.format("unrecognized expression '%s'", expression)
-                            + (context.parsingMember ? " in context with parsingMember=true" : ""));
+            String message;
+            if (expression.equals("#0")) {
+                message =
+                        "one should use \"this\" for the receiver or \"#1\" for the first formal parameter";
+            } else {
+                message = String.format("is an unrecognized expression");
+            }
+            if (context.parsingMember) {
+                message += " in a context with parsingMember=true";
+            }
+            throw constructParserException(expression, message);
         }
     }
 
-    private static boolean isMemberSelect(String s, FlowExpressionContext context) {
+    private static boolean isMemberSelect(String s) {
         return parseMemberSelect(s) != null;
     }
 
@@ -277,7 +285,7 @@ public class FlowExpressionParseUtil {
         return s.equals("null");
     }
 
-    private static Receiver parseNullLiteral(String expression, Types types) {
+    private static Receiver parseNullLiteral(Types types) {
         return new ValueLiteral(types.getNullType(), (Object) null);
     }
 
@@ -334,7 +342,7 @@ public class FlowExpressionParseUtil {
 
     private static boolean isThisLiteral(String s, FlowExpressionContext context) {
         if (context.parsingMember) {
-            // TODO: this is probably wrong because you could have and inner class receiver
+            // TODO: this is probably wrong because you could have an inner class receiver
             // Outer.this
             return false;
         }
@@ -343,7 +351,7 @@ public class FlowExpressionParseUtil {
         return s.equals("this");
     }
 
-    private static Receiver parseThis(String s, FlowExpressionContext context) {
+    private static Receiver parseThis(FlowExpressionContext context) {
         if (!(context.receiver == null || context.receiver.containsUnknown())) {
             // "this" is the receiver of the context
             return context.receiver;
@@ -382,7 +390,7 @@ public class FlowExpressionParseUtil {
         return new ThisReference(superType);
     }
 
-    private static boolean isIdentifier(String s, FlowExpressionContext context) {
+    private static boolean isIdentifier(String s) {
         return IDENTIFIER_PATTERN.matcher(s).matches();
     }
 
@@ -433,6 +441,19 @@ public class FlowExpressionParseUtil {
         if (classType != null) {
             return new ClassName(classType);
         }
+
+        MethodTree enclMethod = TreeUtils.enclosingMethod(path);
+        if (enclMethod != null) {
+            List<? extends VariableTree> params = enclMethod.getParameters();
+            for (int i = 0; i < params.size(); i++) {
+                if (params.get(i).getName().contentEquals(s)) {
+                    throw constructParserException(
+                            s,
+                            String.format(DependentTypesError.FORMAL_PARAM_NAME_STRING, i + 1, s));
+                }
+            }
+        }
+
         throw constructParserException(s, "identifier not found");
     }
 
@@ -523,7 +544,7 @@ public class FlowExpressionParseUtil {
         return Pair.of(Pair.of(ident, arguments), remaining);
     }
 
-    private static boolean isMethodCall(String s, FlowExpressionContext contex) {
+    private static boolean isMethodCall(String s) {
         Pair<Pair<String, String>, String> result = parseMethodCall(s);
         return result != null && result.second.isEmpty();
     }
@@ -620,7 +641,7 @@ public class FlowExpressionParseUtil {
         } else {
             if (context.receiver instanceof ClassName) {
                 throw constructParserException(
-                        s, "a non-static method call cannot have a class name as a receiver.");
+                        s, "a non-static method call cannot have a class name as a receiver");
             }
             TypeMirror methodType =
                     TypesUtils.substituteMethodReturnType(
@@ -692,9 +713,7 @@ public class FlowExpressionParseUtil {
                 depth++;
             } else if (ch == close) {
                 depth--;
-                if (depth < 0) {
-                    break;
-                } else if (depth == 0) {
+                if (depth == 0) {
                     return i - 1;
                 }
             }
@@ -702,7 +721,7 @@ public class FlowExpressionParseUtil {
         return -1;
     }
 
-    private static boolean isArray(String s, FlowExpressionContext context) {
+    private static boolean isArray(String s) {
         Pair<Pair<String, String>, String> result = parseArray(s);
         return result != null && result.second.isEmpty();
     }
@@ -729,8 +748,10 @@ public class FlowExpressionParseUtil {
         return result;
     }
 
-    // TODO: this returns true for "(a)+(b)" where the inital and final parens do not match.
-    private static boolean isParentheses(String s, FlowExpressionContext contex) {
+    // TODO: This incorrectly returns true for "(a)+(b)" where the inital and final parens do not
+    // match.
+    private static boolean isParentheses(
+            String s, @SuppressWarnings("UnusedVariable") FlowExpressionContext contex) {
         return s.length() > 2 && s.charAt(0) == '(' && s.charAt(s.length() - 1) == ')';
     }
 
@@ -796,7 +817,7 @@ public class FlowExpressionParseUtil {
                             + " while looking up class "
                             + classNameString
                             + " in package "
-                            + packageSymbol.toString());
+                            + packageSymbol);
         }
         if (classSymbol == null) {
             throw constructParserException(
@@ -804,7 +825,7 @@ public class FlowExpressionParseUtil {
                     "classSymbol==null when looking up class "
                             + classNameString
                             + " in package "
-                            + packageSymbol.toString());
+                            + packageSymbol);
         }
         TypeMirror classType = ElementUtils.getType(classSymbol);
         if (classType == null) {
@@ -1062,8 +1083,8 @@ public class FlowExpressionParseUtil {
          * Whether or not the FlowExpressionParser is parsing the "member" part of a member select.
          */
         public final boolean parsingMember;
-        /** Whether the TreePath should be used to find identifiers. */
-        public boolean useLocalScope;
+        /** Whether the TreePath should be used to find identifiers. Defaults to true. */
+        public final boolean useLocalScope;
 
         /**
          * Creates context for parsing a flow expression.
@@ -1305,15 +1326,29 @@ public class FlowExpressionParseUtil {
 
         /**
          * Returns a copy of the context that differs in that it uses the outer receiver as main
-         * receiver (and also uses it as the outer receiver).
+         * receiver (and also retains it as the outer receiver), and parsingMember is set to false.
          */
         public FlowExpressionContext copyAndUseOuterReceiver() {
             return new FlowExpressionContext(
-                    outerReceiver,
+                    outerReceiver, // NOTE different than in this object
                     outerReceiver,
                     arguments,
                     checkerContext,
                     /*parsingMember=*/ false,
+                    useLocalScope);
+        }
+
+        /**
+         * Returns a copy of the context that differs in that useLocalScope is set to the given
+         * value.
+         */
+        public FlowExpressionContext copyAndSetUseLocalScope(boolean useLocalScope) {
+            return new FlowExpressionContext(
+                    receiver,
+                    outerReceiver,
+                    arguments,
+                    checkerContext,
+                    parsingMember,
                     useLocalScope);
         }
     }
@@ -1420,6 +1455,8 @@ public class FlowExpressionParseUtil {
             throw new Error("Must have an explanation.");
         }
         return new FlowExpressionParseException(
-                (Throwable) null, "flowexpr.parse.error", "'" + expr + "' because " + explanation);
+                (Throwable) null,
+                "flowexpr.parse.error",
+                "Invalid '" + expr + "' because " + explanation);
     }
 }

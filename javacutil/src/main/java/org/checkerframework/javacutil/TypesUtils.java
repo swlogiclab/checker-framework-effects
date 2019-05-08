@@ -22,6 +22,7 @@ import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import org.plumelib.util.ImmutableTypes;
 
 /** A utility class that helps with {@link TypeMirror}s. */
 // TODO: This class needs significant restructuring
@@ -116,6 +117,19 @@ public final class TypesUtils {
                 || qualifiedName.equals("java.lang.Float"));
     }
 
+    /**
+     * Return true if this is an immutable type in the JDK.
+     *
+     * <p>This does not use immutability annotations and always returns false for user-defined
+     * classes.
+     */
+    public static boolean isImmutableTypeInJdk(TypeMirror type) {
+        return isPrimitive(type)
+                || (type.getKind() == TypeKind.DECLARED
+                        && ImmutableTypes.isImmutable(
+                                getQualifiedName((DeclaredType) type).toString()));
+    }
+
     /** @return type represents a Throwable type (e.g. Exception, Error) */
     public static boolean isThrowable(TypeMirror type) {
         while (type != null && type.getKind() == TypeKind.DECLARED) {
@@ -137,9 +151,9 @@ public final class TypesUtils {
      */
     public static boolean isAnonymous(TypeMirror type) {
         return (type instanceof DeclaredType)
-                && (((TypeElement) ((DeclaredType) type).asElement())
+                && ((TypeElement) ((DeclaredType) type).asElement())
                         .getNestingKind()
-                        .equals(NestingKind.ANONYMOUS));
+                        .equals(NestingKind.ANONYMOUS);
     }
 
     /**
@@ -309,7 +323,7 @@ public final class TypesUtils {
 
     /**
      * Get the type parameter for this wildcard from the underlying type's bound field This field is
-     * sometimes null, in that case this method will return null
+     * sometimes null, in that case this method will return null.
      *
      * @return the TypeParameterElement the wildcard is an argument to
      */

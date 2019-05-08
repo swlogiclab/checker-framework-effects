@@ -394,12 +394,14 @@ public class StructuralEqualityComparer extends AbstractAtmComboVisitor<Boolean,
     /** @return true if the underlying types of the bounds for type1 and type2 are equal */
     public boolean boundsMatch(
             final AnnotatedTypeVariable type1, final AnnotatedTypeVariable type2) {
-        return type1.getUpperBound()
-                        .getUnderlyingType()
-                        .equals(type2.getUpperBound().getUnderlyingType())
-                && type1.getLowerBound()
-                        .getUnderlyingType()
-                        .equals(type2.getLowerBound().getUnderlyingType());
+        final Types types = type1.atypeFactory.types;
+
+        return types.isSameType(
+                        type1.getUpperBound().getUnderlyingType(),
+                        type2.getUpperBound().getUnderlyingType())
+                && types.isSameType(
+                        type1.getLowerBound().getUnderlyingType(),
+                        type2.getLowerBound().getUnderlyingType());
     }
 
     /**
@@ -492,8 +494,7 @@ public class StructuralEqualityComparer extends AbstractAtmComboVisitor<Boolean,
     @Override
     public Boolean visitWildcard_Declared(
             AnnotatedWildcardType type1, AnnotatedDeclaredType type2, Void p) {
-        if (type1.atypeFactory.ignoreUninferredTypeArguments
-                && (type1.isUninferredTypeArgument())) {
+        if (type1.atypeFactory.ignoreUninferredTypeArguments && type1.isUninferredTypeArgument()) {
             return true;
         }
         // TODO: add proper checks
@@ -503,8 +504,7 @@ public class StructuralEqualityComparer extends AbstractAtmComboVisitor<Boolean,
     @Override
     public Boolean visitDeclared_Wildcard(
             AnnotatedDeclaredType type1, AnnotatedWildcardType type2, Void p) {
-        if (type2.atypeFactory.ignoreUninferredTypeArguments
-                && (type2.isUninferredTypeArgument())) {
+        if (type2.atypeFactory.ignoreUninferredTypeArguments && type2.isUninferredTypeArgument()) {
             return true;
         }
         final QualifierHierarchy qualifierHierarchy = type1.atypeFactory.getQualifierHierarchy();

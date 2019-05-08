@@ -113,9 +113,9 @@ public final class TreeUtils {
      *
      * @param name a method name
      * @param tree a tree defining a method invocation
-     * @return true iff tree describes a call to the given method
+     * @return true iff tree is a call to the given method
      */
-    protected static boolean isNamedMethodCall(String name, MethodInvocationTree tree) {
+    private static boolean isNamedMethodCall(String name, MethodInvocationTree tree) {
         return getMethodName(tree.getMethodSelect()).equals(name);
     }
 
@@ -248,7 +248,7 @@ public final class TreeUtils {
     }
 
     /**
-     * Gets the first enclosing tree in path, of the specified class
+     * Gets the first enclosing tree in path, of the specified class.
      *
      * @param path the path defining the tree node
      * @param treeClass the class of the desired tree
@@ -684,12 +684,12 @@ public final class TreeUtils {
         }
     }
 
-    /** Returns true if the tree represents a {@code String} concatenation operation */
+    /** Returns true if the tree represents a {@code String} concatenation operation. */
     public static final boolean isStringConcatenation(Tree tree) {
         return (tree.getKind() == Tree.Kind.PLUS && TypesUtils.isString(TreeUtils.typeOf(tree)));
     }
 
-    /** Returns true if the compound assignment tree is a string concatenation */
+    /** Returns true if the compound assignment tree is a string concatenation. */
     public static final boolean isStringCompoundConcatenation(CompoundAssignmentTree tree) {
         return (tree.getKind() == Tree.Kind.PLUS_ASSIGNMENT
                 && TypesUtils.isString(TreeUtils.typeOf(tree)));
@@ -724,7 +724,7 @@ public final class TreeUtils {
         }
     }
 
-    /** Returns the receiver tree of a field access or a method invocation */
+    /** Returns the receiver tree of a field access or a method invocation. */
     public static ExpressionTree getReceiverTree(ExpressionTree expression) {
         ExpressionTree receiver = TreeUtils.skipParens(expression);
 
@@ -835,6 +835,23 @@ public final class TreeUtils {
     }
 
     /**
+     * Returns true if the argument is an invocation of one of the given methods, or of any method
+     * that overrides them.
+     */
+    public static boolean isMethodInvocation(
+            Tree methodTree, List<ExecutableElement> methods, ProcessingEnvironment processingEnv) {
+        if (!(methodTree instanceof MethodInvocationTree)) {
+            return false;
+        }
+        for (ExecutableElement Method : methods) {
+            if (isMethodInvocation(methodTree, Method, processingEnv)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns the ExecutableElement for the method declaration of methodName, in class typeName,
      * with params formal parameters. Errs if there is not exactly one matching method. If more than
      * one method takes the same number of formal parameters, then use {@link #getMethod(String,
@@ -842,18 +859,20 @@ public final class TreeUtils {
      */
     public static ExecutableElement getMethod(
             String typeName, String methodName, int params, ProcessingEnvironment env) {
-        List<ExecutableElement> methods = getMethodList(typeName, methodName, params, env);
+        List<ExecutableElement> methods = getMethods(typeName, methodName, params, env);
         if (methods.size() == 1) {
             return methods.get(0);
         }
-        throw new BugInCF("TreeUtils.getMethod: expected 1 match, found " + methods.size());
+        throw new BugInCF(
+                "TreeUtils.getMethod(%s, %s, %d): expected 1 match, found %d",
+                typeName, methodName, params, methods.size());
     }
 
     /**
      * Returns all ExecutableElements for method declarations of methodName, in class typeName, with
      * params formal parameters.
      */
-    public static List<ExecutableElement> getMethodList(
+    public static List<ExecutableElement> getMethods(
             String typeName, String methodName, int params, ProcessingEnvironment env) {
         List<ExecutableElement> methods = new ArrayList<>(1);
         TypeElement typeElt = env.getElementUtils().getTypeElement(typeName);
@@ -925,7 +944,7 @@ public final class TreeUtils {
     }
 
     /**
-     * Determine whether {@code tree} is a class literal, such as
+     * Determine whether {@code tree} is a class literal, such as.
      *
      * <pre>
      *   <em>Object</em> . <em>class</em>
@@ -941,7 +960,7 @@ public final class TreeUtils {
     }
 
     /**
-     * Determine whether {@code tree} is a field access expressions, such as
+     * Determine whether {@code tree} is a field access expressions, such as.
      *
      * <pre>
      *   <em>f</em>
@@ -985,7 +1004,7 @@ public final class TreeUtils {
     }
 
     /**
-     * Determine whether {@code tree} refers to a method element, such as
+     * Determine whether {@code tree} refers to a method element, such as.
      *
      * <pre>
      *   <em>m</em>(...)
@@ -1079,12 +1098,11 @@ public final class TreeUtils {
     /**
      * Determine whether the given tree represents an ExpressionTree.
      *
-     * <p>TODO: is there a nicer way than an instanceof?
-     *
      * @param tree the Tree to test
      * @return whether the tree is an ExpressionTree
      */
     public static boolean isExpressionTree(Tree tree) {
+        // TODO: is there a nicer way than an instanceof?
         return tree instanceof ExpressionTree;
     }
 
@@ -1124,19 +1142,6 @@ public final class TreeUtils {
     }
 
     /**
-     * @see Object#getClass()
-     * @return true iff invocationTree is an instance of getClass()
-     */
-    public static boolean isGetClassInvocation(MethodInvocationTree invocationTree) {
-        final Element declarationElement = elementFromUse(invocationTree);
-        String ownerName =
-                ElementUtils.getQualifiedClassName(declarationElement.getEnclosingElement())
-                        .toString();
-        return ownerName.equals("java.lang.Object")
-                && declarationElement.getSimpleName().contentEquals("getClass");
-    }
-
-    /**
      * Returns whether or not the leaf of the tree path is in a static scope.
      *
      * @param path TreePath whose leaf may or may not be in static scope
@@ -1157,11 +1162,11 @@ public final class TreeUtils {
         // check if its in a variable initializer
         Tree t = enclosingVariable(path);
         if (t != null) {
-            return ((VariableTree) t).getModifiers().getFlags().contains((Modifier.STATIC));
+            return ((VariableTree) t).getModifiers().getFlags().contains(Modifier.STATIC);
         }
         ClassTree classTree = enclosingClass(path);
         if (classTree != null) {
-            return classTree.getModifiers().getFlags().contains((Modifier.STATIC));
+            return classTree.getModifiers().getFlags().contains(Modifier.STATIC);
         }
         return false;
     }
@@ -1193,7 +1198,7 @@ public final class TreeUtils {
      */
     public static boolean isAnonymousConstructor(final MethodTree method) {
         @Nullable Element e = elementFromTree(method);
-        if (e == null || !(e instanceof Symbol)) {
+        if (!(e instanceof Symbol)) {
             return false;
         }
 

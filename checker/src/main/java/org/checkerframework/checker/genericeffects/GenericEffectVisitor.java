@@ -50,7 +50,6 @@ import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.Result;
-import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
 import org.checkerframework.javacutil.TreeUtils;
 
@@ -117,29 +116,6 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     @Override
     protected void checkMethodInvocability(
             AnnotatedExecutableType method, MethodInvocationTree node) {}
-
-    /**
-     * Method override validity is checked manually by the type factory during visitation, so the
-     * method is overridden here. TODO: Please document the use of this with respect to the generic
-     * effect checker better. Note: The GuiEffectChecker uses a similar setup and provides more
-     * documentation.
-     *
-     * @param overriderTree
-     * @param enclosingType
-     * @param overridden
-     * @param overriddenType
-     * @param p
-     * @return
-     */
-    @Override
-    protected boolean checkOverride(
-            MethodTree overriderTree,
-            AnnotatedTypeMirror.AnnotatedDeclaredType enclosingType,
-            AnnotatedTypeMirror.AnnotatedExecutableType overridden,
-            AnnotatedTypeMirror.AnnotatedDeclaredType overriddenType,
-            Void p) {
-        return true;
-    }
 
     /**
      * TODO: Please document the use off this with respect to the generic effect checker better.

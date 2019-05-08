@@ -1,5 +1,5 @@
 \htmlhr
-\chapter{Signature String Checker for string representations of types\label{signature-checker}}
+\chapterAndLabel{Signature String Checker for string representations of types}{signature-checker}
 
 The Signature String Checker, or Signature Checker for short, verifies that
 string representations of types and signatures are used correctly.
@@ -12,7 +12,7 @@ problem for fully qualified and binary names, which are nearly the same ---
 they differ only for nested classes and arrays.
 
 
-\section{Signature annotations\label{signature-annotations}}
+\sectionAndLabel{Signature annotations}{signature-annotations}
 
 Java defines six formats for the string representation of a type.
 There is an annotation for each of these representations.
@@ -22,7 +22,9 @@ examples appear in a table below.
 \begin{figure}
 \includeimage{signature-types}{7cm}
 \caption{Partial type hierarchy for the Signature type system, showing
-  string representations of a Java type.  Programmers only need to write
+  string representations of a Java type.
+  The type qualifiers are applicable to \<CharSequence> and its subtypes.
+  Programmers only need to write
   the boldfaced qualifiers, in the second row; qualifiers below those are
   included to improve the internal handling of String literals.}
 \label{fig-signature-hierarchy}
@@ -152,7 +154,7 @@ Java defines one format for the string representation of a method signature:
 \end{description}
 
 
-\section{What the Signature Checker checks\label{signature-checks}}
+\sectionAndLabel{What the Signature Checker checks}{signature-checks}
 
 Certain methods in the JDK, such as \<Class.forName>, are annotated
 indicating the type they require.  The Signature Checker ensures that

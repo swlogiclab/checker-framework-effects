@@ -115,7 +115,7 @@ public class ImplicitsTreeAnnotator extends TreeAnnotator {
     }
 
     /**
-     * Added an implicit rule for a particular {@link Tree} class
+     * Added an implicit rule for a particular {@link Tree} class.
      *
      * @param treeClass tree class that should be implicited to {@code theQual}
      * @param theQual the {@code AnnotationMirror} that should be applied to the {@code treeClass}
@@ -124,7 +124,7 @@ public class ImplicitsTreeAnnotator extends TreeAnnotator {
         boolean res = qualHierarchy.updateMappingToMutableSet(treeClasses, treeClass, theQual);
         if (!res) {
             throw new BugInCF(
-                    "PropagationTreeAnnotator: invalid update of map "
+                    "ImplicitsTreeAnnotator: invalid update of map "
                             + treeClasses
                             + " at "
                             + treeClass
@@ -168,7 +168,7 @@ public class ImplicitsTreeAnnotator extends TreeAnnotator {
         boolean res = qualHierarchy.updateMappingToMutableSet(treeKinds, treeKind, theQual);
         if (!res) {
             throw new BugInCF(
-                    "PropagationTreeAnnotator: invalid update of treeKinds "
+                    "ImplicitsTreeAnnotator: invalid update of treeKinds "
                             + treeKinds
                             + " at "
                             + treeKind
@@ -178,7 +178,7 @@ public class ImplicitsTreeAnnotator extends TreeAnnotator {
     }
 
     /**
-     * Added an implicit rule for all String literals that match the given pattern
+     * Added an implicit rule for all String literals that match the given pattern.
      *
      * @param pattern pattern to match Strings against
      * @param theQual {@code AnnotationMirror} to apply to Strings that match the pattern
@@ -189,7 +189,7 @@ public class ImplicitsTreeAnnotator extends TreeAnnotator {
                         stringPatterns, Pattern.compile(pattern), theQual);
         if (!res) {
             throw new BugInCF(
-                    "PropagationTreeAnnotator: invalid update of stringPatterns "
+                    "ImplicitsTreeAnnotator: invalid update of stringPatterns "
                             + stringPatterns
                             + " at "
                             + pattern

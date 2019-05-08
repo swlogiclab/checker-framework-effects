@@ -11,7 +11,7 @@ import org.checkerframework.checker.genericeffects.qual.DecimalPrecisionLoss;
 import org.checkerframework.checker.genericeffects.qual.IntegerOverflow;
 import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
 import org.checkerframework.checker.genericeffects.qual.SafeCast;
-import org.checkerframework.javacutil.InternalUtils;
+import org.checkerframework.javacutil.TreeUtils;
 
 public class CastingEffectsExtension extends GenericEffectExtension {
 
@@ -44,8 +44,8 @@ public class CastingEffectsExtension extends GenericEffectExtension {
      */
     @Override
     public Class<? extends Annotation> checkTypeCast(TypeCastTree node) {
-        TypeKind castTo = InternalUtils.typeOf(node.getType()).getKind();
-        TypeKind beingCast = InternalUtils.typeOf(node.getExpression()).getKind();
+        TypeKind castTo = TreeUtils.typeOf(node.getType()).getKind();
+        TypeKind beingCast = TreeUtils.typeOf(node.getExpression()).getKind();
         if (isSafeLiteral(node)) return SafeCast.class;
         else if ((beingCast.equals(TypeKind.LONG)
                         && (castTo.equals(TypeKind.INT)
@@ -80,7 +80,7 @@ public class CastingEffectsExtension extends GenericEffectExtension {
      *     involving literals.
      */
     private boolean isSafeLiteral(TypeCastTree node) {
-        TypeMirror t = InternalUtils.typeOf(node.getType());
+        TypeMirror t = TreeUtils.typeOf(node.getType());
         if (node.getExpression().getKind().equals(Tree.Kind.INT_LITERAL)) {
             int val = Integer.parseInt(node.getExpression().toString());
             if (t.getKind().equals(TypeKind.BYTE)) {
@@ -129,8 +129,8 @@ public class CastingEffectsExtension extends GenericEffectExtension {
     public @CompilerMessageKey String reportWarning(Tree node) {
         if (node.getKind().equals(Tree.Kind.TYPE_CAST)) {
             TypeCastTree typeCastNode = (TypeCastTree) node;
-            TypeKind castTo = InternalUtils.typeOf(typeCastNode.getType()).getKind();
-            TypeKind beingCast = InternalUtils.typeOf(typeCastNode.getExpression()).getKind();
+            TypeKind castTo = TreeUtils.typeOf(typeCastNode.getType()).getKind();
+            TypeKind beingCast = TreeUtils.typeOf(typeCastNode.getExpression()).getKind();
             if (beingCast.isPrimitive()
                     && !beingCast.equals(TypeKind.CHAR)
                     && !beingCast.equals(TypeKind.BOOLEAN)
