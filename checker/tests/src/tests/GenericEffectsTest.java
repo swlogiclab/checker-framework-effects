@@ -13,7 +13,7 @@ public class GenericEffectsTest extends CheckerFrameworkPerDirectoryTest {
                 org.checkerframework.checker.genericeffects.GenericEffectChecker.class,
                 "guieffect",
                 "-Anomsgtext");
-        //, "-Alint=debugSpew");
+        // , "-Alint=debugSpew");
     }
 
     @Parameters

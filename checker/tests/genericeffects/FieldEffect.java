@@ -5,10 +5,10 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeIntegerCast;
 public class FieldEffect {
 
     public int a = 1234;
-    //okay
+    // okay
     byte b = (byte) a;
 
     public double c = 123456;
-    //:: error: (cast.invalid)
+    // :: error: (cast.invalid)
     short d = (short) c;
 }

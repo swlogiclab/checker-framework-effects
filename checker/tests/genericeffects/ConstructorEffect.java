@@ -4,20 +4,20 @@ public class ConstructorEffect {
 
     @IntegerOverflow
     public ConstructorEffect() {
-        //okay
+        // okay
         byte a = (byte) 1234;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         byte b = (byte) 1234f;
     }
 
     public void safeCast() {
-        //:: error: (constructor.call.invalid)
+        // :: error: (constructor.call.invalid)
         new ConstructorEffect();
     }
 
     @IntegerOverflow
     public void integerOverflow() {
-        //okay
+        // okay
         new ConstructorEffect();
     }
 }

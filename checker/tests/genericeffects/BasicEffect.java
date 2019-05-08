@@ -14,97 +14,97 @@ public class BasicEffect {
 
     @IntegerOverflow
     public void checkIntegerOverflow() {
-        //:: warning: (cast.redundant)
+        // :: warning: (cast.redundant)
         byte a1 = (byte) a;
-        //okay
+        // okay
         short a2 = (short) a;
-        //okay
+        // okay
         int a3 = (int) a;
-        //okay
+        // okay
         long a4 = (long) a;
 
-        //okay
+        // okay
         byte b1 = (byte) b;
-        //:: warning: (cast.redundant)
+        // :: warning: (cast.redundant)
         short b2 = (short) b;
-        //okay
+        // okay
         int b3 = (int) b;
-        //okay
+        // okay
         long b4 = (long) b;
 
-        //okay
+        // okay
         byte c1 = (byte) c;
-        //okay
+        // okay
         short c2 = (short) c;
-        //:: warning: (cast.redundant)
+        // :: warning: (cast.redundant)
         int c3 = (int) c;
-        //okay
+        // okay
         long c4 = (long) c;
 
-        //okay
+        // okay
         byte d1 = (byte) d;
-        //okay
+        // okay
         short d2 = (short) d;
-        //okay
+        // okay
         int d3 = (int) d;
-        //:: warning: (cast.redundant)
+        // :: warning: (cast.redundant)
         long d4 = (long) d;
     }
 
     @IntegerPrecisionLoss
     public void checkIntegerPrecisionLoss() {
-        //okay
+        // okay
         float a1 = (float) a;
-        //okay
+        // okay
         double a2 = (double) a;
 
-        //okay
+        // okay
         float b1 = (float) b;
-        //okay
+        // okay
         double b2 = (double) b;
 
-        //okay
+        // okay
         float c1 = (float) c;
-        //okay
+        // okay
         double c2 = (double) c;
 
-        //okay
+        // okay
         float d1 = (float) d;
-        //okay
+        // okay
         double d2 = (double) d;
     }
 
     @DecimalOverflow
     public void checkDecimalOverflow() {
-        //okay
+        // okay
         byte e1 = (byte) e;
-        //okay
+        // okay
         short e2 = (short) e;
-        //okay
+        // okay
         int e3 = (int) e;
-        //okay
+        // okay
         long e4 = (long) e;
 
-        //okay
+        // okay
         byte f1 = (byte) f;
-        //okay
+        // okay
         short f2 = (short) f;
-        //okay
+        // okay
         int f3 = (int) f;
-        //okay
+        // okay
         long f4 = (long) f;
     }
 
     @DecimalPrecisionLoss
     public void checkDecimalPrecisionLoss() {
-        //:: warning: (cast.redundant)
+        // :: warning: (cast.redundant)
         float e1 = (float) e;
-        //okay
+        // okay
         double e2 = (double) e;
 
-        //okay
+        // okay
         float f1 = (float) f;
-        //:: warning: (cast.redundant)
+        // :: warning: (cast.redundant)
         double f2 = (double) f;
     }
 }

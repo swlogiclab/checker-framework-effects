@@ -1,46 +1,46 @@
 public class LiteralCast {
 
     public void literals() {
-        //okay
+        // okay
         byte a = (byte) -128;
-        //okay
+        // okay
         byte b = (byte) 127;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         byte c = (byte) -129;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         byte d = (byte) 128;
-        //okay
+        // okay
         short e = (short) -32768;
-        //okay
+        // okay
         short f = (short) 32767;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         short g = (short) -32769;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         short h = (short) 32768;
 
-        //okay
+        // okay
         byte i = (byte) -128L;
-        //okay
+        // okay
         byte j = (byte) 127L;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         byte k = (byte) -129L;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         byte l = (byte) 128L;
-        //okay
+        // okay
         short m = (short) -32768L;
-        //okay
+        // okay
         short n = (short) 32767L;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         short o = (short) -32769L;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         short p = (short) 32768L;
-        //okay
+        // okay
         int q = (int) -2147483648L;
-        //okay
+        // okay
         int r = (int) 2147483647L;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         int s = (int) -2147483649L;
-        //:: error: (cast.invalid)
+        // :: error: (cast.invalid)
         int t = (int) 2147483648L;
     }
 }

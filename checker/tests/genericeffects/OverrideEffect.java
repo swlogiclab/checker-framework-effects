@@ -9,11 +9,11 @@ public class OverrideEffect extends DummyClass {
 
     @Override
     @SafeCast
-    //okay
+    // okay
     public void integerPrecisionLoss() {}
 
     @Override
     @UnsafeCast
-    //:: error: (override.effect.invalid)
+    // :: error: (override.effect.invalid)
     public void decimalPrecisionLoss() {}
 }

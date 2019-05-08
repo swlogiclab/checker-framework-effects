@@ -8,13 +8,13 @@ import org.checkerframework.checker.genericeffects.qual.NumberOverflow;
 public class InnerClassEffect {
 
     public void safeCast() {
-        //:: error: (call.invalid.effect)
+        // :: error: (call.invalid.effect)
         integerOverflowEffect();
-        //:: error: (call.invalid.effect)
+        // :: error: (call.invalid.effect)
         integerPrecisionLossEffect();
-        //:: error: (call.invalid.effect)
+        // :: error: (call.invalid.effect)
         decimalOverflowEffect();
-        //:: error: (call.invalid.effect)
+        // :: error: (call.invalid.effect)
         decimalPrecisionLossEffect();
     }
 
@@ -34,13 +34,13 @@ public class InnerClassEffect {
     public class UnsafeClass {
 
         public void numberOverflow() {
-            //okay
+            // okay
             integerOverflowEffect();
-            //:: error: (call.invalid.effect)
+            // :: error: (call.invalid.effect)
             integerPrecisionLossEffect();
-            //okay
+            // okay
             decimalOverflowEffect();
-            //:: error: (call.invalid.effect)
+            // :: error: (call.invalid.effect)
             decimalPrecisionLossEffect();
         }
 

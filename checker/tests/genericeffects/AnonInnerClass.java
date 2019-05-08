@@ -8,9 +8,9 @@ public class AnonInnerClass {
         new DummyInterface() {
             @Override
             public void test() {
-                //okay
+                // okay
                 byte a = (byte) 1234;
-                //:: error: (cast.invalid)
+                // :: error: (cast.invalid)
                 byte b = (byte) 1234f;
             }
         };

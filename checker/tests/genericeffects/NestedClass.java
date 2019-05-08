@@ -10,11 +10,11 @@ public class NestedClass {
 
         public class Nest2 {
             public void nest2Test() {
-                //okay
+                // okay
                 byte a = (byte) 1234;
-                //:: error: (cast.invalid)
+                // :: error: (cast.invalid)
                 byte b = (byte) 1234f;
-                //:: error: (call.invalid.effect)
+                // :: error: (call.invalid.effect)
                 nest1Test();
             }
         }
