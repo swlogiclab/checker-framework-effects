@@ -2,10 +2,12 @@ package org.checkerframework.checker.index.inequality;
 
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Tree;
+import java.util.ArrayList;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.checker.index.Subsequence;
+import org.checkerframework.checker.index.upperbound.OffsetEquation;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.Result;
@@ -74,26 +76,41 @@ public class LessThanVisitor extends BaseTypeVisitor<LessThanAnnotatedTypeFactor
                 }
             }
             if (isLessThan) {
-                if (checker.hasOption("showchecks")) {
-                    // Print the success message because super isn't called.
-                    long valuePos = positions.getStartPosition(root, valueTree);
-                    System.out.printf(
-                            " %s (line %3d): %s %s%n     actual: %s %s%n   expected: %s %s%n",
-                            "success: actual is subtype of expected",
-                            (root.getLineMap() != null
-                                    ? root.getLineMap().getLineNumber(valuePos)
-                                    : -1),
-                            valueTree.getKind(),
-                            valueTree,
-                            valueType.getKind(),
-                            valueType.toString(),
-                            varType.getKind(),
-                            varType.toString());
-                }
-                // skip call to super.
+                // Print the messages because super isn't called.
+                commonAssignmentCheckStartDiagnostic(varType, valueType, valueTree);
+                commonAssignmentCheckEndDiagnostic(
+                        true, "isLessThan", varType, valueType, valueTree);
+                // skip call to super, everything is OK.
                 return;
             }
         }
         super.commonAssignmentCheck(varType, valueType, valueTree, errorKey);
+    }
+
+    @Override
+    protected boolean isTypeCastSafe(AnnotatedTypeMirror castType, AnnotatedTypeMirror exprType) {
+
+        AnnotationMirror exprLTAnno =
+                exprType.getEffectiveAnnotationInHierarchy(atypeFactory.UNKNOWN);
+
+        if (exprLTAnno != null) {
+            List<String> initialAnnotations =
+                    LessThanAnnotatedTypeFactory.getLessThanExpressions(exprLTAnno);
+
+            if (initialAnnotations != null) {
+                List<String> updatedAnnotations = new ArrayList<>();
+
+                for (String annotation : initialAnnotations) {
+                    OffsetEquation updatedAnnotation =
+                            OffsetEquation.createOffsetFromJavaExpression(annotation);
+                    updatedAnnotations.add(updatedAnnotation.toString());
+                }
+
+                exprType.replaceAnnotation(
+                        atypeFactory.createLessThanQualifier(updatedAnnotations));
+            }
+        }
+
+        return super.isTypeCastSafe(castType, exprType);
     }
 }
