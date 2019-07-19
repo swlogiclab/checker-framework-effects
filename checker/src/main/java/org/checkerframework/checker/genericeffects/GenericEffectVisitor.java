@@ -40,8 +40,8 @@ import com.sun.source.tree.UnionTypeTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.tree.WildcardTree;
 import java.lang.annotation.Annotation;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -59,8 +59,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     private GenericEffectExtension extension;
 
     // effStack and currentMethods should always be the same size.
-    protected final ArrayDeque<Class<? extends Annotation>> effStack;
-    protected final ArrayDeque<MethodTree> currentMethods;
+    protected final Deque<Class<? extends Annotation>> effStack;
+    protected final Deque<MethodTree> currentMethods;
 
     // fields for compiler arguments
     boolean ignoringEffects;
@@ -76,13 +76,16 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      * @param ext An GenericEffectExtension object that provides the developer with more functions
      *     dealing with specific tree nodes.
      */
+    @SuppressWarnings("JdkObsolete")
     public GenericEffectVisitor(BaseTypeChecker checker, GenericEffectExtension ext) {
         super(checker);
         assert (checker instanceof GenericEffectChecker);
         debugSpew = checker.getLintOption("debugSpew", false);
 
-        effStack = new ArrayDeque<Class<? extends Annotation>>();
-        currentMethods = new ArrayDeque<MethodTree>();
+        /* ErrorProne JdkObsolete warnings are suppressed here because we must use a deque/stack implementation that permits null.
+         * Without supressing this warning, ErrorProne complains we should be using ArrayDeque, which rejects null elements. */
+        effStack = new LinkedList<Class<? extends Annotation>>();
+        currentMethods = new LinkedList<MethodTree>();
 
         extension = ext;
 
@@ -149,8 +152,6 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         }
 
         assert (methElt != null);
-
-        ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
 
         atypeFactory.checkEffectOverride(
                 (TypeElement) methElt.getEnclosingElement(), methElt, true, node);

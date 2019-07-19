@@ -24,7 +24,7 @@ An example of this is provided below:
 public void testCasts() \{
     int a = 1234;
     byte b = (byte) a; //Okay because cast has IntegerOverflow effect
-	
+
     float c = 1234f;
     byte d = (byte) c; //Error because cast has DecimalOverflow effect
 \}
@@ -223,3 +223,4 @@ Here are the possible errors and warnings that can arise:
 \item
 {[cast.redundant]} is a warning that occurs when there is a cast that is redundant (only for primitives).
 \end{itemize}
+

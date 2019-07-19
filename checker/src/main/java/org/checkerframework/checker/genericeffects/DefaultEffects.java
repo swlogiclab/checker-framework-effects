@@ -26,8 +26,8 @@ public final class DefaultEffects implements GenericEffectLattice {
     public boolean LE(Class<? extends Annotation> left, Class<? extends Annotation> right) {
         assert (left != null && right != null);
 
-        boolean leftBottom = (left.equals(NoIOEffect.class)) ? true : false;
-        boolean rightTop = (right.equals(IOEffect.class)) ? true : false;
+        boolean leftBottom = left.equals(NoIOEffect.class) ? true : false;
+        boolean rightTop = right.equals(IOEffect.class) ? true : false;
 
         return leftBottom || rightTop;
     }
