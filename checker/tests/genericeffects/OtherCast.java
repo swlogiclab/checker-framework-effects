@@ -1,10 +1,10 @@
 public class OtherCast {
     public void testOtherCast() {
-        //Okay
+        // Okay
         String a = (String) "text";
-        //Okay
+        // Okay
         boolean b = (boolean) true;
-        //Okay
+        // Okay
         int c = (int) 'c';
     }
 }

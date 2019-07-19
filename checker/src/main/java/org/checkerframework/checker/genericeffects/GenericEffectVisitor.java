@@ -40,9 +40,8 @@ import com.sun.source.tree.UnionTypeTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.tree.WildcardTree;
 import java.lang.annotation.Annotation;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Stack;
-import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -60,8 +59,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     private GenericEffectExtension extension;
 
     // effStack and currentMethods should always be the same size.
-    protected final Stack<Class<? extends Annotation>> effStack;
-    protected final Stack<MethodTree> currentMethods;
+    protected final ArrayDeque<Class<? extends Annotation>> effStack;
+    protected final ArrayDeque<MethodTree> currentMethods;
 
     // fields for compiler arguments
     boolean ignoringEffects;
@@ -82,8 +81,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         assert (checker instanceof GenericEffectChecker);
         debugSpew = checker.getLintOption("debugSpew", false);
 
-        effStack = new Stack<Class<? extends Annotation>>();
-        currentMethods = new Stack<MethodTree>();
+        effStack = new ArrayDeque<Class<? extends Annotation>>();
+        currentMethods = new ArrayDeque<MethodTree>();
 
         extension = ext;
 
@@ -126,11 +125,11 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     @Override
     public void processClassTree(ClassTree node) {
         // Fix up context for static initializers of new class
-        currentMethods.push(null);
-        effStack.push(genericEffect.getBottomMostEffectInLattice());
+        currentMethods.addFirst(null);
+        effStack.addFirst(genericEffect.getBottomMostEffectInLattice());
         super.processClassTree(node);
-        currentMethods.pop();
-        effStack.pop();
+        currentMethods.removeFirst();
+        effStack.removeFirst();
     }
 
     /**
@@ -152,28 +151,22 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         assert (methElt != null);
 
         ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
-        AnnotationMirror annotatedEffect;
 
-        for (Class<? extends Annotation> OkEffect : validEffects) {
-            annotatedEffect = atypeFactory.getDeclAnnotation(methElt, OkEffect);
+        atypeFactory.checkEffectOverride(
+                (TypeElement) methElt.getEnclosingElement(), methElt, true, node);
 
-            (atypeFactory)
-                    .checkEffectOverride(
-                            (TypeElement) (methElt.getEnclosingElement()), methElt, true, node);
-        }
+        currentMethods.addFirst(node);
 
-        currentMethods.push(node);
-
-        effStack.push(atypeFactory.getDeclaredEffect(methElt));
+        effStack.addFirst(atypeFactory.getDeclaredEffect(methElt));
 
         if (debugSpew) {
             System.err.println(
-                    "Pushing " + effStack.peek() + " onto the stack when checking " + methElt);
+                    "Pushing " + effStack.peekFirst() + " onto the stack when checking " + methElt);
         }
 
         Void ret = super.visitMethod(node, p);
-        currentMethods.pop();
-        effStack.pop();
+        currentMethods.removeFirst();
+        effStack.removeFirst();
         return ret;
     }
 
