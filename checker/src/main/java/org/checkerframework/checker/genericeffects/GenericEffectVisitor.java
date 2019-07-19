@@ -160,12 +160,6 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             (atypeFactory)
                     .checkEffectOverride(
                             (TypeElement) (methElt.getEnclosingElement()), methElt, true, node);
-
-            if (annotatedEffect == null) {
-                atypeFactory
-                        .fromElement(methElt)
-                        .addAnnotation(atypeFactory.getDeclaredEffect(methElt));
-            }
         }
 
         currentMethods.push(node);
