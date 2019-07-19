@@ -1,0 +1,225 @@
+\htmlhr
+\chapter{Casting Effect Checker\label{castingeffect-checker}}
+
+Some common bugs that can occur due to casting with primitive types are overflow and losing precision. These are avoidable bugs that can sometimes go unnoticed by a developer. This checker aims to solve that problem by providing a way to annotate and check different kinds of casts that the developer aims to use.
+
+\noindent
+The different kinds of unsafe casts involving primitives are categorized into four distinct groups:
+
+\emph{Integer Overflow} in this checker refers to a situation where any integer primitive (meaning byte, short, int, or long) is cast to another integer primitive that does not have enough bits to represent the same number causing it to overflow.
+
+\emph{Integer Precision Loss} in this checker refers to a situation where any integer primitive is cast to floating-point primitive (meaning float or double) that does not have enough bits to accurately represent the same number causing it to lose precision.
+
+\emph{Decimal Overflow} in this checker refers to a situation where any floating-point primitive is cast to an integer primitive that does not have enough bits to represent the same number causing it to overflow.
+
+\emph{Decimal Precision Loss} in this checker refers to a situation where any floating-point primitive is cast to another floating-point primitive that does not have enough bits to accurately represent the same number causing it to lose precision.
+
+The programmer can annotate methods and classes to allow and restrict certain casts and different combinations of them from taking place. This allows the programmers to keep track of how they are performing their computations and prevent overflow and precision loss bugs from appearing in their programs.
+
+\noindent
+An example of this is provided below:
+
+\begin{alltt}
+@IntegerOverflow //Effect of method
+public void testCasts() \{
+    int a = 1234;
+    byte b = (byte) a; //Okay because cast has IntegerOverflow effect
+	
+    float c = 1234f;
+    byte d = (byte) c; //Error because cast has DecimalOverflow effect
+\}
+\end{alltt}
+
+\section{Annotations\label{castingeffect-checker-annotations}}
+
+The lattice for the casting effect checker is shown in figure \ref{fig-casting-hierarchy}.
+\begin{figure}
+\includeimage{casting}{3.5cm}
+\caption{The type qualifier hierarchy of the casting effect annotations.}
+\label{fig-casting-hierarchy}
+\end{figure}
+
+\noindent
+Here are the possible annotations for the casting effect checker:
+\begin{itemize}
+\item
+\refqualclass{checker/genericeffects/qual}{UnsafeCast} is an annotation for methods that allows all casts to occur.
+\item
+\refqualclass{checker/genericeffects/qual}{NumberPrecisionLoss} is an annotation for methods that allow all casts to floating-point primitives.
+\item
+\refqualclass{checker/genericeffects/qual}{NumberOverflow} is an annotations for methods that allow all casts to integer primitives.
+\item
+\refqualclass{checker/genericeffects/qual}{UnsafeIntegerCast} is an annotation for methods that allow all casts from integer primitives.
+\item
+\refqualclass{checker/genericeffects/qual}{UnsafeDecimalCast} is an annotation for methods that allow all casts from floating-point primitives.
+\item
+\refqualclass{checker/genericeffects/qual}{IntegerPrecisionLoss} is an annotation for methods that allow all casts from integer primitives to floating-point primitives.
+\item
+\refqualclass{checker/genericeffects/qual}{IntegerOverflow} is an annotation for methods that allow all casts from integer primitives to integer primitives.
+\item
+\refqualclass{checker/genericeffects/qual}{DecimalPrecisionLoss} is an annotation for methods that allow casts from floating-point primitives to floating-point primitives.
+\item
+\refqualclass{checker/genericeffects/qual}{DecimalOverflow} is an annotation for methods that allow casts from from floating-point primitives to integer primitives.
+\item
+\refqualclass{checker/genericeffects/qual}{SafeCast} is an annotation for methods that do no allow any unsafe casts to occur.
+\end{itemize}
+
+The default effect for methods and classes is \refqualclass{checker/genericeffects/qual}{SafeCast} unless stated otherwise with the \refqualclass{checker/genericeffects/qual}{DefaultEffect} annotation [e.g., @DefaultEffect(IntegerOverflow.class)].
+
+\refqualclass{checker/genericeffects/qual}{DefaultEffect} is a class annotation that can be used to denote the default effect of methods within a class. This annotation is also compared against the effects of casts outside of methods (fields, static initializers, etc.) to determine what cast can occur as shown below.
+
+\begin{alltt}
+@DefaultEffect(IntegerOverflow.class)
+public class CastingCheck() \{
+    public byte a = (byte) 1234; //Okay because this has IntegerOverflow effect
+    public byte b = (byte) 1234f; //Error because this has DecimalOverflow effect
+
+    //This method will have an IntegerOverflow effect by default
+    public void testDefault() \{
+        int c = 123456;
+        short d = (short) c; //Okay because default effect of method is IntegerOverflow
+    \}
+\}
+\end{alltt}
+
+The Default Effect of a class will be passed down to any inner classes that are not annotated. Therefore, any method attempting to determine its default effect will find the innermost default effect annotation and use that. If none are found then it will be given the SafeCast effect. A similar process takes place for casts that occur outside of methods.
+\begin{alltt}
+@DefaultEffect(IntegerOverflow.class)
+public class DefaultAnnoCheck() \{
+    public class InnerClass() \{
+        public short a = (short) 123456; //Okay because default effect is IntegerOverflow
+
+        //This method will have an IntegerOverflow effect by default
+        public void testDefault() \{
+            byte b = (byte) 1234; //Okay because method has IntegerOverflow effect
+        \}
+\}
+\end{alltt}
+
+\section{What the Casting Effect Checker checks\label{castingeffect-checks}}
+
+The casting effect checker checks if unsafe casts are made in the correct context. This means that methods or constructors that perform casts can be annotated by the developer with a specific effect depending on the casts that should be allowed within those methods or constructors. If a cast that has a certain effect is called in the wrong context then an error will be raised. The checker also ensures that method calls and constructor calls in another method or constructor are called in the correct context by checking their effects too.
+
+\begin{alltt}
+@IntegerOverflow
+public void intOver() \{
+    decOver(); //Error because a method with the DecimalOverflow effect is being called
+\}
+
+@DecimalOverflow
+public void decOver() \{
+    byte a = (byte) 1234f; //Okay because cast is called from the correct context
+\}
+\end{alltt}
+
+Overriding a method with another effect will also be checked by the casting effect checker. If the new effect is greater than the overridden effect, an error will be raised.
+
+\begin{alltt}
+public class Foo \{
+    @IntegerOverflow
+    public void intOver() \{
+        //do nothing
+    \}
+\}
+public class Boo extends Foo \{
+    @UnsafeCast
+    public void intOver() \{
+        //Invalid override because UnsafeCast is higher than IntegerOverflow
+    \}
+\}
+\end{alltt}
+
+Each cast that is possible using primitives has been determined to be safe or unsafe and put into its respective group. Casts which are unsafe are checked to be in the correct context by the casting effect checker.
+
+The casts that have been deemed unsafe and placed in \emph{Integer Overflow} are casts from larger integer primitives to smaller integer primitives. Casting from a larger integer type to a smaller integer type has a chance of overflowing because the same amount of bits cannot be represented; therefore, it is raises an error if used in the incorrect context. Here are the casts that have a chance of doing this:
+\begin{itemize}
+\item
+short to byte
+\item
+int to short
+\item
+int to byte
+\item
+long to int
+\item
+long to short
+\item
+long to byte
+\end{itemize}
+
+The casts that have been deemed unsafe and placed in \emph{Integer Precision Loss} are casts from integer primitives to floating-point primitives. Casting from an integer type to a floating-point type that cannot represent the integer type with its mantissa will lose precision; therefore, it raises an error if used in the incorrect context. Here are the casts that have a chance of doing this:
+\begin{itemize}
+\item
+int to float
+\item
+long to float
+\item
+long to double
+\end{itemize}
+
+\noindent
+The casts that have been deemed unsafe and placed in \emph{Decimal Overflow} are casts from floating-point primitives to integer primitives. Casting from a floating-point type to an integer type has a chance of overflowing since floating-point types can represent much larger numbers than integer types; therefore, it raises an error if used in the incorrect context. Here are the casts that have a chance of doing this:
+\begin{itemize}
+\item
+float to byte
+\item
+float to short
+\item
+float to int
+\item
+float to long
+\item
+double to byte
+\item
+double to short
+\item
+double to int
+\item
+double to long
+\end{itemize}
+
+The casts that have been deemed unsafe and placed in \emph{Decimal Precision Loss} are casts from larger floating-point primitives to smaller floating-point primitives. Casting from a larger floating-point type to a smaller floating-point type has a chance of losing precision because the same amount of bits cannot be represented by the smaller floating-point type; therefore, it raises an error if used in the incorrect context. Here are the casts that have a chance of doing this:
+\begin{itemize}
+\item
+double to float
+\end{itemize}
+
+The casting effect checker also has the basic ability to check literals and ensure if they are safe or not. If there is an int literal or a long literal, the casting effect checker will check if it's being cast to another integer primitive. If it is being cast to another integer primitive, then the value being cast will be checked against the bounds of the new integer type. If it is within those bounds, then that cast will return no effect.
+
+\begin{alltt}
+public void testLiteral() \{
+    short a = (short) 123; //No effect because literal is within bounds of short
+    short b = (short) 123456; //IntegerOverflow because literal is outside the bounds of short
+\}
+\end{alltt}
+
+\section{Running the Casting Effect Checker\label{castingeffect-running}}
+
+The casting effect checker can be invoked by running the following command (Note: The casting effect checker is built on top of the generic effect checker):
+\begin{Verbatim}
+  javac -processor org.checkerframework.checker.genericeffects.GenericEffectChecker MyFile.java ...
+\end{Verbatim}
+
+There are three different command-line arguments that the developer can use while checking to ignore certain effects, warnings, and errors as demonstrated below (Note: If you do ignore multiple effects, errors, or warnings, then seperate them only by commas without any spaces):
+\begin{Verbatim}
+  javac -processor org.checkerframework.checker.genericeffects.GenericEffectChecker \
+        -AignoreEffects=IntegerOverflow,IntegerPrecisionLoss,... \
+        -AignoreErrors=cast.invalid,call.invalid.effect,... \
+        -AignoreWarnings=cast.redundant MyFile.java ...
+\end{Verbatim}
+
+\section{Errors and Warnings of the Casting Effect Checker\label{castingeffect-errors}}
+
+Here are the possible errors and warnings that can arise:
+\begin{itemize}
+\item
+{[override.effect.invalid]} is an error that occurs when there is a method that is being overridden to have an effect that is larger than is current effect.
+\item
+{[constructor.call.invalid]} is an error that occurs when there is a constructor that is called from an invalid context.
+\item
+{[call.invalid.effect]} is an error that occurs when there is a method that is called from an invalid context.
+\item
+{[cast.invalid]} is an error that occurs when there is a cast that is in an invalid context.
+\item
+{[cast.redundant]} is a warning that occurs when there is a cast that is redundant (only for primitives).
+\end{itemize}

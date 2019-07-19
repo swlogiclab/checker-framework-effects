@@ -1,0 +1,543 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="189mm"
+   height="54mm"
+   viewBox="0 0 189 54"
+   version="1.1"
+   id="svg214"
+   inkscape:version="0.92.0 r15299"
+   sodipodi:docname="casting.svg">
+  <defs
+     id="defs208">
+    <marker
+       id="arrow-4"
+       orient="auto"
+       markerWidth="5"
+       markerHeight="5"
+       refY="2.5"
+       refX="0">
+      <path
+         inkscape:connector-curvature="0"
+         style="fill:#000000"
+         d="M 5,0 0,2.5 5,5"
+         id="path5-9" />
+    </marker>
+    <marker
+       id="arrow-4-5"
+       orient="auto"
+       markerWidth="5"
+       markerHeight="5"
+       refY="2.5"
+       refX="0">
+      <path
+         inkscape:connector-curvature="0"
+         style="fill:#000000"
+         d="M 5,0 0,2.5 5,5"
+         id="path5-9-7" />
+    </marker>
+    <marker
+       id="arrow-4-5-1"
+       orient="auto"
+       markerWidth="5"
+       markerHeight="5"
+       refY="2.5"
+       refX="0">
+      <path
+         inkscape:connector-curvature="0"
+         style="fill:#000000"
+         d="M 5,0 0,2.5 5,5"
+         id="path5-9-7-8" />
+    </marker>
+    <marker
+       id="arrow-4-5-1-3"
+       orient="auto"
+       markerWidth="5"
+       markerHeight="5"
+       refY="2.5"
+       refX="0">
+      <path
+         inkscape:connector-curvature="0"
+         style="fill:#000000"
+         d="M 5,0 0,2.5 5,5"
+         id="path5-9-7-8-0" />
+    </marker>
+    <marker
+       id="arrow-4-5-0"
+       orient="auto"
+       markerWidth="5"
+       markerHeight="5"
+       refY="2.5"
+       refX="0">
+      <path
+         inkscape:connector-curvature="0"
+         style="fill:#000000"
+         d="M 5,0 0,2.5 5,5"
+         id="path5-9-7-6" />
+    </marker>
+    <marker
+       id="arrow-4-8"
+       orient="auto"
+       markerWidth="5"
+       markerHeight="5"
+       refY="2.5"
+       refX="0">
+      <path
+         inkscape:connector-curvature="0"
+         style="fill:#000000"
+         d="M 5,0 0,2.5 5,5"
+         id="path5-9-2" />
+    </marker>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.98994949"
+     inkscape:cx="263.2867"
+     inkscape:cy="148.81552"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1536"
+     inkscape:window-height="801"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata211">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-243)">
+    <g
+       id="g3631-2"
+       transform="matrix(0.19999999,0,0,0.19999999,-13.825262,335.36113)">
+      <text
+         font-size="15.8044"
+         style="font-style:normal;font-weight:normal;font-size:15.80440044px;font-family:'courier new';text-anchor:middle;fill:#000000"
+         x="441.76974"
+         y="56.765598"
+         id="text3676-2">
+        <tspan
+           style="font-size:21.16666603px"
+           x="441.76974"
+           y="56.765598"
+           id="tspan3678-2" />
+      </text>
+      <g
+         id="string-a-aa-b"
+         transform="matrix(0.94415635,0,0,0.94415635,-637.26824,-741.65698)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@NumberPrecisionLoss</text>
+      </g>
+      <g
+         id="string-a-aa-b-1"
+         transform="matrix(0.94415635,0,0,0.94415635,-396.74116,-741.65698)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-5"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-2"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@UnsafeIntegerCast</text>
+      </g>
+      <g
+         id="string-a-aa-b-4"
+         transform="matrix(0.94415635,0,0,0.94415635,-274.00271,-816.43854)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-0"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-3"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@UnsafeCast</text>
+      </g>
+      <g
+         id="string-a-aa-b-5"
+         transform="matrix(0.94415635,0,0,0.94415635,-156.21407,-741.65698)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-4"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-35"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@UnsafeDecimalCast</text>
+      </g>
+      <g
+         id="string-a-aa-b-8"
+         transform="matrix(0.94415635,0,0,0.94415635,84.31304,-741.65698)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-06"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-6"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@NumberOverflow</text>
+      </g>
+      <g
+         id="string-a-aa-b-3"
+         transform="matrix(0.94415635,0,0,0.94415635,-281.3378,-590.99359)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-8"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-0"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@SafeCast</text>
+      </g>
+      <g
+         id="string-a-aa-b-9"
+         transform="matrix(0.94415635,0,0,0.94415635,86.709732,-665.04966)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-43"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-7"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@DecimalOverflow</text>
+      </g>
+      <g
+         id="string-a-aa-b-6"
+         transform="matrix(0.94415635,0,0,0.94415635,-155.01055,-665.04966)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-7"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-66"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@IntegerOverflow</text>
+      </g>
+      <g
+         id="string-a-aa-b-0"
+         transform="matrix(0.94415635,0,0,0.94415635,-396.73077,-665.04966)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-1"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-22"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@DecimalPrecisionLoss</text>
+      </g>
+      <g
+         id="string-a-aa-b-07"
+         transform="matrix(0.94415635,0,0,0.94415635,-638.45101,-665.04966)">
+        <rect
+           x="755"
+           y="380"
+           width="220"
+           height="40"
+           id="rect146-6"
+           style="fill:#ffffff;stroke:#000000;stroke-width:2.1400001" />
+        <text
+           x="865"
+           y="404.10754"
+           id="text148-665"
+           style="font-style:normal;font-weight:normal;font-size:14.10753822px;font-family:'courier new';text-anchor:middle">@IntegerPrecisionLoss</text>
+      </g>
+      <polyline
+         transform="matrix(0.94415635,0,0,0.94415635,-41.997572,-598.72557)"
+         points="835,420 775,450"
+         id="polyline172" />
+      <g
+         id="g68-0"
+         transform="matrix(1.5648769,0,0,0.85403884,-194.45053,-505.5066)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="400"
+           y1="320"
+           x2="302.71799"
+           y2="282.168"
+           id="line70-2" />
+        <polygon
+           style="fill:#000000"
+           points="300.906,286.828 304.53,277.508 293.398,278.544 "
+           id="polygon72-3" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="304.53,277.508 293.398,278.544 300.906,286.828 "
+           id="polygon74-7" />
+      </g>
+      <g
+         id="g60-8"
+         transform="matrix(-1.6430101,0,0,0.8622367,1299.8838,-576.64411)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="402.10901"
+           y1="399.461"
+           x2="302.76199"
+           y2="362.052"
+           id="line62-7" />
+        <polygon
+           style="fill:#000000"
+           points="301,366.732 304.524,357.373 293.404,358.529 "
+           id="polygon64-9" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="304.524,357.373 293.404,358.529 301,366.732 "
+           id="polygon66-2" />
+      </g>
+      <polyline
+         points="135,280 135,320"
+         id="polyline114"
+         transform="matrix(0.94415635,0,0,0.94415635,487.11619,-533.63054)"
+         style="fill:none;stroke:#000000;stroke-width:3.20000005;stroke-dasharray:0, 5, 1000;marker-start:url(#arrow-4)" />
+      <polyline
+         points="135,280 135,320"
+         id="polyline114-9"
+         transform="matrix(0.94415635,0,0,0.94415635,352.20087,-533.52759)"
+         style="fill:none;stroke:#000000;stroke-width:3.20000005;stroke-dasharray:0, 5, 1000;marker-start:url(#arrow-4-5)" />
+      <polyline
+         points="135,280 135,320"
+         id="polyline114-9-9"
+         transform="matrix(0.94415635,0,0,0.94415635,52.858989,-609.03123)"
+         style="fill:none;stroke:#000000;stroke-width:3.20000005;stroke-dasharray:0, 5, 1000;marker-start:url(#arrow-4-5-1)" />
+      <g
+         id="g60-8-4"
+         transform="matrix(-1.2347827,0,0,0.92017381,778.69952,-673.55897)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="402.10901"
+           y1="399.461"
+           x2="302.76199"
+           y2="362.052"
+           id="line62-7-0" />
+        <polygon
+           style="fill:#000000"
+           points="301,366.732 304.524,357.373 293.404,358.529 "
+           id="polygon64-9-0" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="304.524,357.373 293.404,358.529 301,366.732 "
+           id="polygon66-2-8" />
+      </g>
+      <g
+         id="g60-8-4-9"
+         transform="matrix(1.2491345,0,0,0.93807301,-83.216858,-681.43769)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="402.10901"
+           y1="399.461"
+           x2="302.76199"
+           y2="362.052"
+           id="line62-7-0-4" />
+        <polygon
+           style="fill:#000000"
+           points="293.404,358.529 301,366.732 304.524,357.373 "
+           id="polygon64-9-0-6" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="301,366.732 304.524,357.373 293.404,358.529 "
+           id="polygon66-2-8-0" />
+      </g>
+      <polyline
+         points="135,280 135,320"
+         id="polyline114-9-9-0"
+         transform="matrix(0.94415635,0,0,0.94415635,779.83215,-609.69941)"
+         style="fill:none;stroke:#000000;stroke-width:3.20000005;stroke-dasharray:0, 5, 1000;marker-start:url(#arrow-4-5-1-3)" />
+      <g
+         id="g60-8-4-4"
+         transform="matrix(-1.2319651,0,0,0.94682602,1158.6146,-684.5759)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="402.10901"
+           y1="399.461"
+           x2="302.76199"
+           y2="362.052"
+           id="line62-7-0-6" />
+        <polygon
+           style="fill:#000000"
+           points="304.524,357.373 293.404,358.529 301,366.732 "
+           id="polygon64-9-0-63" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="293.404,358.529 301,366.732 304.524,357.373 "
+           id="polygon66-2-8-9" />
+      </g>
+      <g
+         id="g60-8-4-9-9"
+         transform="matrix(1.2491345,0,0,0.93807301,297.25954,-680.99383)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="402.10901"
+           y1="399.461"
+           x2="302.76199"
+           y2="362.052"
+           id="line62-7-0-4-5" />
+        <polygon
+           style="fill:#000000"
+           points="304.524,357.373 293.404,358.529 301,366.732 "
+           id="polygon64-9-0-6-1" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="293.404,358.529 301,366.732 304.524,357.373 "
+           id="polygon66-2-8-0-5" />
+      </g>
+      <g
+         id="g60-8-4-96"
+         transform="matrix(-1.2292069,0,0,0.89729514,967.74557,-665.25035)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="402.10901"
+           y1="399.461"
+           x2="302.76199"
+           y2="362.052"
+           id="line62-7-0-3" />
+        <polygon
+           style="fill:#000000"
+           points="304.524,357.373 293.404,358.529 301,366.732 "
+           id="polygon64-9-0-69" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="293.404,358.529 301,366.732 304.524,357.373 "
+           id="polygon66-2-8-2" />
+      </g>
+      <g
+         id="g60-8-4-9-5"
+         transform="matrix(1.2375321,0,0,0.91538264,111.77898,-671.86403)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="402.10901"
+           y1="399.461"
+           x2="302.76199"
+           y2="362.052"
+           id="line62-7-0-4-1" />
+        <polygon
+           style="fill:#000000"
+           points="301,366.732 304.524,357.373 293.404,358.529 "
+           id="polygon64-9-0-6-14" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="304.524,357.373 293.404,358.529 301,366.732 "
+           id="polygon66-2-8-0-7" />
+      </g>
+      <g
+         id="g60-8-8"
+         transform="matrix(-1.5843482,0,0,0.89268305,921.30737,-738.91369)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="402.10901"
+           y1="399.461"
+           x2="302.76199"
+           y2="362.052"
+           id="line62-7-9" />
+        <polygon
+           style="fill:#000000"
+           points="304.524,357.373 293.404,358.529 301,366.732 "
+           id="polygon64-9-8" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="293.404,358.529 301,366.732 304.524,357.373 "
+           id="polygon66-2-4" />
+      </g>
+      <polyline
+         points="135,280 135,320"
+         id="polyline114-9-5"
+         transform="matrix(0.94415635,0,0,0.94415635,355.29699,-685.29349)"
+         style="fill:none;stroke:#000000;stroke-width:3.20000005;stroke-dasharray:0, 5, 1000;marker-start:url(#arrow-4-5-0)" />
+      <polyline
+         points="135,280 135,320"
+         id="polyline114-7"
+         transform="matrix(0.94415635,0,0,0.94415635,471.52468,-684.568)"
+         style="fill:none;stroke:#000000;stroke-width:3.20000005;stroke-dasharray:0, 5, 1000;marker-start:url(#arrow-4-8)" />
+      <g
+         id="g68-0-3"
+         transform="matrix(1.577473,0,0,0.87111241,166.16187,-661.63354)">
+        <line
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           x1="400"
+           y1="320"
+           x2="302.71799"
+           y2="282.168"
+           id="line70-2-8" />
+        <polygon
+           style="fill:#000000"
+           points="304.53,277.508 293.398,278.544 300.906,286.828 "
+           id="polygon72-3-6" />
+        <polygon
+           style="fill:none;stroke:#000000;stroke-width:3.21660709"
+           points="293.398,278.544 300.906,286.828 304.53,277.508 "
+           id="polygon74-7-2" />
+      </g>
+    </g>
+    <rect
+       style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.26458332;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:0"
+       id="rect5652-4"
+       width="188.15768"
+       height="53.721134"
+       x="0.4562889"
+       y="243.07642" />
+  </g>
+</svg>
