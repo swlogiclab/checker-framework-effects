@@ -1,5 +1,5 @@
 \htmlhr
-\chapter{Casting Effect Checker\label{castingeffect-checker}}
+\chapterAndLabel{Casting Effect Checker}{castingeffect-checker}
 
 Some common bugs that can occur due to casting with primitive types are overflow and losing precision. These are avoidable bugs that can sometimes go unnoticed by a developer. This checker aims to solve that problem by providing a way to annotate and check different kinds of casts that the developer aims to use.
 
@@ -30,7 +30,7 @@ public void testCasts() \{
 \}
 \end{alltt}
 
-\section{Annotations\label{castingeffect-checker-annotations}}
+\sectionAndLabel{Annotations}{castingeffect-checker-annotations}
 
 The lattice for the casting effect checker is shown in figure \ref{fig-casting-hierarchy}.
 \begin{figure}
@@ -96,7 +96,7 @@ public class DefaultAnnoCheck() \{
 \}
 \end{alltt}
 
-\section{What the Casting Effect Checker checks\label{castingeffect-checks}}
+\sectionAndLabel{What the Casting Effect Checker Checks}{castingeffect-checks}
 
 The casting effect checker checks if unsafe casts are made in the correct context. This means that methods or constructors that perform casts can be annotated by the developer with a specific effect depending on the casts that should be allowed within those methods or constructors. If a cast that has a certain effect is called in the wrong context then an error will be raised. The checker also ensures that method calls and constructor calls in another method or constructor are called in the correct context by checking their effects too.
 
@@ -193,7 +193,7 @@ public void testLiteral() \{
 \}
 \end{alltt}
 
-\section{Running the Casting Effect Checker\label{castingeffect-running}}
+\sectionAndLabel{Running the Casting Effect Checker}{castingeffect-running}
 
 The casting effect checker can be invoked by running the following command (Note: The casting effect checker is built on top of the generic effect checker):
 \begin{Verbatim}
@@ -208,7 +208,7 @@ There are three different command-line arguments that the developer can use whil
         -AignoreWarnings=cast.redundant MyFile.java ...
 \end{Verbatim}
 
-\section{Errors and Warnings of the Casting Effect Checker\label{castingeffect-errors}}
+\sectionAndLabel{Errors and Warnings of the Casting Effect Checker}{castingeffect-errors}
 
 Here are the possible errors and warnings that can arise:
 \begin{itemize}
