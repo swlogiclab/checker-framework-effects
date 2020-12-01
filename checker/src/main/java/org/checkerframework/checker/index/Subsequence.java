@@ -5,9 +5,8 @@ import com.sun.source.util.TreePath;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import org.checkerframework.checker.index.qual.HasSubsequence;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.FlowExpressions.FieldAccess;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Receiver;
+import org.checkerframework.dataflow.expression.FieldAccess;
+import org.checkerframework.dataflow.expression.Receiver;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.util.BaseContext;
 import org.checkerframework.framework.util.FlowExpressionParseUtil;
@@ -40,7 +39,7 @@ public class Subsequence {
      * annotation, unlike getSubsequenceFromReceiver.
      *
      * @param varTree some tree
-     * @param factory AnnotatedTypeFactory
+     * @param factory an AnnotatedTypeFactory
      * @return null or a new Subsequence from the declaration of {@code varTree}
      */
     public static Subsequence getSubsequenceFromTree(Tree varTree, AnnotatedTypeFactory factory) {
@@ -83,7 +82,7 @@ public class Subsequence {
      * of {@code rec} or null if there is not such annotation.
      *
      * @param rec some tree
-     * @param factory AnnotatedTypeFactory
+     * @param factory an AnnotatedTypeFactory
      * @param currentPath the path at which to viewpoint adapt the subsequence
      * @param context the context in which to viewpoint adapt the subsequence
      * @return null or a new Subsequence from the declaration of {@code varTree}
@@ -115,10 +114,10 @@ public class Subsequence {
     private static String standardizeAndViewpointAdapt(
             String s, TreePath currentPath, FlowExpressionContext context) {
         try {
-            s = FlowExpressionParseUtil.parse(s, context, currentPath, false).toString();
+            return FlowExpressionParseUtil.parse(s, context, currentPath, false).toString();
         } catch (FlowExpressionParseException e) {
+            return s;
         }
-        return s;
     }
 
     /**
@@ -131,8 +130,8 @@ public class Subsequence {
         if (rec == null) {
             return null;
         }
-        if (rec instanceof FlowExpressions.FieldAccess) {
-            FieldAccess fa = (FlowExpressions.FieldAccess) rec;
+        if (rec instanceof FieldAccess) {
+            FieldAccess fa = (FieldAccess) rec;
             return new FlowExpressionParseUtil.FlowExpressionContext(
                     fa.getReceiver(), null, checker);
 

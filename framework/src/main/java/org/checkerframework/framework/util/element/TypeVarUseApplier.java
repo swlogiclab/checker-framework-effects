@@ -6,18 +6,18 @@ import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.TypeAnnotationPosition;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeParameterElement;
+import javax.lang.model.type.TypeKind;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedArrayType;
-import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedIntersectionType;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedTypeVariable;
 import org.checkerframework.framework.type.ElementAnnotationApplier;
+import org.checkerframework.framework.util.element.ElementAnnotationUtil.UnexpectedAnnotationLocationException;
 import org.checkerframework.javacutil.BugInCF;
 
 /** Apply annotations to the use of a type parameter declaration. */
@@ -26,7 +26,8 @@ public class TypeVarUseApplier {
     public static void apply(
             final AnnotatedTypeMirror type,
             final Element element,
-            final AnnotatedTypeFactory typeFactory) {
+            final AnnotatedTypeFactory typeFactory)
+            throws UnexpectedAnnotationLocationException {
         new TypeVarUseApplier(type, element, typeFactory).extractAndApply();
     }
 
@@ -39,6 +40,9 @@ public class TypeVarUseApplier {
     };
 
     /**
+     * Returns true if type is an AnnotatedTypeVariable, or an AnnotatedArrayType with a type
+     * variable component, and the element is not a TYPE_PARAMETER.
+     *
      * @return true if type is an AnnotatedTypeVariable, or an AnnotatedArrayType with a type
      *     variable component, and the element is not a TYPE_PARAMETER
      */
@@ -107,9 +111,11 @@ public class TypeVarUseApplier {
     /**
      * Applies the bound annotations from the declaration of the type parameter and then applies the
      * explicit annotations written on the type variable.
+     *
+     * @throws UnexpectedAnnotationLocationException if invalid location for an annotation was found
      */
-    public void extractAndApply() {
-        ElementAnnotationUtil.addAnnotationsFromElement(
+    public void extractAndApply() throws UnexpectedAnnotationLocationException {
+        ElementAnnotationUtil.addDeclarationAnnotationsFromElement(
                 typeVariable, useElem.getAnnotationMirrors());
 
         // apply declaration annotations
@@ -129,22 +135,7 @@ public class TypeVarUseApplier {
         }
 
         for (final Attribute.TypeCompound annotation : typeVarAnnotations) {
-            typeVariable.removeAnnotationInHierarchy(annotation);
-            typeVariable.addAnnotation(annotation);
-
-            final List<? extends AnnotatedTypeMirror> upperBounds;
-            if (typeVariable.getUpperBound() instanceof AnnotatedIntersectionType) {
-                upperBounds = typeVariable.getUpperBound().directSuperTypes();
-            } else {
-                upperBounds = Arrays.asList(typeVariable.getUpperBound());
-            }
-
-            // TODO: Should we just make primary annotations on annotated intersection types apply
-            // TODO: to all of them?  Que dealio?  What should we do?
-            for (final AnnotatedTypeMirror bound : upperBounds) {
-                bound.removeAnnotationInHierarchy(annotation);
-                bound.addAnnotation(annotation);
-            }
+            typeVariable.replaceAnnotation(annotation);
         }
     }
 
@@ -170,9 +161,13 @@ public class TypeVarUseApplier {
 
     private boolean isBaseComponent(
             final AnnotatedArrayType arrayType, final Attribute.TypeCompound anno) {
-        return ElementAnnotationUtil.getTypeAtLocation(arrayType, anno.getPosition().location)
-                .getClass()
-                .equals(AnnotatedTypeVariable.class);
+        try {
+            return ElementAnnotationUtil.getTypeAtLocation(arrayType, anno.getPosition().location)
+                            .getKind()
+                    == TypeKind.TYPEVAR;
+        } catch (UnexpectedAnnotationLocationException ex) {
+            return false;
+        }
     }
 
     /**
@@ -214,7 +209,12 @@ public class TypeVarUseApplier {
         return annotations;
     }
 
-    /** @return annotations on an element that apply to variable declarations */
+    /**
+     * Returns annotations on an element that apply to variable declarations.
+     *
+     * @param variableElem the element whose annotations to check
+     * @return annotations on an element that apply to variable declarations
+     */
     private static List<Attribute.TypeCompound> getVariableAnnos(final Element variableElem) {
         final VarSymbol varSymbol = (VarSymbol) variableElem;
         final List<Attribute.TypeCompound> annotations = new ArrayList<>();
@@ -283,7 +283,12 @@ public class TypeVarUseApplier {
         return result;
     }
 
-    /** @return the annotations on the return type of the input ExecutableElement */
+    /**
+     * Returns the annotations on the return type of the input ExecutableElement.
+     *
+     * @param methodElem the method whose return type annotations to return
+     * @return the annotations on the return type of the input ExecutableElement
+     */
     private static List<Attribute.TypeCompound> getReturnAnnos(final Element methodElem) {
         if (!(methodElem instanceof ExecutableElement)) {
             throw new BugInCF(

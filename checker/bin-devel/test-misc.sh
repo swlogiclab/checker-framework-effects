@@ -4,34 +4,38 @@ set -e
 set -o verbose
 set -o xtrace
 export SHELLOPTS
-
-git -C /tmp/plume-scripts pull > /dev/null 2>&1 \
-  || git -C /tmp clone --depth 1 -q https://github.com/plume-lib/plume-scripts.git
-eval `/tmp/plume-scripts/ci-info typetools`
-
-export CHECKERFRAMEWORK=`readlink -f ${CHECKERFRAMEWORK:-.}`
-echo "CHECKERFRAMEWORK=$CHECKERFRAMEWORK"
+echo "SHELLOPTS=${SHELLOPTS}"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source $SCRIPTDIR/build.sh ${BUILDJDK}
+# In newer shellcheck than 0.6.0, pass: "-P SCRIPTDIR" (literally)
+# shellcheck disable=SC1090
+source "$SCRIPTDIR"/build.sh
 
+
+# Checker Framework demos
+"/tmp/$USER/plume-scripts/git-clone-related" typetools checker-framework.demos
+./gradlew :checker:demosTests --console=plain --warning-mode=all --no-daemon
 
 # Code style and formatting
 ./gradlew checkBasicStyle checkFormat --console=plain --warning-mode=all --no-daemon
 
-# Run error-prone
-./gradlew runErrorProne --console=plain --warning-mode=all --no-daemon
-
 # HTML legality
 ./gradlew htmlValidate --console=plain --warning-mode=all --no-daemon
 
-# Documentation
-./gradlew javadocPrivate --console=plain --warning-mode=all --no-daemon
-make -C docs/manual all
+# Javadoc documentation
+status=0
+./gradlew javadoc --console=plain --warning-mode=all --no-daemon || status=1
+./gradlew javadocPrivate --console=plain --warning-mode=all --no-daemon || status=1
+# For refactorings that touch a lot of code that you don't understand, create
+# top-level file SKIP-REQUIRE-JAVADOC.  Delete it when the pull request is merged.
+if [ ! -f SKIP-REQUIRE-JAVADOC ]; then
+  (./gradlew requireJavadoc --console=plain --warning-mode=all --no-daemon > /tmp/warnings-rjp.txt 2>&1) || true
+  /tmp/"$USER"/plume-scripts/ci-lint-diff /tmp/warnings-rjp.txt || status=1
+  (./gradlew javadocDoclintAll --console=plain --warning-mode=all --no-daemon > /tmp/warnings-jda.txt 2>&1) || true
+  /tmp/"$USER"/plume-scripts/ci-lint-diff /tmp/warnings-jda.txt || status=1
+fi
+if [ $status -ne 0 ]; then exit $status; fi
 
-# This comes last, in case we wish to ignore it
-# if [ "$CI_IS_PR" == "true" ] ; then
-(git diff $CI_COMMIT_RANGE > /tmp/diff.txt 2>&1) || true
-(./gradlew requireJavadocPrivate --console=plain --warning-mode=all --no-daemon > /tmp/warnings.txt 2>&1) || true
-[ -s /tmp/diff.txt ] || (echo "/tmp/diff.txt is empty for $CI_COMMIT_RANGE; try pulling base branch (often master) into compare branch (often your feature branch)" && false)
-python /tmp/plume-scripts/lint-diff.py --guess-strip /tmp/diff.txt /tmp/warnings.txt
+
+# User documentation
+make -C docs/manual all

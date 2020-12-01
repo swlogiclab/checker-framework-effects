@@ -17,16 +17,19 @@ import java.lang.annotation.Target;
  * @checker_framework.manual #qualifier-polymorphism Qualifier polymorphism
  */
 @Documented
-@Target({ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.ANNOTATION_TYPE})
+@AnnotatedFor("nullness")
 public @interface PolymorphicQualifier {
     /**
      * Indicates which type system this annotation refers to (optional, and usually unnecessary).
      * When multiple type hierarchies are supported by a single type system, then each polymorphic
-     * qualifier needs to indicate which sub-hierarchy it belongs to. Do so by passing a qualifier
-     * from the given hierarchy, by convention the top qualifier.
+     * qualifier needs to indicate which sub-hierarchy it belongs to. Do so by passing the top
+     * qualifier from the given hierarchy.
+     *
+     * @return the top qualifier in the hierarchy of this qualifier
      */
-    // We use the meaningless PolymorphicQualifier.class as default value and
+    // We use the meaningless Annotation.class as default value and
     // then ensure there is a single top qualifier to use.
-    Class<? extends Annotation> value() default PolymorphicQualifier.class;
+    Class<? extends Annotation> value() default Annotation.class;
 }

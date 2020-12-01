@@ -7,6 +7,7 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Name;
+import org.checkerframework.checker.signature.qual.CanonicalName;
 import org.checkerframework.framework.qual.DefaultQualifierForUse;
 import org.checkerframework.framework.qual.NoDefaultQualifierForUse;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
@@ -75,7 +76,8 @@ public class DefaultQualifierForUseTypeAnnotator extends TypeAnnotator {
                 }
             }
         }
-        if (typeFactory.shouldCache) {
+        // If parsing stub files, then the annosToApply is incomplete, so don't cache them.
+        if (typeFactory.shouldCache && !typeFactory.stubTypes.isParsing()) {
             elementToDefaults.put(element, annosToApply);
         }
         return annosToApply;
@@ -120,13 +122,13 @@ public class DefaultQualifierForUseTypeAnnotator extends TypeAnnotator {
      * annotationMirror}.
      *
      * @param annotationMirror a non-null annotation with a value element that is an array of
-     *     annotation classes.
+     *     annotation classes
      * @return the set of qualifiers supported by this type system from the value element of {@code
      *     annotationMirror}
      */
     protected final AnnotationMirrorSet supportedAnnosFromAnnotationMirror(
             AnnotationMirror annotationMirror) {
-        List<Name> annoClassNames =
+        List<@CanonicalName Name> annoClassNames =
                 AnnotationUtils.getElementValueClassNames(annotationMirror, "value", true);
         AnnotationMirrorSet supportAnnos = new AnnotationMirrorSet();
         for (Name annoName : annoClassNames) {

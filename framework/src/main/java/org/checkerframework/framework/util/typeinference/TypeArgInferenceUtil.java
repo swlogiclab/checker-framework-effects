@@ -25,14 +25,27 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ErrorType;
+import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.IntersectionType;
+import javax.lang.model.type.NoType;
+import javax.lang.model.type.NullType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
+import javax.lang.model.type.TypeVisitor;
+import javax.lang.model.type.UnionType;
+import javax.lang.model.util.Types;
+import org.checkerframework.checker.interning.qual.FindDistinct;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedArrayType;
-import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedDeclaredType;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedPrimitiveType;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedTypeVariable;
@@ -45,7 +58,6 @@ import org.checkerframework.framework.util.AnnotatedTypes;
 import org.checkerframework.framework.util.AnnotationMirrorMap;
 import org.checkerframework.framework.util.AnnotationMirrorSet;
 import org.checkerframework.javacutil.BugInCF;
-import org.checkerframework.javacutil.Pair;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeAnnotationUtils;
 import org.checkerframework.javacutil.TypesUtils;
@@ -74,9 +86,9 @@ public class TypeArgInferenceUtil {
 
         } else {
             throw new BugInCF(
-                    "TypeArgumentInference.relationsFromMethodArguments:\n"
-                            + "couldn't determine arguments from tree: "
-                            + methodInvocation);
+                    "TypeArgumentInference.relationsFromMethodArguments:%n"
+                            + "couldn't determine arguments from tree: %s",
+                    methodInvocation);
         }
 
         final List<AnnotatedTypeMirror> argTypes = new ArrayList<>(argTrees.size());
@@ -125,8 +137,11 @@ public class TypeArgInferenceUtil {
      * assignment context. Returns the annotated type that the method invocation at the leaf is
      * assigned to. If the result is a primitive, return the boxed version.
      *
-     * @return type that path leaf is assigned to
+     * @param atypeFactory the type factory, for looking up types
+     * @param path the path whole leaf to look up a type for
+     * @return the type of path's leaf
      */
+    @SuppressWarnings("interning:not.interned") // AST node comparisons
     public static AnnotatedTypeMirror assignedTo(AnnotatedTypeFactory atypeFactory, TreePath path) {
         Tree assignmentContext = TreeUtils.getAssignmentContext(path);
         AnnotatedTypeMirror res;
@@ -169,6 +184,10 @@ public class TypeArgInferenceUtil {
         } else if (assignmentContext instanceof NewClassTree) {
             // This need to be basically like MethodTree
             NewClassTree newClassTree = (NewClassTree) assignmentContext;
+            if (newClassTree.getEnclosingExpression() instanceof NewClassTree
+                    && (newClassTree.getEnclosingExpression() == path.getLeaf())) {
+                return null;
+            }
             ExecutableElement constructorElt = TreeUtils.constructor(newClassTree);
             AnnotatedTypeMirror receiver = atypeFactory.fromNewClass(newClassTree);
             res =
@@ -185,9 +204,9 @@ public class TypeArgInferenceUtil {
             if (enclosing.getKind() == Kind.METHOD) {
                 res = atypeFactory.getAnnotatedType((MethodTree) enclosing).getReturnType();
             } else {
-                Pair<AnnotatedDeclaredType, AnnotatedExecutableType> fninf =
-                        atypeFactory.getFnInterfaceFromTree((LambdaExpressionTree) enclosing);
-                res = fninf.second.getReturnType();
+                AnnotatedExecutableType fninf =
+                        atypeFactory.getFunctionTypeFromTree((LambdaExpressionTree) enclosing);
+                res = fninf.getReturnType();
             }
 
         } else if (assignmentContext instanceof VariableTree) {
@@ -249,10 +268,14 @@ public class TypeArgInferenceUtil {
     }
 
     /**
-     * Returns whether argumentTree is the tree at the leaf of path. if tree is a conditional
+     * Returns whether argumentTree is the tree at the leaf of path. If tree is a conditional
      * expression, isArgument is called recursively on the true and false expressions.
+     *
+     * @param path the path whose leaf to test
+     * @param argumentTree the expression that might be path's leaf
+     * @return true if {@code argumentTree} is the leaf of {@code path}
      */
-    private static boolean isArgument(TreePath path, ExpressionTree argumentTree) {
+    private static boolean isArgument(TreePath path, @FindDistinct ExpressionTree argumentTree) {
         argumentTree = TreeUtils.withoutParens(argumentTree);
         if (argumentTree == path.getLeaf()) {
             return true;
@@ -320,7 +343,11 @@ public class TypeArgInferenceUtil {
         }
     }
 
-    /** @return true if the type contains a use of a type variable from methodType */
+    /**
+     * Returns true if the type contains a use of a type variable from methodType.
+     *
+     * @return true if the type contains a use of a type variable from methodType
+     */
     private static boolean containsUninferredTypeParameter(
             AnnotatedTypeMirror type, AnnotatedExecutableType methodType) {
         final List<AnnotatedTypeVariable> annotatedTypeVars = methodType.getTypeVariables();
@@ -340,7 +367,7 @@ public class TypeArgInferenceUtil {
      * Returns true if {@code type} contains a use of a type variable in {@code typeVariables}.
      *
      * @param type type to search
-     * @param typeVariables collection of type varibles
+     * @param typeVariables collection of type variables
      * @return true if {@code type} contains a use of a type variable in {@code typeVariables}
      */
     public static boolean containsTypeParameter(
@@ -351,8 +378,8 @@ public class TypeArgInferenceUtil {
     }
 
     /**
-     * Take a set of annotations and separate them into a mapping of ({@code hierarchy top &rArr;
-     * annotations in hierarchy}).
+     * Take a set of annotations and separate them into a mapping of {@code hierarchy top =>
+     * annotations in hierarchy}.
      */
     public static AnnotationMirrorMap<AnnotationMirror> createHierarchyMap(
             final AnnotationMirrorSet annos, final QualifierHierarchy qualifierHierarchy) {
@@ -387,31 +414,9 @@ public class TypeArgInferenceUtil {
     private static class TypeVariableFinder
             extends AnnotatedTypeScanner<Boolean, Collection<TypeVariable>> {
 
-        @Override
-        protected Boolean scan(
-                Iterable<? extends AnnotatedTypeMirror> types, Collection<TypeVariable> typeVars) {
-            if (types == null) {
-                return false;
-            }
-            Boolean result = false;
-            boolean first = true;
-            for (AnnotatedTypeMirror type : types) {
-                result = (first ? scan(type, typeVars) : scanAndReduce(type, typeVars, result));
-                first = false;
-            }
-            return result;
-        }
-
-        @Override
-        protected Boolean reduce(Boolean r1, Boolean r2) {
-            if (r1 == null) {
-                return r2 != null && r2;
-
-            } else if (r2 == null) {
-                return r1;
-            }
-
-            return r1 || r2;
+        /** Create TypeVariableFinder. */
+        protected TypeVariableFinder() {
+            super(Boolean::logicalOr, false);
         }
 
         @Override
@@ -456,9 +461,9 @@ public class TypeArgInferenceUtil {
     }
 
     /**
-     * Create a copy of toModify. In the copy, for each pair {@code typeVariable &rArr; annotated
-     * type} replace uses of typeVariable with the corresponding annotated type using normal
-     * substitution rules (@see TypeVariableSubstitutor). Return the copy.
+     * Create a copy of toModify. In the copy, for each pair {@code typeVariable => annotated type}
+     * replace uses of typeVariable with the corresponding annotated type using normal substitution
+     * rules (@see TypeVariableSubstitutor). Return the copy.
      */
     public static AnnotatedTypeMirror substitute(
             Map<TypeVariable, AnnotatedTypeMirror> substitutions,
@@ -510,5 +515,217 @@ public class TypeArgInferenceUtil {
         }
 
         return lubType;
+    }
+
+    /**
+     * If the type arguments computed by DefaultTypeArgumentInference don't match the return type
+     * mirror of {@code invocation}, then replace those type arguments with an uninferred wildcard.
+     */
+    protected static Map<TypeVariable, AnnotatedTypeMirror> correctResults(
+            Map<TypeVariable, AnnotatedTypeMirror> result,
+            ExpressionTree invocation,
+            ExecutableType methodType,
+            AnnotatedTypeFactory factory) {
+        ProcessingEnvironment env = factory.getProcessingEnv();
+        Types types = env.getTypeUtils();
+        Map<TypeVariable, TypeMirror> fromReturn =
+                getMappingFromReturnType(invocation, methodType, env);
+        for (Map.Entry<TypeVariable, AnnotatedTypeMirror> entry :
+                new ArrayList<>(result.entrySet())) {
+            TypeVariable typeVariable = entry.getKey();
+            if (!fromReturn.containsKey(typeVariable)) {
+                continue;
+            }
+            TypeMirror correctType = fromReturn.get(typeVariable);
+            TypeMirror inferredType = entry.getValue().getUnderlyingType();
+            if (types.isSameType(types.erasure(correctType), types.erasure(inferredType))) {
+                if (areSameCapture(correctType, inferredType, types)) {
+                    continue;
+                }
+            }
+            if (!types.isSameType(correctType, inferredType)) {
+                AnnotatedWildcardType wt =
+                        factory.getUninferredWildcardType(
+                                (AnnotatedTypeVariable)
+                                        AnnotatedTypeMirror.createType(
+                                                typeVariable, factory, false));
+                wt.replaceAnnotations(entry.getValue().getAnnotations());
+                result.put(typeVariable, wt);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Returns true if actual and inferred are captures of the same wildcard or declared type.
+     *
+     * @return true if actual and inferred are captures of the same wildcard or declared type
+     */
+    private static boolean areSameCapture(TypeMirror actual, TypeMirror inferred, Types types) {
+        if (TypesUtils.isCaptured(actual) && TypesUtils.isCaptured(inferred)) {
+            return true;
+        } else if (TypesUtils.isCaptured(actual) && inferred.getKind() == TypeKind.WILDCARD) {
+            return true;
+        } else if (actual.getKind() == TypeKind.DECLARED
+                && inferred.getKind() == TypeKind.DECLARED) {
+            DeclaredType actualDT = (DeclaredType) actual;
+            DeclaredType inferredDT = (DeclaredType) inferred;
+            if (actualDT.getTypeArguments().size() == inferredDT.getTypeArguments().size()) {
+                for (int i = 0; i < actualDT.getTypeArguments().size(); i++) {
+                    if (!areSameCapture(
+                            actualDT.getTypeArguments().get(i),
+                            inferredDT.getTypeArguments().get(i),
+                            types)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns a mapping of type variable to type argument computed using the type of {@code
+     * methodInvocationTree} and the return type of {@code methodType}.
+     */
+    private static Map<TypeVariable, TypeMirror> getMappingFromReturnType(
+            ExpressionTree methodInvocationTree,
+            ExecutableType methodType,
+            ProcessingEnvironment env) {
+        TypeMirror methodCallType = TreeUtils.typeOf(methodInvocationTree);
+        Types types = env.getTypeUtils();
+        GetMapping mapping = new GetMapping(methodType.getTypeVariables(), types);
+        mapping.visit(methodType.getReturnType(), methodCallType);
+        return mapping.subs;
+    }
+
+    /**
+     * Helper class for {@link #getMappingFromReturnType(ExpressionTree, ExecutableType,
+     * ProcessingEnvironment)}
+     */
+    private static class GetMapping implements TypeVisitor<Void, TypeMirror> {
+
+        final Map<TypeVariable, TypeMirror> subs = new HashMap<>();
+        final List<? extends TypeVariable> typeVariables;
+        final Types types;
+
+        private GetMapping(List<? extends TypeVariable> typeVariables, Types types) {
+            this.typeVariables = typeVariables;
+            this.types = types;
+        }
+
+        @Override
+        public Void visit(TypeMirror t, TypeMirror mirror) {
+            if (t == null || mirror == null) {
+                return null;
+            }
+            return t.accept(this, mirror);
+        }
+
+        @Override
+        public Void visit(TypeMirror t) {
+            return null;
+        }
+
+        @Override
+        public Void visitPrimitive(PrimitiveType t, TypeMirror mirror) {
+            return null;
+        }
+
+        @Override
+        public Void visitNull(NullType t, TypeMirror mirror) {
+            return null;
+        }
+
+        @Override
+        public Void visitArray(ArrayType t, TypeMirror mirror) {
+            assert mirror.getKind() == TypeKind.ARRAY : mirror;
+            return visit(t.getComponentType(), ((ArrayType) mirror).getComponentType());
+        }
+
+        @Override
+        public Void visitDeclared(DeclaredType t, TypeMirror mirror) {
+            assert mirror.getKind() == TypeKind.DECLARED : mirror;
+            DeclaredType param = (DeclaredType) mirror;
+            if (types.isSubtype(mirror, param)) {
+                //                param = (DeclaredType) types.asSuper((Type) mirror, ((Type)
+                // param).asElement());
+            }
+            if (t.getTypeArguments().size() == param.getTypeArguments().size()) {
+                for (int i = 0; i < t.getTypeArguments().size(); i++) {
+                    visit(t.getTypeArguments().get(i), param.getTypeArguments().get(i));
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitError(ErrorType t, TypeMirror mirror) {
+            return null;
+        }
+
+        @Override
+        public Void visitTypeVariable(TypeVariable t, TypeMirror mirror) {
+            if (typeVariables.contains(t)) {
+                subs.put(t, mirror);
+            } else if (mirror.getKind() == TypeKind.TYPEVAR) {
+                TypeVariable param = (TypeVariable) mirror;
+                visit(t.getUpperBound(), param.getUpperBound());
+                visit(t.getLowerBound(), param.getLowerBound());
+            }
+            // else it's not a method type variable
+            return null;
+        }
+
+        @Override
+        public Void visitWildcard(javax.lang.model.type.WildcardType t, TypeMirror mirror) {
+            if (mirror.getKind() == TypeKind.WILDCARD) {
+                javax.lang.model.type.WildcardType param =
+                        (javax.lang.model.type.WildcardType) mirror;
+                visit(t.getExtendsBound(), param.getExtendsBound());
+                visit(t.getSuperBound(), param.getSuperBound());
+            } else if (mirror.getKind() == TypeKind.TYPEVAR) {
+                TypeVariable param = (TypeVariable) mirror;
+                visit(t.getExtendsBound(), param.getUpperBound());
+                visit(t.getSuperBound(), param.getLowerBound());
+            } else {
+                assert false : mirror;
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitExecutable(ExecutableType t, TypeMirror mirror) {
+            return null;
+        }
+
+        @Override
+        public Void visitNoType(NoType t, TypeMirror mirror) {
+            return null;
+        }
+
+        @Override
+        public Void visitUnknown(TypeMirror t, TypeMirror mirror) {
+            return null;
+        }
+
+        @Override
+        public Void visitUnion(UnionType t, TypeMirror mirror) {
+            return null;
+        }
+
+        @Override
+        public Void visitIntersection(IntersectionType t, TypeMirror mirror) {
+            assert mirror.getKind() == TypeKind.INTERSECTION : mirror;
+            IntersectionType param = (IntersectionType) mirror;
+            assert t.getBounds().size() == param.getBounds().size();
+
+            for (int i = 0; i < t.getBounds().size(); i++) {
+                visit(t.getBounds().get(i), param.getBounds().get(i));
+            }
+
+            return null;
+        }
     }
 }

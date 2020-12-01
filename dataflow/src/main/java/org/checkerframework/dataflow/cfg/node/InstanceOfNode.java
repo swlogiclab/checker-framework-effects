@@ -8,6 +8,8 @@ import java.util.Objects;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.javacutil.TypesUtils;
 
 /**
  * A node for the instanceof operator:
@@ -42,11 +44,7 @@ public class InstanceOfNode extends Node {
         return operand;
     }
 
-    @Override
-    public TypeMirror getType() {
-        return type;
-    }
-
+    /** The reference type being tested against. */
     public TypeMirror getRefType() {
         return refType;
     }
@@ -63,11 +61,11 @@ public class InstanceOfNode extends Node {
 
     @Override
     public String toString() {
-        return "(" + getOperand() + " instanceof " + getRefType() + ")";
+        return "(" + getOperand() + " instanceof " + TypesUtils.simpleTypeName(getRefType()) + ")";
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (!(obj instanceof InstanceOfNode)) {
             return false;
         }
@@ -80,7 +78,7 @@ public class InstanceOfNode extends Node {
 
     @Override
     public int hashCode() {
-        return Objects.hash(getOperand());
+        return Objects.hash(InstanceOfNode.class, getOperand());
     }
 
     @Override

@@ -11,15 +11,14 @@ import org.checkerframework.framework.qual.PolymorphicQualifier;
  * A polymorphic qualifier for the non-null type system.
  *
  * <p>Any method written using {@link PolyNull} conceptually has two versions: one in which every
- * instance of {@link PolyNull} has been replaced by {@link
- * org.checkerframework.checker.nullness.qual.NonNull}, and one in which every instance of {@link
- * PolyNull} has been replaced by {@link org.checkerframework.checker.nullness.qual.Nullable}.
+ * instance of {@link PolyNull} has been replaced by {@link NonNull}, and one in which every
+ * instance of {@link PolyNull} has been replaced by {@link Nullable}.
  *
  * @checker_framework.manual #nullness-checker Nullness Checker
  * @checker_framework.manual #qualifier-polymorphism Qualifier polymorphism
  */
 @Documented
-@PolymorphicQualifier(Nullable.class)
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
+@PolymorphicQualifier(Nullable.class)
 public @interface PolyNull {}

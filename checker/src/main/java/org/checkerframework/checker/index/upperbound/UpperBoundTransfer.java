@@ -8,7 +8,6 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.checker.index.IndexAbstractTransfer;
 import org.checkerframework.checker.index.IndexRefinementInfo;
-import org.checkerframework.checker.index.IndexUtil;
 import org.checkerframework.checker.index.Subsequence;
 import org.checkerframework.checker.index.inequality.LessThanAnnotatedTypeFactory;
 import org.checkerframework.checker.index.qual.LessThan;
@@ -17,11 +16,8 @@ import org.checkerframework.checker.index.qual.Positive;
 import org.checkerframework.checker.index.qual.SubstringIndexFor;
 import org.checkerframework.checker.index.upperbound.UBQualifier.LessThanLengthOf;
 import org.checkerframework.checker.index.upperbound.UBQualifier.UpperBoundUnknownQualifier;
+import org.checkerframework.common.value.ValueCheckerUtils;
 import org.checkerframework.dataflow.analysis.ConditionalTransferResult;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.FlowExpressions.FieldAccess;
-import org.checkerframework.dataflow.analysis.FlowExpressions.MethodCall;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Receiver;
 import org.checkerframework.dataflow.analysis.RegularTransferResult;
 import org.checkerframework.dataflow.analysis.TransferInput;
 import org.checkerframework.dataflow.analysis.TransferResult;
@@ -35,6 +31,10 @@ import org.checkerframework.dataflow.cfg.node.NumericalAdditionNode;
 import org.checkerframework.dataflow.cfg.node.NumericalMultiplicationNode;
 import org.checkerframework.dataflow.cfg.node.NumericalSubtractionNode;
 import org.checkerframework.dataflow.cfg.node.TypeCastNode;
+import org.checkerframework.dataflow.expression.FieldAccess;
+import org.checkerframework.dataflow.expression.FlowExpressions;
+import org.checkerframework.dataflow.expression.MethodCall;
+import org.checkerframework.dataflow.expression.Receiver;
 import org.checkerframework.dataflow.util.NodeUtils;
 import org.checkerframework.framework.flow.CFAbstractStore;
 import org.checkerframework.framework.flow.CFAnalysis;
@@ -202,7 +202,7 @@ public class UpperBoundTransfer extends IndexAbstractTransfer {
             CFStore store) {
         if (atypeFactory.hasLowerBoundTypeByClass(other, Positive.class)) {
             Long minValue =
-                    IndexUtil.getMinValue(
+                    ValueCheckerUtils.getMinValue(
                             other.getTree(), atypeFactory.getValueAnnotatedTypeFactory());
             if (minValue != null && minValue > 1) {
                 typeOfMultiplication = (LessThanLengthOf) typeOfMultiplication.plusOffset(1);
@@ -226,7 +226,7 @@ public class UpperBoundTransfer extends IndexAbstractTransfer {
      *
      * @param typeOfSubtraction type of node
      * @param node subtraction node that has typeOfSubtraction
-     * @param in TransferInput
+     * @param in a TransferInput
      * @param store location to store the refined type
      */
     private void propagateToSubtractionOperands(
@@ -251,7 +251,7 @@ public class UpperBoundTransfer extends IndexAbstractTransfer {
      * @param typeOfAddition type of {@code operand + other}
      * @param operand the Node to refine
      * @param other the Node added to {@code operand}
-     * @param in TransferInput
+     * @param in a TransferInput
      * @param store location to store the refined types
      */
     private void propagateToAdditionOperand(
@@ -437,7 +437,7 @@ public class UpperBoundTransfer extends IndexAbstractTransfer {
             NumericalSubtractionNode subtraction = (NumericalSubtractionNode) lengthAccess;
             Node offsetNode = subtraction.getRightOperand();
             Long offsetValue =
-                    IndexUtil.getExactValue(
+                    ValueCheckerUtils.getExactValue(
                             offsetNode.getTree(), atypeFactory.getValueAnnotatedTypeFactory());
             if (offsetValue != null
                     && offsetValue > Integer.MIN_VALUE
@@ -595,7 +595,7 @@ public class UpperBoundTransfer extends IndexAbstractTransfer {
                         || subtractionResult.hasSequenceWithOffset(b, 0)) {
 
                     TreePath currentPath = this.atypeFactory.getPath(n.getTree());
-                    FlowExpressions.Receiver rec;
+                    Receiver rec;
                     try {
                         rec =
                                 UpperBoundVisitor.getReceiverFromJavaExpressionString(
@@ -671,7 +671,7 @@ public class UpperBoundTransfer extends IndexAbstractTransfer {
         List<String> sameLenSequences =
                 sameLenAnno == null
                         ? new ArrayList<>()
-                        : IndexUtil.getValueOfAnnotationWithStringArgument(sameLenAnno);
+                        : ValueCheckerUtils.getValueOfAnnotationWithStringArgument(sameLenAnno);
 
         if (!sameLenSequences.contains(sequenceRec.toString())) {
             sameLenSequences.add(sequenceRec.toString());

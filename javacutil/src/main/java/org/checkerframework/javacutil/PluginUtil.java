@@ -1,5 +1,9 @@
 package org.checkerframework.javacutil;
 
+import com.sun.tools.javac.main.Option;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Options;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -14,11 +18,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.processing.ProcessingEnvironment;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.plumelib.util.UtilPlume;
 
 /**
  * This file contains basic utility functions that should be reused to create a command-line call to
  * {@code CheckerMain}.
+ *
+ * @deprecated Renamed to {@link SystemUtil} and deleted some unused methods.
  */
+@Deprecated
 public class PluginUtil {
 
     /**
@@ -39,6 +49,15 @@ public class PluginUtil {
      */
     public static final String JDK_PATH_OPT = "-jdkJar";
 
+    /** The system-specific line separator. */
+    private static final String LINE_SEPARATOR = System.lineSeparator();
+
+    /**
+     * Convert a list of strings (file names) to a list of files.
+     *
+     * @param fileNames a list of file names
+     * @return a list of File objects
+     */
     public static List<File> toFiles(final List<String> fileNames) {
         final List<File> files = new ArrayList<>(fileNames.size());
         for (final String fn : fileNames) {
@@ -133,7 +152,13 @@ public class PluginUtil {
         }
     }
 
-    /** Return a list of Strings, one per line of the file. */
+    /**
+     * Return a list of Strings, one per line of the file.
+     *
+     * @param argFile argument file
+     * @return a list of Strings, one per line of the file
+     * @throws IOException when reading the argFile
+     */
     public static List<String> readFile(final File argFile) throws IOException {
         final BufferedReader br = new BufferedReader(new FileReader(argFile));
         String line;
@@ -146,35 +171,60 @@ public class PluginUtil {
         return lines;
     }
 
-    public static <T> String join(final String delimiter, final T[] objs) {
-
-        boolean notFirst = false;
-        final StringBuilder sb = new StringBuilder();
-
-        for (final Object obj : objs) {
-            if (notFirst) {
-                sb.append(delimiter);
-            }
-            sb.append(obj.toString());
-            notFirst = true;
+    /**
+     * Returns a new String composed of the string representations of the elements joined together
+     * with a copy of the specified delimiter.
+     *
+     * @param <T> the type of array elements
+     * @param delimiter the delimiter that separates each element
+     * @param objs the values whose string representations to join together
+     * @return a new string that concatenates the string representations of the elements
+     */
+    public static <T> String join(CharSequence delimiter, T @Nullable [] objs) {
+        if (objs == null) {
+            return "null";
         }
-
-        return sb.toString();
+        return UtilPlume.join(delimiter, objs);
     }
 
-    public static String join(String delimiter, Iterable<?> values) {
-        StringBuilder sb = new StringBuilder();
-
-        boolean notFirst = false;
-        for (Object value : values) {
-            if (notFirst) {
-                sb.append(delimiter);
-            }
-            sb.append(value);
-            notFirst = true;
+    /**
+     * Returns a new String composed of the string representations of the elements joined together
+     * with a copy of the specified delimiter.
+     *
+     * @param delimiter the delimiter that separates each element
+     * @param values the values whose string representations to join together
+     * @return a new string that concatenates the string representations of the elements
+     */
+    public static String join(CharSequence delimiter, @Nullable Iterable<?> values) {
+        if (values == null) {
+            return "null";
         }
+        return UtilPlume.join(delimiter, values);
+    }
 
-        return sb.toString();
+    /**
+     * Concatenate the string representations of the objects, placing the system-specific line
+     * separator between them.
+     *
+     * @param <T> the type of array elements
+     * @param a array of values to concatenate
+     * @return the concatenation of the string representations of the values, each on its own line
+     */
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static <T> String joinLines(T @Nullable ... a) {
+        return join(LINE_SEPARATOR, a);
+    }
+
+    /**
+     * Concatenate the string representations of the objects, placing the system-specific line
+     * separator between them.
+     *
+     * @param v list of values to concatenate
+     * @return the concatenation of the string representations of the values, each on its own line
+     */
+    public static String joinLines(@Nullable Iterable<? extends Object> v) {
+        return join(LINE_SEPARATOR, v);
     }
 
     /**
@@ -278,10 +328,10 @@ public class PluginUtil {
     }
 
     /**
-     * Any options found in props to the cmd list.
+     * Add options found in props to the cmd list.
      *
      * @param cmd a list to which the options should be added
-     * @param props the map of checker properties too search for options in
+     * @param props the map of checker properties to search for options in
      */
     private static void addOptions(final List<String> cmd, Map<CheckerProp, Object> props) {
         for (CheckerProp cp : CheckerProp.values()) {
@@ -292,6 +342,10 @@ public class PluginUtil {
     /**
      * Return true if the system property is set to "true". Return false if the system property is
      * not set or is set to "false". Otherwise, errs.
+     *
+     * @param key system property to check
+     * @return true if the system property is set to "true". Return false if the system property is
+     *     not set or is set to "false". Otherwise, errs.
      */
     public static boolean getBooleanSystemProperty(String key) {
         return Boolean.valueOf(System.getProperty(key, "false"));
@@ -300,6 +354,10 @@ public class PluginUtil {
     /**
      * Return its boolean value if the system property is set. Return defaultValue if the system
      * property is not set. Errs if the system property is set to a non-boolean value.
+     *
+     * @param key system property to check
+     * @param defaultValue value to use if the property is not set
+     * @return the boolean value of {@code key} or {@code defaultValue} if {@code key} is not set
      */
     public static boolean getBooleanSystemProperty(String key, boolean defaultValue) {
         String value = System.getProperty(key);
@@ -372,13 +430,9 @@ public class PluginUtil {
             return javaExe.getAbsolutePath();
         } else {
             if (out != null) {
-                out.println(
-                        "Could not find java executable at: ( "
-                                + java.getAbsolutePath()
-                                + ","
-                                + javaExe.getAbsolutePath()
-                                + ")"
-                                + "\n  Using \"java\" command.\n");
+                out.printf(
+                        "Could not find java executable at: (%s,%s)%n  Using \"java\" command.%n",
+                        java.getAbsolutePath(), javaExe.getAbsolutePath());
             }
             return "java";
         }
@@ -388,11 +442,12 @@ public class PluginUtil {
         return "@" + fileArg.getAbsolutePath();
     }
 
+    /** Build a javac command. */
     // TODO: Perhaps unify this with CheckerMain as it violates DRY
     public static List<String> getCmd(
-            final String executable,
-            final File javacPath,
-            final File jdkPath,
+            final @Nullable String executable,
+            final @Nullable File javacPath,
+            final @Nullable File jdkPath,
             final File srcFofn,
             final String processors,
             final String checkerHome,
@@ -522,41 +577,49 @@ public class PluginUtil {
     }
 
     /**
-     * Extract the first two version numbers from java.version (e.g. 1.6 from 1.6.whatever), or the
-     * whole version number if it is an integer.
+     * Returns the major JRE version.
      *
-     * @return the first two version numbers from java.version (e.g. 1.6 from 1.6.whatever), or the
-     *     whole version number if it is an integer
+     * <p>This is different from the version passed to the compiler via --release; use {@link
+     * #getReleaseValue(ProcessingEnvironment)} to get that version.
+     *
+     * <p>Extract the major version number from the "java.version" system property. Two possible
+     * formats are considered. Up to Java 8, from a version string like `1.8.whatever`, this method
+     * extracts 8. Since Java 9, from a version string like `11.0.1`, this method extracts 11.
+     *
+     * @return the major version number from "java.version"
      */
-    public static double getJreVersion() {
+    public static int getJreVersion() {
         final String jreVersionStr = System.getProperty("java.version");
 
-        // 1.8.0
-        final Pattern versionPattern = Pattern.compile("^(\\d+\\.\\d+)\\..*$");
-        final Matcher versionMatcher = versionPattern.matcher(jreVersionStr);
+        final Pattern oldVersionPattern = Pattern.compile("^1\\.(\\d+)\\..*$");
+        final Matcher oldVersionMatcher = oldVersionPattern.matcher(jreVersionStr);
+        if (oldVersionMatcher.matches()) {
+            String v = oldVersionMatcher.group(1);
+            assert v != null : "@AssumeAssertion(nullness): inspection";
+            return Integer.parseInt(v);
+        }
+
+        // See http://openjdk.java.net/jeps/223
+        // We only care about the major version number.
+        final Pattern newVersionPattern = Pattern.compile("^(\\d+).*$");
+        final Matcher newVersionMatcher = newVersionPattern.matcher(jreVersionStr);
+        if (newVersionMatcher.matches()) {
+            String v = newVersionMatcher.group(1);
+            assert v != null : "@AssumeAssertion(nullness): inspection";
+            return Integer.parseInt(v);
+        }
 
         // For Early Access version of the JDK
         final Pattern eaVersionPattern = Pattern.compile("^(\\d+)-ea$");
         final Matcher eaVersionMatcher = eaVersionPattern.matcher(jreVersionStr);
-
-        // JDK 11 has java.version as just "11", not like "1.8.0"
-        try {
-            return Integer.parseInt(jreVersionStr);
-        } catch (NumberFormatException e) {
-            // Nothing to do; fall through to parse other types of version numbers
+        if (eaVersionMatcher.matches()) {
+            String v = eaVersionMatcher.group(1);
+            assert v != null : "@AssumeAssertion(nullness): inspection";
+            return Integer.parseInt(v);
         }
 
-        final double version;
-        if (versionMatcher.matches()) {
-            version = Double.parseDouble(versionMatcher.group(1));
-        } else if (eaVersionMatcher.matches()) {
-            version = Double.parseDouble("1." + eaVersionMatcher.group(1));
-        } else {
-            throw new RuntimeException(
-                    "Could not determine version from property java.version=" + jreVersionStr);
-        }
-
-        return version;
+        throw new RuntimeException(
+                "Could not determine version from property java.version=" + jreVersionStr);
     }
 
     /**
@@ -566,16 +629,13 @@ public class PluginUtil {
      * @return "jdk<em>X</em>" where X is the version of Java that is being run (e.g. 8, 9, ...)
      */
     public static String getJdkJarPrefix() {
-        final double jreVersion = getJreVersion();
+        final int jreVersion = getJreVersion();
         final String prefix;
-        if (jreVersion == 1.7) {
-            prefix = "jdk7";
-        } else if (jreVersion == 1.8) {
-            prefix = "jdk8";
-        } else if (jreVersion == 1.9) {
-            prefix = "jdk9";
-        } else {
+
+        if (jreVersion < 8) {
             throw new AssertionError("Unsupported JRE version: " + jreVersion);
+        } else {
+            prefix = "jdk" + jreVersion;
         }
 
         return prefix;
@@ -590,5 +650,17 @@ public class PluginUtil {
     public static String getJdkJarName() {
         final String fileName = getJdkJarPrefix() + ".jar";
         return fileName;
+    }
+
+    /**
+     * Returns the release value passed to the compiler or null if release was not passed.
+     *
+     * @param env the ProcessingEnvironment
+     * @return the release value or null if none was passed
+     */
+    public static @Nullable String getReleaseValue(ProcessingEnvironment env) {
+        Context ctx = ((JavacProcessingEnvironment) env).getContext();
+        Options options = Options.instance(ctx);
+        return options.get(Option.RELEASE);
     }
 }

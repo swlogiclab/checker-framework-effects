@@ -15,14 +15,11 @@ import java.lang.annotation.Target;
  * subtypes, overrides {@code equals}. Therefore, it cannot be written on {@code Object} itself. It
  * is most commonly written on a direct subclass of {@code Object}.
  *
- * <p>This annotation is associated with the {@link
- * org.checkerframework.checker.interning.InterningChecker}.
- *
  * @see org.checkerframework.checker.interning.InterningChecker
  * @checker_framework.manual #interning-checker Interning Checker
  */
 @Documented
-@Inherited
-@Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Inherited
 public @interface UsesObjectEquals {}

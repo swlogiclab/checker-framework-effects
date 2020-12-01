@@ -3,11 +3,14 @@ package org.checkerframework.framework.stub;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.Problem;
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.AccessSpecifier;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
+import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.StubUnit;
+import com.github.javaparser.ast.body.AnnotationDeclaration;
 import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -45,12 +48,14 @@ import com.github.javaparser.ast.type.WildcardType;
 import java.io.InputStream;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -64,7 +69,11 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.signature.qual.CanonicalName;
+import org.checkerframework.checker.signature.qual.DotSeparatedIdentifiers;
+import org.checkerframework.checker.signature.qual.FullyQualifiedName;
 import org.checkerframework.framework.qual.FromStubFile;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
@@ -73,28 +82,33 @@ import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedDeclared
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedTypeVariable;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedWildcardType;
-import org.checkerframework.framework.type.visitor.AnnotatedTypeMerger;
+import org.checkerframework.framework.type.AnnotatedTypeReplacer;
 import org.checkerframework.javacutil.AnnotationBuilder;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.BugInCF;
 import org.checkerframework.javacutil.ElementUtils;
 import org.checkerframework.javacutil.Pair;
 
+// From an implementation perspective, this class represents a single stub file, notably its
+// annotated types and its declaration annotations.  From a client perspective, it has two static
+// methods as described below in the Javadoc.
 /**
- * Given a stub file, yields the annotated types in it and the declaration annotations in it. The
- * main entry point is {@link StubParser#parse(String, InputStream, AnnotatedTypeFactory,
- * ProcessingEnvironment, Map, Map)}, which side-effects its last two arguments.
+ * This class has two static methods. Each method parses a stub file and adds annotations to two
+ * maps passed as arguments.
  *
- * <p>The constructor acts in two parts. First, it calls the Stub Parser to parse a stub file. Then,
- * itis walks the Stub Parser's AST to create/collect types and declaration annotations.
+ * <p>The main entry point is {@link StubParser#parse(String, InputStream, AnnotatedTypeFactory,
+ * ProcessingEnvironment, Map, Map)}, which side-effects its last two arguments. It operates in two
+ * steps. First, it calls the Stub Parser to parse a stub file. Then, it walks the Stub Parser's AST
+ * to create/collect types and declaration annotations.
+ *
+ * <p>The other entry point is {@link #parseJdkFileAsStub}.
  */
 public class StubParser {
 
     /**
-     * Whether to print warnings about types/members that were not found. The warning is about
-     * whether a class/field in the stub file is not found on the user's real classpath. Since the
-     * stub file may contain packages that are not on the classpath, this can be OK, so default to
-     * false.
+     * Whether to print warnings about types/members that were not found. The warning states that a
+     * class/field in the stub file is not found on the user's real classpath. Since the stub file
+     * may contain packages that are not on the classpath, this can be OK, so default to false.
      */
     private final boolean warnIfNotFound;
 
@@ -108,6 +122,11 @@ public class StubParser {
 
     /** Whether to print warnings about stub files that overwrite annotations from bytecode. */
     private final boolean warnIfStubOverwritesBytecode;
+
+    /**
+     * Whether to print warnings about stub files that are redundant with annotations from bytecode.
+     */
+    private final boolean warnIfStubRedundantWithBytecode;
 
     /** Whether to print verbose debugging messages. */
     private final boolean debugStubParser;
@@ -127,19 +146,19 @@ public class StubParser {
     private final Elements elements;
 
     /**
-     * The set of annotations found in the stub file. Keys are simple (unqualified) names. (This may
-     * be a problem in the unlikely occurrence that a type-checker supports two annotations with the
-     * same simple name.)
+     * The set of annotations found in the stub file. Keys are both fully-qualified and simple
+     * names. There are two entries for each annotation: the annotation's simple name and its
+     * fully-qualified name.
      *
      * @see #getAllStubAnnotations
      */
-    private Map<String, AnnotationMirror> allStubAnnotations;
+    private Map<String, TypeElement> allStubAnnotations;
 
     /**
      * A list of the fully-qualified names of enum constants and static fields with constant values
      * that have been imported.
      */
-    private final List<String> importedConstants = new ArrayList<>();
+    private final List<@FullyQualifiedName String> importedConstants = new ArrayList<>();
 
     /** A map of imported fully-qualified type names to type elements. */
     private final Map<String, TypeElement> importedTypes = new HashMap<>();
@@ -156,72 +175,105 @@ public class StubParser {
     // The following variables are stored in the StubParser because otherwise they would need to be
     // passed through everywhere, which would be verbose.
 
-    /** The type that is currently being parsed. */
-    FqName parseState;
+    /**
+     * The name of the type that is currently being parsed. After processing a package declaration
+     * but before processing a type declaration, the type part of this may be null.
+     */
+    private FqName typeName;
 
-    /** Output variable: .... */
-    Map<Element, AnnotatedTypeMirror> atypes;
+    /** Output variable: map from element to its type as declared in the stub file. */
+    private final Map<Element, AnnotatedTypeMirror> atypes;
 
-    /** Output variable: .... */
-    Map<String, Set<AnnotationMirror>> declAnnos;
+    /**
+     * Output variable: map from a name (actually declaration element string) to the set of
+     * declaration annotations on it, as written in the stub file.
+     */
+    private final Map<String, Set<AnnotationMirror>> declAnnos;
 
     /** The line separator. */
     private static final String LINE_SEPARATOR = System.lineSeparator().intern();
+
+    /** Whether or not the stub file is a part of the JDK. */
+    private final boolean isJdkAsStub;
 
     /**
      * Create a new StubParser object, which will parse and extract annotations from the given stub
      * file.
      *
      * @param filename name of stub file, used only for diagnostic messages
-     * @param atypeFactory AnnotatedtypeFactory to use
-     * @param processingEnv ProcessingEnviroment to use
+     * @param atypeFactory AnnotatedTypeFactory to use
+     * @param processingEnv ProcessingEnvironment to use
+     * @param atypes annotated types from this stub file are added to this map
+     * @param declAnnos map from a name (actually declaration element string) to the set of
+     *     declaration annotations on it. Declaration annotations from this stub file are added to
+     *     this map.
+     * @param isJdkAsStub whether or not the stub file is a part of the JDK
      */
-    public StubParser(
+    private StubParser(
             String filename,
             AnnotatedTypeFactory atypeFactory,
             ProcessingEnvironment processingEnv,
             Map<Element, AnnotatedTypeMirror> atypes,
-            Map<String, Set<AnnotationMirror>> declAnnos) {
+            Map<String, Set<AnnotationMirror>> declAnnos,
+            boolean isJdkAsStub) {
         this.filename = filename;
         this.atypeFactory = atypeFactory;
         this.processingEnv = processingEnv;
         this.elements = processingEnv.getElementUtils();
 
+        // TODO: This should use SourceChecker.getOptions() to allow
+        // setting these flags per checker.
         Map<String, String> options = processingEnv.getOptions();
         this.warnIfNotFound = options.containsKey("stubWarnIfNotFound");
         this.warnIfNotFoundIgnoresClasses = options.containsKey("stubWarnIfNotFoundIgnoresClasses");
         this.warnIfStubOverwritesBytecode = options.containsKey("stubWarnIfOverwritesBytecode");
+        this.warnIfStubRedundantWithBytecode =
+                options.containsKey("stubWarnIfRedundantWithBytecode")
+                        && atypeFactory.shouldWarnIfStubRedundantWithBytecode();
         this.debugStubParser = options.containsKey("stubDebug");
 
         this.fromStubFile = AnnotationBuilder.fromClass(elements, FromStubFile.class);
 
         this.atypes = atypes;
         this.declAnnos = declAnnos;
+        this.isJdkAsStub = isJdkAsStub;
     }
 
     /**
      * All annotations defined in the package (but not those nested within classes in the package).
-     * Keys are simple names.
+     * Keys are both fully-qualified and simple names.
+     *
+     * @param packageElement a package
+     * @return a map from annotation name to TypeElement
      */
-    private Map<String, AnnotationMirror> annosInPackage(PackageElement packageElement) {
-        return createImportedAnnotationsMap(
+    private Map<String, TypeElement> annosInPackage(PackageElement packageElement) {
+        return createNameToAnnotationMap(
                 ElementFilter.typesIn(packageElement.getEnclosedElements()));
     }
 
-    /** All annotations declared (directly) within a class. Keys are simple names. */
-    private Map<String, AnnotationMirror> annosInType(TypeElement typeElement) {
-        return createImportedAnnotationsMap(
-                ElementFilter.typesIn(typeElement.getEnclosedElements()));
+    /**
+     * All annotations declared (directly) within a class. Keys are both fully-qualified and simple
+     * names.
+     *
+     * @param typeElement a type
+     * @return a map from annotation name to TypeElement
+     */
+    private Map<String, TypeElement> annosInType(TypeElement typeElement) {
+        return createNameToAnnotationMap(ElementFilter.typesIn(typeElement.getEnclosedElements()));
     }
 
-    private Map<String, AnnotationMirror> createImportedAnnotationsMap(
-            List<TypeElement> typeElements) {
-        Map<String, AnnotationMirror> result = new HashMap<>();
+    /**
+     * All annotations declared within any of the given elements.
+     *
+     * @param typeElements the elements whose annotations to retrieve
+     * @return a map from annotation names (both fully-qualified and simple names) to TypeElement
+     */
+    private Map<String, TypeElement> createNameToAnnotationMap(List<TypeElement> typeElements) {
+        Map<String, TypeElement> result = new HashMap<>();
         for (TypeElement typeElm : typeElements) {
             if (typeElm.getKind() == ElementKind.ANNOTATION_TYPE) {
-                AnnotationMirror anno =
-                        AnnotationBuilder.fromName(elements, typeElm.getQualifiedName());
-                putNoOverride(result, typeElm.getSimpleName().toString(), anno);
+                putIfAbsent(result, typeElm.getSimpleName().toString(), typeElm);
+                putIfAbsent(result, typeElm.getQualifiedName().toString(), typeElm);
             }
         }
         return result;
@@ -231,34 +283,45 @@ public class StubParser {
      * Get all members of a Type that are importable in a stub file. Currently these are values of
      * enums, or compile time constants.
      *
-     * @return a list fully-qualified member names
+     * @param typeElement the type whose members to return
+     * @return a list of fully-qualified member names
      */
-    private static List<String> getImportableMembers(TypeElement typeElement) {
-        List<String> result = new ArrayList<>();
+    private static List<@FullyQualifiedName String> getImportableMembers(TypeElement typeElement) {
+        List<@FullyQualifiedName String> result = new ArrayList<>();
         List<VariableElement> memberElements =
                 ElementFilter.fieldsIn(typeElement.getEnclosedElements());
         for (VariableElement varElement : memberElements) {
             if (varElement.getConstantValue() != null
                     || varElement.getKind() == ElementKind.ENUM_CONSTANT) {
-                result.add(
-                        String.format(
-                                "%s.%s",
-                                typeElement.getQualifiedName().toString(),
-                                varElement.getSimpleName().toString()));
+                @SuppressWarnings("signature") // string concatenation
+                @FullyQualifiedName String fqName =
+                        typeElement.getQualifiedName().toString()
+                                + "."
+                                + varElement.getSimpleName().toString();
+                result.add(fqName);
             }
         }
         return result;
     }
 
+    //  TODO: This method collects only those that are imported, so it will miss ones whose
+    //   fully-qualified name is used in the stub file. The #getAnnotation method in this class
+    //   compensates for this deficiency by attempting to add any fully-qualified annotation
+    //   that it encounters.
     /**
-     * Returns all annotations found in the stub file, as a value for {@link #allStubAnnotations}.
-     * Note that this also modifies {@link #importedConstants} and {@link #importedTypes}.
+     * Returns all annotations imported by the stub file, as a value for {@link
+     * #allStubAnnotations}. Note that this also modifies {@link #importedConstants} and {@link
+     * #importedTypes}.
      *
+     * @return a map from names to TypeElement, for all annotations imported by the stub file. Two
+     *     entries for each annotation: one for the simple name and another for the fully-qualified
+     *     name, with the same value.
      * @see #allStubAnnotations
      */
-    private Map<String, AnnotationMirror> getAllStubAnnotations() {
-        Map<String, AnnotationMirror> result = new HashMap<>();
+    private Map<String, TypeElement> getAllStubAnnotations() {
+        Map<String, TypeElement> result = new HashMap<>();
 
+        // TODO: The size can be greater than 1, but this ignores all but the first element.
         assert !stubUnit.getCompilationUnits().isEmpty();
         CompilationUnit cu = stubUnit.getCompilationUnits().get(0);
 
@@ -267,9 +330,13 @@ public class StubParser {
         }
 
         for (ImportDeclaration importDecl : cu.getImports()) {
-            String imported = importDecl.getNameAsString();
             try {
                 if (importDecl.isAsterisk()) {
+                    @SuppressWarnings("signature" // https://tinyurl.com/cfissue/3094:
+                    // com.github.javaparser.ast.expr.Name inherits toString,
+                    // so there can be no stub file annotation for it
+                    )
+                    @DotSeparatedIdentifiers String imported = importDecl.getName().toString();
                     if (importDecl.isStatic()) {
                         // Wildcard import of members of a type (class or interface)
                         TypeElement element = getTypeElement(imported, "Imported type not found");
@@ -290,7 +357,11 @@ public class StubParser {
                         }
                     }
                 } else {
-                    // A single (non-wildcard) import
+                    // A single (non-wildcard) import.
+                    @SuppressWarnings("signature" // importDecl is non-wildcard, so its name is
+                    // @FullyQualifiedName
+                    )
+                    @FullyQualifiedName String imported = importDecl.getNameAsString();
 
                     final TypeElement importType = elements.getTypeElement(imported);
                     if (importType == null && !importDecl.isStatic()) {
@@ -298,9 +369,10 @@ public class StubParser {
 
                         stubWarnNotFound("Imported type not found: " + imported);
                     } else if (importType == null) {
-                        // Nested Field
+                        // static import of field or method.
 
-                        Pair<String, String> typeParts = StubUtil.partitionQualifiedName(imported);
+                        Pair<@FullyQualifiedName String, String> typeParts =
+                                StubUtil.partitionQualifiedName(imported);
                         String type = typeParts.first;
                         String fieldName = typeParts.second;
                         TypeElement enclType =
@@ -311,20 +383,23 @@ public class StubParser {
                                                 fieldName));
 
                         if (enclType != null) {
-                            if (findFieldElement(enclType, fieldName) != null) {
-                                importedConstants.add(imported);
+                            // Don't use findFieldElement(enclType, fieldName), because we don't
+                            // want a warning, imported might be a method.
+                            for (VariableElement field :
+                                    ElementUtils.getAllFieldsIn(enclType, elements)) {
+                                // field.getSimpleName() is a CharSequence, not a String
+                                if (fieldName.equals(field.getSimpleName().toString())) {
+                                    importedConstants.add(imported);
+                                }
                             }
                         }
 
                     } else if (importType.getKind() == ElementKind.ANNOTATION_TYPE) {
                         // Single annotation or nested annotation
-
-                        AnnotationMirror anno = AnnotationBuilder.fromName(elements, imported);
-                        if (anno != null) {
-                            Element annoElt = anno.getAnnotationType().asElement();
-                            putNoOverride(result, annoElt.getSimpleName().toString(), anno);
-                            importedTypes.put(
-                                    annoElt.getSimpleName().toString(), (TypeElement) annoElt);
+                        TypeElement annoElt = elements.getTypeElement(imported);
+                        if (annoElt != null) {
+                            putIfAbsent(result, annoElt.getSimpleName().toString(), annoElt);
+                            importedTypes.put(annoElt.getSimpleName().toString(), annoElt);
                         } else {
                             stubWarnNotFound("Could not load import: " + imported);
                         }
@@ -337,7 +412,7 @@ public class StubParser {
                     }
                 }
             } catch (AssertionError error) {
-                stubWarnNotFound("" + error);
+                stubWarnNotFound(error.toString());
             }
         }
         return result;
@@ -358,8 +433,12 @@ public class StubParser {
      *
      * @param filename name of stub file, used only for diagnostic messages
      * @param inputStream of stub file to parse
-     * @param atypeFactory AnnotatedtypeFactory to use
-     * @param processingEnv ProcessingEnviroment to use
+     * @param atypeFactory AnnotatedTypeFactory to use
+     * @param processingEnv ProcessingEnvironment to use
+     * @param atypes annotated types from this stub file are added to this map
+     * @param declAnnos map from a name (actually declaration element string) to the set of
+     *     declaration annotations on it. Declaration annotations from this stub file are added to
+     *     this map.
      */
     public static void parse(
             String filename,
@@ -368,45 +447,98 @@ public class StubParser {
             ProcessingEnvironment processingEnv,
             Map<Element, AnnotatedTypeMirror> atypes,
             Map<String, Set<AnnotationMirror>> declAnnos) {
-        StubParser sp = new StubParser(filename, atypeFactory, processingEnv, atypes, declAnnos);
+        parse(filename, inputStream, atypeFactory, processingEnv, atypes, declAnnos, false);
+    }
+
+    /**
+     * Parse a stub file that is a part of the annotated JDK and side-effects the last two
+     * arguments.
+     *
+     * @param filename name of stub file, used only for diagnostic messages
+     * @param inputStream of stub file to parse
+     * @param atypeFactory AnnotatedTypeFactory to use
+     * @param processingEnv ProcessingEnvironment to use
+     * @param atypes annotated types from this stub file are added to this map
+     * @param declAnnos map from a name (actually declaration element string) to the set of
+     *     declaration annotations on it. Declaration annotations from this stub file are added to
+     *     this map.
+     */
+    public static void parseJdkFileAsStub(
+            String filename,
+            InputStream inputStream,
+            AnnotatedTypeFactory atypeFactory,
+            ProcessingEnvironment processingEnv,
+            Map<Element, AnnotatedTypeMirror> atypes,
+            Map<String, Set<AnnotationMirror>> declAnnos) {
+        parse(filename, inputStream, atypeFactory, processingEnv, atypes, declAnnos, true);
+    }
+
+    /**
+     * Parse a stub file and adds annotations to the maps.
+     *
+     * @param filename name of stub file, used only for diagnostic messages
+     * @param inputStream of stub file to parse
+     * @param atypeFactory AnnotatedTypeFactory to use
+     * @param processingEnv ProcessingEnvironment to use
+     * @param atypes annotated types from this stub file are added to this map
+     * @param declAnnos map from a name (actually declaration element string) to the set of
+     *     declaration annotations on it. Declaration annotations from this stub file are added to
+     *     this map.
+     * @param isJdkAsStub whether or not the stub file is a part of the annotated JDK
+     */
+    private static void parse(
+            String filename,
+            InputStream inputStream,
+            AnnotatedTypeFactory atypeFactory,
+            ProcessingEnvironment processingEnv,
+            Map<Element, AnnotatedTypeMirror> atypes,
+            Map<String, Set<AnnotationMirror>> declAnnos,
+            boolean isJdkAsStub) {
+        StubParser sp =
+                new StubParser(
+                        filename, atypeFactory, processingEnv, atypes, declAnnos, isJdkAsStub);
         try {
             sp.parseStubUnit(inputStream);
             sp.process();
         } catch (ParseProblemException e) {
-            StringBuilder message =
-                    new StringBuilder(
-                            "exception while parsing stub file "
-                                    + filename
-                                    + ". Encountered problems: ");
+            StringJoiner message = new StringJoiner(LINE_SEPARATOR);
+            message.add(
+                    e.getProblems().size() + " problems while parsing stub file " + filename + ":");
             // Manually build up the message, to get verbose location information.
             for (Problem p : e.getProblems()) {
-                message.append(p.getVerboseMessage());
-                message.append(LINE_SEPARATOR);
+                message.add(p.getVerboseMessage());
             }
             sp.stubWarn(message.toString());
         }
     }
 
     /**
-     * Delegate to the Stub Parser to parse the stub file to an AST. Subsequently, all work uses the
-     * AST.
+     * Delegate to the Stub Parser to parse the stub file to an AST, and save it in {@link
+     * #stubUnit}. Also modifies other fields of this.
+     *
+     * <p>Subsequently, all work uses the AST.
+     *
+     * @param inputStream the stream from which to read a stub file
      */
     private void parseStubUnit(InputStream inputStream) {
         if (debugStubParser) {
             stubDebug(String.format("parsing stub file %s", filename));
         }
-
         stubUnit = StaticJavaParser.parseStubUnit(inputStream);
 
         // getAllStubAnnotations() also modifies importedConstants and importedTypes. This should
         // be refactored to be nicer.
         allStubAnnotations = getAllStubAnnotations();
         if (allStubAnnotations.isEmpty()) {
+            // This issues a warning if the stub file contains no import statements.  That is
+            // incorrect if the stub file contains fully-qualified annotations.
             stubWarnNotFound(
                     String.format(
-                            "No supported annotations found! This likely means stub file %s doesn't import them correctly.",
+                            "No supported annotations found! Does stub file %s import them?",
                             filename));
         }
+        // Annotations in java.lang might be used without an import statement, so add them in case.
+        allStubAnnotations.putAll(annosInPackage(findPackage("java.lang")));
     }
 
     /** Process {@link #stubUnit}, which is the AST produced by {@link #parseStubUnit}. */
@@ -414,7 +546,11 @@ public class StubParser {
         processStubUnit(this.stubUnit);
     }
 
-    /** Parse the given StubUnit. */
+    /**
+     * Process the given StubUnit.
+     *
+     * @param index the StubUnit to process
+     */
     private void processStubUnit(StubUnit index) {
         for (CompilationUnit cu : index.getCompilationUnits()) {
             processCompilationUnit(cu);
@@ -426,7 +562,7 @@ public class StubParser {
 
         if (!cu.getPackageDeclaration().isPresent()) {
             packageAnnos = null;
-            parseState = new FqName(null, null);
+            typeName = new FqName(null, null);
         } else {
             PackageDeclaration pDecl = cu.getPackageDeclaration().get();
             packageAnnos = pDecl.getAnnotations();
@@ -442,24 +578,39 @@ public class StubParser {
     private void processPackage(PackageDeclaration packDecl) {
         assert (packDecl != null);
         String packageName = packDecl.getNameAsString();
-        parseState = new FqName(packageName, null);
+        typeName = new FqName(packageName, null);
         Element elem = elements.getPackageElement(packageName);
         // If the element lookup fails, it's because we have an annotation for a
         // package that isn't on the classpath, which is fine.
         if (elem != null) {
-            annotateDecl(declAnnos, elem, packDecl.getAnnotations());
+            recordDeclAnnotation(elem, packDecl.getAnnotations());
         }
         // TODO: Handle atypes???
     }
 
-    /** @param outertypeName the name of the containing class, when processing a nested class */
+    /**
+     * Process a type declaration.
+     *
+     * @param typeDecl the type declaration to process
+     * @param outertypeName the name of the containing class, when processing a nested class;
+     *     otherwise null
+     * @param packageAnnos the annotation declared in the package
+     */
     private void processTypeDecl(
             TypeDeclaration<?> typeDecl, String outertypeName, List<AnnotationExpr> packageAnnos) {
-        assert parseState != null;
+        assert typeName != null;
+        if (isJdkAsStub && typeDecl.getModifiers().contains(Modifier.privateModifier())) {
+            // Don't process private classes of the JDK.  They can't be referenced outside of the
+            // JDK and might refer to types that are not accessible.
+            return;
+        }
         String innerName =
                 (outertypeName == null ? "" : outertypeName + ".") + typeDecl.getNameAsString();
-        parseState = new FqName(parseState.packageName, innerName);
-        String fqTypeName = parseState.toString();
+        typeName = new FqName(typeName.packageName, innerName);
+        @SuppressWarnings(
+                "signature") // FqName.toString : @FullyQualifiedName; and @CanonicalName because
+        // this is its declaration
+        @CanonicalName String fqTypeName = typeName.toString();
         TypeElement typeElt = elements.getTypeElement(fqTypeName);
         if (typeElt == null) {
             if (debugStubParser
@@ -471,15 +622,44 @@ public class StubParser {
             return;
         }
 
+        List<AnnotatedTypeVariable> typeDeclTypeParameters = null;
         if (typeElt.getKind() == ElementKind.ENUM) {
-            typeParameters.addAll(processEnum((EnumDeclaration) typeDecl, typeElt));
+            if (!(typeDecl instanceof EnumDeclaration)) {
+                stubWarn(
+                        innerName
+                                + " is an enum, but stub file declared it as "
+                                + typeDecl.toString().split("\\R", 2)[0]
+                                + "...");
+                return;
+            }
+            typeDeclTypeParameters = processEnum((EnumDeclaration) typeDecl, typeElt);
+            typeParameters.addAll(typeDeclTypeParameters);
         } else if (typeElt.getKind() == ElementKind.ANNOTATION_TYPE) {
+            if (!(typeDecl instanceof AnnotationDeclaration)) {
+                stubWarn(
+                        innerName
+                                + " is an annotation, but stub file declared it as "
+                                + typeDecl.toString().split("\\R", 2)[0]
+                                + "...");
+                return;
+            }
             stubWarnNotFound("Skipping annotation type: " + fqTypeName);
         } else if (typeDecl instanceof ClassOrInterfaceDeclaration) {
-            typeParameters.addAll(processType((ClassOrInterfaceDeclaration) typeDecl, typeElt));
+            if (!(typeDecl instanceof ClassOrInterfaceDeclaration)) {
+                stubWarn(
+                        innerName
+                                + " is a class or interface, but stub file declared it as "
+                                + typeDecl.toString().split("\\R", 2)[0]
+                                + "...");
+                return;
+            }
+            typeDeclTypeParameters = processType((ClassOrInterfaceDeclaration) typeDecl, typeElt);
+            typeParameters.addAll(typeDeclTypeParameters);
         } // else it's an EmptyTypeDeclaration.  TODO:  An EmptyTypeDeclaration can have
         // annotations, right?
 
+        // This loops over the members of the Element, finding the matching stub declaration if any.
+        // It ignores any stub declaration that does not match some member of the element.
         Map<Element, BodyDeclaration<?>> elementsToDecl = getMembers(typeElt, typeDecl);
         for (Map.Entry<Element, BodyDeclaration<?>> entry : elementsToDecl.entrySet()) {
             final Element elt = entry.getKey();
@@ -509,7 +689,9 @@ public class StubParser {
                     break;
             }
         }
-        typeParameters.clear();
+        if (typeDeclTypeParameters != null) {
+            typeParameters.removeAll(typeDeclTypeParameters);
+        }
     }
 
     /** True if the argument contains {@code @NoStubParserWarning}. */
@@ -518,17 +700,24 @@ public class StubParser {
             return false;
         }
         for (AnnotationExpr anno : aexprs) {
-            if (anno.getNameAsString().contentEquals("NoStubParserWarning")) {
+            if (anno.getNameAsString().equals("NoStubParserWarning")) {
                 return true;
             }
         }
         return false;
     }
 
-    /** @return list of AnnotatedTypeVariable of the type's type parameter declarations */
+    /**
+     * Processes the type's declaration but not any of its members. Returns the type's type
+     * parameter declarations.
+     *
+     * @param decl a type declaration
+     * @param elt the type's element
+     * @return the type's type parameter declarations
+     */
     private List<AnnotatedTypeVariable> processType(
             ClassOrInterfaceDeclaration decl, TypeElement elt) {
-        annotateDecl(declAnnos, elt, decl.getAnnotations());
+        recordDeclAnnotation(elt, decl.getAnnotations());
         AnnotatedDeclaredType type = atypeFactory.fromElement(elt);
         annotate(type, decl.getAnnotations());
 
@@ -547,7 +736,7 @@ public class StubParser {
             if (numParams != numArgs) {
                 stubDebug(
                         String.format(
-                                "parseType:  mismatched sizes for typeParameters=%s (size %d) and typeArguments=%s (size %d); decl=%s; elt=%s (%s); type=%s (%s); parseState=%s",
+                                "parseType:  mismatched sizes for typeParameters=%s (size %d) and typeArguments=%s (size %d); decl=%s; elt=%s (%s); type=%s (%s); typeName=%s",
                                 typeParameters,
                                 numParams,
                                 typeArguments,
@@ -557,14 +746,14 @@ public class StubParser {
                                 elt.getClass(),
                                 type,
                                 type.getClass(),
-                                parseState));
+                                typeName));
                 stubDebug("Proceeding despite mismatched sizes");
             }
         }
 
         annotateTypeParameters(decl, elt, atypes, typeArguments, typeParameters);
         annotateSupertypes(decl, type);
-        putNew(atypes, elt, type);
+        putMerge(atypes, elt, type);
         List<AnnotatedTypeVariable> typeVariables = new ArrayList<>();
         for (AnnotatedTypeMirror typeV : type.getTypeArguments()) {
             if (typeV.getKind() != TypeKind.TYPEVAR) {
@@ -581,22 +770,19 @@ public class StubParser {
     }
 
     /**
-     * Gathers and returns a list of AnnotatedTypeVariable of the enum's type parameter
-     * declarations.
+     * Returns an enum's type parameter declarations.
      *
-     * @param decl actual enum declaration
+     * @param decl enum declaration
      * @param elt element representing enum
-     * @param atypes map of annotated types
-     * @param declAnnos map of declarations annotations
-     * @return list of AnnotatedTypeVariable of the enum's type parameter declarations
+     * @return the enum's type parameter declarations
      */
     private List<AnnotatedTypeVariable> processEnum(EnumDeclaration decl, TypeElement elt) {
 
-        annotateDecl(declAnnos, elt, decl.getAnnotations());
+        recordDeclAnnotation(elt, decl.getAnnotations());
         AnnotatedDeclaredType type = atypeFactory.fromElement(elt);
         annotate(type, decl.getAnnotations());
 
-        putNew(atypes, elt, type);
+        putMerge(atypes, elt, type);
         List<AnnotatedTypeVariable> typeVariables = new ArrayList<>();
         for (AnnotatedTypeMirror typeV : type.getTypeArguments()) {
             if (typeV.getKind() != TypeKind.TYPEVAR) {
@@ -615,93 +801,115 @@ public class StubParser {
     private void annotateSupertypes(
             ClassOrInterfaceDeclaration typeDecl, AnnotatedDeclaredType type) {
         if (typeDecl.getExtendedTypes() != null) {
-            for (ClassOrInterfaceType superType : typeDecl.getExtendedTypes()) {
-                AnnotatedDeclaredType foundType = findType(superType, type.directSuperTypes());
-                if (foundType == null) {
-                    throw new BugInCF(
-                            "StubParser: could not find superclass "
-                                    + superType
+            for (ClassOrInterfaceType supertype : typeDecl.getExtendedTypes()) {
+                AnnotatedDeclaredType annotatedSupertype =
+                        findAnnotatedType(supertype, type.directSuperTypes());
+                if (annotatedSupertype == null) {
+                    stubWarn(
+                            "stub file does not match bytecode: "
+                                    + "could not find superclass "
+                                    + supertype
                                     + " from type "
-                                    + type
-                                    + LINE_SEPARATOR
-                                    + "Stub file does not match bytecode");
+                                    + type);
+                } else {
+                    annotate(annotatedSupertype, supertype, null);
                 }
-                annotate(foundType, superType, null);
             }
         }
         if (typeDecl.getImplementedTypes() != null) {
-            for (ClassOrInterfaceType superType : typeDecl.getImplementedTypes()) {
-                AnnotatedDeclaredType foundType = findType(superType, type.directSuperTypes());
-                if (foundType == null) {
-                    throw new BugInCF(
-                            "StubParser: could not find superinterface "
-                                    + superType
+            for (ClassOrInterfaceType supertype : typeDecl.getImplementedTypes()) {
+                AnnotatedDeclaredType annotatedSupertype =
+                        findAnnotatedType(supertype, type.directSuperTypes());
+                if (annotatedSupertype == null) {
+                    stubWarn(
+                            "stub file does not match bytecode: "
+                                    + "could not find superinterface "
+                                    + supertype
                                     + " from type "
-                                    + type
-                                    + LINE_SEPARATOR
-                                    + "Stub file does not match bytecode");
+                                    + type);
+                } else {
+                    annotate(annotatedSupertype, supertype, null);
                 }
-                annotate(foundType, superType, null);
             }
         }
     }
 
     /** Adds type and declaration annotations from {@code decl}. */
     private void processCallableDeclaration(CallableDeclaration<?> decl, ExecutableElement elt) {
-
         // Declaration annotations
-        annotateDecl(declAnnos, elt, decl.getAnnotations());
+        recordDeclAnnotation(elt, decl.getAnnotations());
         if (decl.isMethodDeclaration()) {
             // StubParser parses all annotations in type annotation position as type annotations
-            annotateDecl(declAnnos, elt, ((MethodDeclaration) decl).getType().getAnnotations());
+            recordDeclAnnotation(elt, ((MethodDeclaration) decl).getType().getAnnotations());
         }
-        addDeclAnnotations(declAnnos, elt);
+        recordDeclAnnotationFromStubFile(elt);
 
         AnnotatedExecutableType methodType = atypeFactory.fromElement(elt);
+        AnnotatedExecutableType origMethodType;
+
+        if (warnIfStubRedundantWithBytecode) {
+            origMethodType = methodType.deepCopy();
+        } else {
+            origMethodType = null;
+        }
+
         // Type Parameters
         annotateTypeParameters(
                 decl, elt, atypes, methodType.getTypeVariables(), decl.getTypeParameters());
         typeParameters.addAll(methodType.getTypeVariables());
 
-        // Type annotations
+        // Return type, from declaration annotations on the method or constructor
         if (decl.isMethodDeclaration()) {
             annotate(
                     methodType.getReturnType(),
                     ((MethodDeclaration) decl).getType(),
                     decl.getAnnotations());
         } else {
+            assert decl.isConstructorDeclaration();
             annotate(methodType.getReturnType(), decl.getAnnotations());
         }
 
         // Parameters
-        processParameters(decl, elt, declAnnos, methodType);
+        processParameters(decl, elt, methodType);
 
         // Receiver
-        if (decl.getReceiverParameter().isPresent()
-                && !decl.getReceiverParameter().get().getAnnotations().isEmpty()) {
+        if (decl.getReceiverParameter().isPresent()) {
             if (methodType.getReceiverType() == null) {
                 if (decl.isConstructorDeclaration()) {
                     stubWarn(
-                            "parseParameter: constructor of a top-level class cannot have receiver annotations%n"
-                                    + "Constructor: %s%n"
-                                    + "Receiver annotations: %s",
+                            "parseParameter: constructor %s of a top-level class cannot have receiver annotations %s",
                             methodType, decl.getReceiverParameter().get().getAnnotations());
                 } else {
                     stubWarn(
-                            "parseParameter: static methods cannot have receiver annotations%n"
-                                    + "Method: %s%n"
-                                    + "Receiver annotations: %s",
+                            "parseParameter: static method %s cannot have receiver annotations %s",
                             methodType, decl.getReceiverParameter().get().getAnnotations());
                 }
             } else {
+                // Add declaration annotations.
                 annotate(
                         methodType.getReceiverType(),
+                        decl.getReceiverParameter().get().getAnnotations());
+                // Add type annotations.
+                annotate(
+                        methodType.getReceiverType(),
+                        decl.getReceiverParameter().get().getType(),
                         decl.getReceiverParameter().get().getAnnotations());
             }
         }
 
+        if (warnIfStubRedundantWithBytecode
+                && methodType.toString().equals(origMethodType.toString())
+                && !isJdkAsStub) {
+            stubWarn(
+                    String.format(
+                            "in file %s at line %s: redundant stub file specification for: %s",
+                            filename.substring(filename.lastIndexOf('/') + 1),
+                            decl.getBegin().get().line,
+                            ElementUtils.getQualifiedName(elt)));
+        }
+
         // Store the type.
-        putNew(atypes, elt, methodType);
+        putMerge(atypes, elt, methodType);
         typeParameters.removeAll(methodType.getTypeVariables());
     }
 
@@ -709,15 +917,13 @@ public class StubParser {
      * Adds declaration and type annotations to the parameters of {@code methodType}, which is
      * either a method or constructor.
      *
-     * @param method Method or Constructor declaration
+     * @param method a Method or Constructor declaration
      * @param elt ExecutableElement of {@code method}
-     * @param declAnnos map of declaration elements strings to annotations
      * @param methodType annotated type of {@code method}
      */
     private void processParameters(
             CallableDeclaration<?> method,
             ExecutableElement elt,
-            Map<String, Set<AnnotationMirror>> declAnnos,
             AnnotatedExecutableType methodType) {
         List<Parameter> params = method.getParameters();
         List<? extends VariableElement> paramElts = elt.getParameters();
@@ -728,13 +934,13 @@ public class StubParser {
             AnnotatedTypeMirror paramType = paramTypes.get(i);
             Parameter param = params.get(i);
 
-            annotateDecl(declAnnos, paramElt, param.getAnnotations());
-            annotateDecl(declAnnos, paramElt, param.getType().getAnnotations());
+            recordDeclAnnotation(paramElt, param.getAnnotations());
+            recordDeclAnnotation(paramElt, param.getType().getAnnotations());
 
             if (param.isVarArgs()) {
                 assert paramType.getKind() == TypeKind.ARRAY;
                 // The "type" of param is actually the component type of the vararg.
-                // For example, "Object..." the type would be "Object".
+                // For example, in "Object..." the type would be "Object".
                 annotate(
                         ((AnnotatedArrayType) paramType).getComponentType(),
                         param.getType(),
@@ -743,6 +949,7 @@ public class StubParser {
                 annotate(paramType, param.getVarArgsAnnotations());
             } else {
                 annotate(paramType, param.getType(), param.getAnnotations());
+                putMerge(atypes, paramElt, paramType);
             }
         }
     }
@@ -764,8 +971,8 @@ public class StubParser {
         // TODO: This should check whether the stub file is @AnnotatedFor the current type system.
         // @AnnotatedFor isn't integrated in stub files yet.
         if (annos != null && !annos.isEmpty()) {
-            // TODO: only produce output if the removed annotation
-            // isn't the top and default annotation in the type hierarchy.
+            // TODO: only produce output if the removed annotation isn't the top and default
+            // annotation in the type hierarchy.  See https://tinyurl.com/cfissue/2759 .
             if (false) {
                 stubWarnOverwritesBytecode(
                         String.format(
@@ -780,31 +987,28 @@ public class StubParser {
         }
     }
 
-    /** Adds a declAnnotation to every method in the stub file. */
-    private void addDeclAnnotations(Map<String, Set<AnnotationMirror>> declAnnos, Element elt) {
-        Set<AnnotationMirror> annos = declAnnos.get(ElementUtils.getVerboseName(elt));
-        if (annos == null) {
-            annos = AnnotationUtils.createAnnotationSet();
-            putOrAddToMap(declAnnos, ElementUtils.getVerboseName(elt), annos);
-        }
-        annos.add(fromStubFile);
-    }
-
     /**
      * Add the annotations from {@code type} to {@code atype}. Type annotations that parsed as
-     * declaration annotations (ie those in {@code declAnnos} are applied to the innermost component
-     * type.
+     * declaration annotations (i.e., type annotations in {@code declAnnos}) are applied to the
+     * innermost component type.
      *
      * @param atype annotated type to which to add annotations
      * @param type parsed type
      * @param declAnnos annotations stored on the declaration of the variable with this type or null
      */
     private void annotateAsArray(
-            AnnotatedArrayType atype, ReferenceType type, NodeList<AnnotationExpr> declAnnos) {
+            AnnotatedArrayType atype,
+            ReferenceType type,
+            @Nullable NodeList<AnnotationExpr> declAnnos) {
         annotateInnermostComponentType(atype, declAnnos);
         Type typeDef = type;
         AnnotatedTypeMirror currentAtype = atype;
-        while (typeDef.isArrayType() && currentAtype.getKind() == TypeKind.ARRAY) {
+        while (typeDef.isArrayType()) {
+            if (currentAtype.getKind() != TypeKind.ARRAY) {
+                stubWarn("Mismatched array lengths; atype: " + atype + "%n  type: " + type);
+                return;
+            }
+
             // handle generic type
             clearAnnotations(currentAtype, typeDef);
 
@@ -814,9 +1018,9 @@ public class StubParser {
             }
             typeDef = ((com.github.javaparser.ast.type.ArrayType) typeDef).getComponentType();
             currentAtype = ((AnnotatedArrayType) currentAtype).getComponentType();
-            if (typeDef.isArrayType() ^ currentAtype.getKind() == TypeKind.ARRAY) {
-                stubWarn("Mismatched array lengths; atype: " + atype + "%n  type: " + type);
-            }
+        }
+        if (currentAtype.getKind() == TypeKind.ARRAY) {
+            stubWarn("Mismatched array lengths; atype: " + atype + "%n  type: " + type);
         }
     }
 
@@ -835,8 +1039,8 @@ public class StubParser {
      *
      * <ol>
      *   <li>the annotations from {@code typeDef}, and
-     *   <li>any type annotations that parsed as declaration annotations (ie those in {@code
-     *       declAnnos}).
+     *   <li>any type annotations that parsed as declaration annotations (i.e., type annotations in
+     *       {@code declAnnos}).
      * </ol>
      *
      * @param atype annotated type to which to add annotations
@@ -845,9 +1049,13 @@ public class StubParser {
      *     null
      */
     private void annotate(
-            AnnotatedTypeMirror atype, Type typeDef, NodeList<AnnotationExpr> declAnnos) {
+            AnnotatedTypeMirror atype, Type typeDef, @Nullable NodeList<AnnotationExpr> declAnnos) {
         if (atype.getKind() == TypeKind.ARRAY) {
-            annotateAsArray((AnnotatedArrayType) atype, (ReferenceType) typeDef, declAnnos);
+            if (typeDef instanceof ReferenceType) {
+                annotateAsArray((AnnotatedArrayType) atype, (ReferenceType) typeDef, declAnnos);
+            } else {
+                stubWarn("expected ReferenceType but found: " + typeDef);
+            }
             return;
         }
 
@@ -878,14 +1086,17 @@ public class StubParser {
                 if (declType.getTypeArguments().isPresent()
                         && !declType.getTypeArguments().get().isEmpty()
                         && !adeclType.getTypeArguments().isEmpty()) {
-                    assert declType.getTypeArguments().get().size()
-                                    == adeclType.getTypeArguments().size()
-                            : String.format(
-                                    "Mismatch in type argument size between %s (%d) and %s (%d)",
-                                    declType,
-                                    declType.getTypeArguments().get().size(),
-                                    adeclType,
-                                    adeclType.getTypeArguments().size());
+                    if (declType.getTypeArguments().get().size()
+                            != adeclType.getTypeArguments().size()) {
+                        stubWarn(
+                                String.format(
+                                        "Mismatch in type argument size between %s (%d) and %s (%d)",
+                                        declType,
+                                        declType.getTypeArguments().get().size(),
+                                        adeclType,
+                                        adeclType.getTypeArguments().size()));
+                        break;
+                    }
                     for (int i = 0; i < declType.getTypeArguments().get().size(); ++i) {
                         annotate(
                                 adeclType.getTypeArguments().get(i),
@@ -900,18 +1111,17 @@ public class StubParser {
                 if (!typeDef.isWildcardType()) {
                     // We throw an error here, as otherwise we are just getting a generic cast error
                     // on the very next line.
-                    throw new Error(
-                            "StubParser: Wildcard type <"
+                    stubWarn(
+                            "Wildcard type <"
                                     + atype
-                                    + "> doesn't match type in stubs file: <"
+                                    + "> does not match type in stubs file"
+                                    + filename
+                                    + ": <"
                                     + typeDef
                                     + ">"
-                                    + LINE_SEPARATOR
-                                    + "In file "
-                                    + filename
-                                    + LINE_SEPARATOR
-                                    + "While parsing "
-                                    + parseState);
+                                    + " while parsing "
+                                    + typeName);
+                    return;
                 }
                 WildcardType wildcardDef = (WildcardType) typeDef;
                 if (wildcardDef.getExtendedType().isPresent()) {
@@ -930,11 +1140,13 @@ public class StubParser {
             case TYPEVAR:
                 // Add annotations from the declaration of the TypeVariable
                 AnnotatedTypeVariable typeVarUse = (AnnotatedTypeVariable) atype;
+                Types typeUtils = processingEnv.getTypeUtils();
                 for (AnnotatedTypeVariable typePar : typeParameters) {
-                    if (typePar.getUnderlyingType() == atype.getUnderlyingType()) {
-                        AnnotatedTypeMerger.merge(
+                    if (typeUtils.isSameType(
+                            typePar.getUnderlyingType(), atype.getUnderlyingType())) {
+                        AnnotatedTypeReplacer.replace(
                                 typePar.getUpperBound(), typeVarUse.getUpperBound());
-                        AnnotatedTypeMerger.merge(
+                        AnnotatedTypeReplacer.replace(
                                 typePar.getLowerBound(), typeVarUse.getLowerBound());
                     }
                 }
@@ -944,11 +1156,23 @@ public class StubParser {
         }
     }
 
+    /**
+     * Process the field declaration in decl, and attach any type qualifiers to the type of elt in
+     * {@link #atypes}.
+     *
+     * @param decl the declaration in the stub file
+     * @param elt the element representing that same declaration
+     */
     private void processField(FieldDeclaration decl, VariableElement elt) {
-        addDeclAnnotations(declAnnos, elt);
-        annotateDecl(declAnnos, elt, decl.getAnnotations());
+        if (isJdkAsStub && decl.getModifiers().contains(Modifier.privateModifier())) {
+            // Don't process private fields of the JDK.  They can't be referenced outside of the JDK
+            // and might refer to types that are not accessible.
+            return;
+        }
+        recordDeclAnnotationFromStubFile(elt);
+        recordDeclAnnotation(elt, decl.getAnnotations());
         // StubParser parses all annotations in type annotation position as type annotations
-        annotateDecl(declAnnos, elt, decl.getElementType().getAnnotations());
+        recordDeclAnnotation(elt, decl.getElementType().getAnnotations());
         AnnotatedTypeMirror fieldType = atypeFactory.fromElement(elt);
 
         VariableDeclarator fieldVarDecl = null;
@@ -961,25 +1185,29 @@ public class StubParser {
         }
         assert fieldVarDecl != null;
         annotate(fieldType, fieldVarDecl.getType(), decl.getAnnotations());
-        putNew(atypes, elt, fieldType);
+        putMerge(atypes, elt, fieldType);
     }
 
     /**
      * Adds the annotations present on the declaration of an enum constant to the ATM of that
      * constant.
+     *
+     * @param decl the enum constant, in Javaparser AST form (the source of annotations)
+     * @param elt the enum constant declaration, as an element (the destination for annotations)
      */
     private void processEnumConstant(EnumConstantDeclaration decl, VariableElement elt) {
-        addDeclAnnotations(declAnnos, elt);
-        annotateDecl(declAnnos, elt, decl.getAnnotations());
+        recordDeclAnnotationFromStubFile(elt);
+        recordDeclAnnotation(elt, decl.getAnnotations());
         AnnotatedTypeMirror enumConstType = atypeFactory.fromElement(elt);
         annotate(enumConstType, decl.getAnnotations());
-        putNew(atypes, elt, enumConstType);
+        putMerge(atypes, elt, enumConstType);
     }
 
     /**
      * Returns the innermost component type of {@code type}.
      *
      * @param type array type
+     * @return the innermost component type of {@code type}
      */
     private AnnotatedTypeMirror innermostComponentType(AnnotatedArrayType type) {
         AnnotatedTypeMirror componentType = type;
@@ -1000,6 +1228,10 @@ public class StubParser {
         annotate(innermostComponentType(type), annotations);
     }
 
+    /**
+     * Annotate the type with the given type annotations, removing any existing annotations from the
+     * same qualifier hierarchies.
+     */
     private void annotate(AnnotatedTypeMirror type, List<AnnotationExpr> annotations) {
         if (annotations == null) {
             return;
@@ -1014,10 +1246,15 @@ public class StubParser {
         }
     }
 
-    private void annotateDecl(
-            Map<String, Set<AnnotationMirror>> declAnnos,
-            Element elt,
-            List<AnnotationExpr> annotations) {
+    /**
+     * Adds, to the {@link #declAnnos} map, all the annotations in {@code annotations} that are
+     * applicable to {@code elt}'s location. For example, if an annotation is a type annotation but
+     * {@code elt} is a field declaration, the type annotation will be ignored.
+     *
+     * @param elt the element to be annotated
+     * @param annotations set of annotations that may be applicable to elt
+     */
+    private void recordDeclAnnotation(Element elt, List<AnnotationExpr> annotations) {
         if (annotations == null) {
             return;
         }
@@ -1025,16 +1262,30 @@ public class StubParser {
         for (AnnotationExpr annotation : annotations) {
             AnnotationMirror annoMirror = getAnnotation(annotation, allStubAnnotations);
             if (annoMirror != null) {
+                // The @Target annotation on `annotation`/`annoMirror`
                 Target target =
                         annoMirror.getAnnotationType().asElement().getAnnotation(Target.class);
                 // Only add the declaration annotation if the annotation applies to the element.
                 if (AnnotationUtils.getElementKindsForTarget(target).contains(elt.getKind())) {
+                    // `annoMirror` is applicable to `elt`
                     annos.add(annoMirror);
                 }
             }
         }
-        String key = ElementUtils.getVerboseName(elt);
-        putOrAddToMap(declAnnos, key, annos);
+        String eltName = ElementUtils.getQualifiedName(elt);
+        putOrAddToMap(declAnnos, eltName, annos);
+    }
+
+    /**
+     * Adds the declaration annotation {@code @FromStubFile} to the given element, unless we are
+     * parsing the JDK as a stub file.
+     */
+    private void recordDeclAnnotationFromStubFile(Element elt) {
+        if (isJdkAsStub) {
+            return;
+        }
+        putOrAddToMap(
+                declAnnos, ElementUtils.getQualifiedName(elt), Collections.singleton(fromStubFile));
     }
 
     private void annotateTypeParameters(
@@ -1059,9 +1310,10 @@ public class StubParser {
                             elt.toString().replace(LINE_SEPARATOR, " "),
                             elt.getClass());
             if (!debugStubParser) {
-                msg = msg + "%n  For more details, run with -AstubDebug";
+                msg = msg + "; for more details, run with -AstubDebug";
             }
             stubWarn(msg);
+            return;
         }
         for (int i = 0; i < typeParameters.size(); ++i) {
             TypeParameter param = typeParameters.get(i);
@@ -1078,7 +1330,7 @@ public class StubParser {
                     stubWarnNotFound("Annotations on intersection types are not yet supported");
                 }
             }
-            putNew(atypes, paramType.getUnderlyingType().asElement(), paramType);
+            putMerge(atypes, paramType.getUnderlyingType().asElement(), paramType);
         }
     }
 
@@ -1089,83 +1341,102 @@ public class StubParser {
                 : String.format("%s  %s", typeElt.getSimpleName(), typeDecl.getName());
 
         Map<Element, BodyDeclaration<?>> result = new LinkedHashMap<>();
+        for (BodyDeclaration<?> member : typeDecl.getMembers()) {
+            putNewElement(result, typeElt, member, typeDecl.getNameAsString());
+        }
         // For an enum type declaration, also add the enum constants
         if (typeDecl instanceof EnumDeclaration) {
             EnumDeclaration enumDecl = (EnumDeclaration) typeDecl;
             // getEntries() gives the list of enum constant declarations
             for (BodyDeclaration<?> member : enumDecl.getEntries()) {
-                putNewElement(typeElt, result, member, typeDecl.getNameAsString());
+                putNewElement(result, typeElt, member, typeDecl.getNameAsString());
             }
-        }
-        for (BodyDeclaration<?> member : typeDecl.getMembers()) {
-            putNewElement(typeElt, result, member, typeDecl.getNameAsString());
         }
         return result;
     }
 
+    /**
+     * If {@code typeElt} contains an element for {@code member}, adds to {@code elementsToDecl} a
+     * mapping from member's element to member. Does nothing if a mapping already exists.
+     *
+     * <p>Does nothing if it cannot find member's element.
+     *
+     * @param elementsToDecl the mapping that is side-effected by this method
+     * @param typeElt the class in which {@code member} is declared
+     * @param member the stub file declaration of a method
+     * @param typeDeclName used only for debugging
+     */
     private void putNewElement(
+            Map<Element, BodyDeclaration<?>> elementsToDecl,
             TypeElement typeElt,
-            Map<Element, BodyDeclaration<?>> result,
             BodyDeclaration<?> member,
             String typeDeclName) {
         if (member instanceof MethodDeclaration) {
             Element elt = findElement(typeElt, (MethodDeclaration) member);
             if (elt != null) {
-                putNoOverride(result, elt, member);
+                putIfAbsent(elementsToDecl, elt, member);
             }
         } else if (member instanceof ConstructorDeclaration) {
             Element elt = findElement(typeElt, (ConstructorDeclaration) member);
             if (elt != null) {
-                putNoOverride(result, elt, member);
+                putIfAbsent(elementsToDecl, elt, member);
             }
         } else if (member instanceof FieldDeclaration) {
             FieldDeclaration fieldDecl = (FieldDeclaration) member;
             for (VariableDeclarator var : fieldDecl.getVariables()) {
                 Element varelt = findElement(typeElt, var);
                 if (varelt != null) {
-                    putNoOverride(result, varelt, fieldDecl);
+                    putIfAbsent(elementsToDecl, varelt, fieldDecl);
                 }
             }
         } else if (member instanceof EnumConstantDeclaration) {
             Element elt = findElement(typeElt, (EnumConstantDeclaration) member);
             if (elt != null) {
-                putNoOverride(result, elt, member);
+                putIfAbsent(elementsToDecl, elt, member);
             }
         } else if (member instanceof ClassOrInterfaceDeclaration) {
             Element elt = findElement(typeElt, (ClassOrInterfaceDeclaration) member);
             if (elt != null) {
-                putNoOverride(result, elt, member);
+                putIfAbsent(elementsToDecl, elt, member);
             }
         } else if (member instanceof EnumDeclaration) {
             Element elt = findElement(typeElt, (EnumDeclaration) member);
             if (elt != null) {
-                putNoOverride(result, elt, member);
+                putIfAbsent(elementsToDecl, elt, member);
             }
         } else {
-            stubWarnNotFound(
+            stubDebug(
                     String.format(
                             "Ignoring element of type %s in %s", member.getClass(), typeDeclName));
         }
     }
 
-    /** Return the element of {@code types} whose name matches {@code type}. */
-    private AnnotatedDeclaredType findType(
+    /**
+     * Return the annotated type corresponding to {@code type}, or null if none exists. More
+     * specifically, returns the element of {@code types} whose name matches {@code type}.
+     *
+     * @param type the type to search for
+     * @param types the list of AnnotatedDeclaredTypes to search in
+     * @return the annotated type in {@code types} corresponding to {@code type}, or null if none
+     *     exists
+     */
+    private @Nullable AnnotatedDeclaredType findAnnotatedType(
             ClassOrInterfaceType type, List<AnnotatedDeclaredType> types) {
         String typeString = type.getNameAsString();
-        for (AnnotatedDeclaredType superType : types) {
-            if (superType
+        for (AnnotatedDeclaredType supertype : types) {
+            if (supertype
                     .getUnderlyingType()
                     .asElement()
                     .getSimpleName()
                     .contentEquals(typeString)) {
-                return superType;
+                return supertype;
             }
         }
         stubWarnNotFound("Supertype " + typeString + " not found");
         if (debugStubParser) {
             stubDebug("Supertypes that were searched:");
-            for (AnnotatedDeclaredType superType : types) {
-                stubDebug(String.format("  %s", superType));
+            for (AnnotatedDeclaredType supertype : types) {
+                stubDebug(String.format("  %s", supertype));
             }
         }
         return null;
@@ -1182,7 +1453,7 @@ public class StubParser {
      * @return nested in typeElt element with the name of the class or interface or null if nested
      *     element is not found
      */
-    private Element findElement(TypeElement typeElt, ClassOrInterfaceDeclaration ciDecl) {
+    private @Nullable Element findElement(TypeElement typeElt, ClassOrInterfaceDeclaration ciDecl) {
         final String wantedClassOrInterfaceName = ciDecl.getNameAsString();
         for (TypeElement typeElement : ElementUtils.getAllTypeElementsIn(typeElt)) {
             if (wantedClassOrInterfaceName.equals(typeElement.getSimpleName().toString())) {
@@ -1193,10 +1464,9 @@ public class StubParser {
         stubWarnNotFound(
                 "Class/interface " + wantedClassOrInterfaceName + " not found in type " + typeElt);
         if (debugStubParser) {
-            for (ExecutableElement method :
-                    ElementFilter.methodsIn(typeElt.getEnclosedElements())) {
-                stubDebug(String.format("  Here are the type declarations of %s:", typeElt));
-                stubDebug(String.format("  %s", method));
+            stubDebug(String.format("  Here are the type declarations of %s:", typeElt));
+            for (TypeElement method : ElementFilter.typesIn(typeElt.getEnclosedElements())) {
+                stubDebug(String.format("    %s", method));
             }
         }
         return null;
@@ -1212,7 +1482,7 @@ public class StubParser {
      * @return nested in typeElt enum element with the name of the provided enum or null if nested
      *     element is not found
      */
-    private Element findElement(TypeElement typeElt, EnumDeclaration enumDecl) {
+    private @Nullable Element findElement(TypeElement typeElt, EnumDeclaration enumDecl) {
         final String wantedEnumName = enumDecl.getNameAsString();
         for (TypeElement typeElement : ElementUtils.getAllTypeElementsIn(typeElt)) {
             if (wantedEnumName.equals(typeElement.getSimpleName().toString())) {
@@ -1222,10 +1492,9 @@ public class StubParser {
 
         stubWarnNotFound("Enum " + wantedEnumName + " not found in type " + typeElt);
         if (debugStubParser) {
-            for (ExecutableElement method :
-                    ElementFilter.methodsIn(typeElt.getEnclosedElements())) {
-                stubDebug(String.format("  Here are the type declarations of %s:", typeElt));
-                stubDebug(String.format("  %s", method));
+            stubDebug(String.format("  Here are the type declarations of %s:", typeElt));
+            for (TypeElement method : ElementFilter.typesIn(typeElt.getEnclosedElements())) {
+                stubDebug(String.format("    %s", method));
             }
         }
         return null;
@@ -1240,7 +1509,7 @@ public class StubParser {
      * @return enum constant element in typeElt with the provided name or null if enum constant
      *     element is not found
      */
-    private VariableElement findElement(
+    private @Nullable VariableElement findElement(
             TypeElement typeElt, EnumConstantDeclaration enumConstDecl) {
         final String enumConstName = enumConstDecl.getNameAsString();
         return findFieldElement(typeElt, enumConstName);
@@ -1248,7 +1517,8 @@ public class StubParser {
 
     /**
      * Looks for method element in the typeElt and returns it if the element has the same signature
-     * as provided method declaration. In case method element is not found it returns null.
+     * as provided method declaration. Returns null, and possibly issues a warning, if method
+     * element is not found.
      *
      * @param typeElt type element where method element should be looked for
      * @param methodDecl method declaration with signature that should be found among methods in the
@@ -1256,25 +1526,40 @@ public class StubParser {
      * @return method element in typeElt with the same signature as the provided method declaration
      *     or null if method element is not found
      */
-    private ExecutableElement findElement(TypeElement typeElt, MethodDeclaration methodDecl) {
+    private @Nullable ExecutableElement findElement(
+            TypeElement typeElt, MethodDeclaration methodDecl) {
+        if (isJdkAsStub && methodDecl.getModifiers().contains(Modifier.privateModifier())) {
+            // Don't process private methods of the JDK.  They can't be referenced outside of the
+            // JDK and might refer to types that are not accessible.
+            return null;
+        }
         final String wantedMethodName = methodDecl.getNameAsString();
         final int wantedMethodParams =
                 (methodDecl.getParameters() == null) ? 0 : methodDecl.getParameters().size();
         final String wantedMethodString = StubUtil.toString(methodDecl);
-        for (ExecutableElement method : ElementUtils.getAllMethodsIn(typeElt, elements)) {
-            // do heuristics first
+        for (ExecutableElement method : ElementFilter.methodsIn(typeElt.getEnclosedElements())) {
             if (wantedMethodParams == method.getParameters().size()
                     && wantedMethodName.contentEquals(method.getSimpleName().toString())
-                    && ElementUtils.getSimpleName(method).equals(wantedMethodString)) {
+                    && ElementUtils.getSimpleSignature(method).equals(wantedMethodString)) {
                 return method;
             }
         }
-        stubWarnNotFound("Method " + wantedMethodString + " not found in type " + typeElt);
-        if (debugStubParser) {
-            for (ExecutableElement method :
-                    ElementFilter.methodsIn(typeElt.getEnclosedElements())) {
+        if (methodDecl.getAccessSpecifier() == AccessSpecifier.PACKAGE_PRIVATE) {
+            // This might be a false positive warning.  The stub parser permits a stub file to omit
+            // the access specifier, but package-private methods aren't in the TypeElement.
+            stubWarnNotFound(
+                    "Package-private method "
+                            + wantedMethodString
+                            + " not found in type "
+                            + typeElt);
+        } else {
+            stubWarnNotFound("Method " + wantedMethodString + " not found in type " + typeElt);
+            if (debugStubParser) {
                 stubDebug(String.format("  Here are the methods of %s:", typeElt));
-                stubDebug(String.format("  %s", method));
+                for (ExecutableElement method :
+                        ElementFilter.methodsIn(typeElt.getEnclosedElements())) {
+                    stubDebug(String.format("    %s", method));
+                }
             }
         }
         return null;
@@ -1291,8 +1576,13 @@ public class StubParser {
      * @return constructor element in typeElt with the same signature as the provided constructor
      *     declaration or null if constructor element is not found
      */
-    private ExecutableElement findElement(
+    private @Nullable ExecutableElement findElement(
             TypeElement typeElt, ConstructorDeclaration constructorDecl) {
+        if (isJdkAsStub && constructorDecl.getModifiers().contains(Modifier.privateModifier())) {
+            // Don't process private constructors of the JDK.  They can't be referenced outside of
+            // the JDK and might refer to types that are not accessible.
+            return null;
+        }
         final int wantedMethodParams =
                 (constructorDecl.getParameters() == null)
                         ? 0
@@ -1300,9 +1590,8 @@ public class StubParser {
         final String wantedMethodString = StubUtil.toString(constructorDecl);
         for (ExecutableElement method :
                 ElementFilter.constructorsIn(typeElt.getEnclosedElements())) {
-            // do heuristics first
             if (wantedMethodParams == method.getParameters().size()
-                    && ElementUtils.getSimpleName(method).equals(wantedMethodString)) {
+                    && ElementUtils.getSimpleSignature(method).equals(wantedMethodString)) {
                 return method;
             }
         }
@@ -1330,7 +1619,7 @@ public class StubParser {
      * @param fieldName field name that should be found
      * @return field element in typeElt with the provided name or null if field element is not found
      */
-    private VariableElement findFieldElement(TypeElement typeElt, String fieldName) {
+    private @Nullable VariableElement findFieldElement(TypeElement typeElt, String fieldName) {
         for (VariableElement field : ElementUtils.getAllFieldsIn(typeElt, elements)) {
             // field.getSimpleName() is a CharSequence, not a String
             if (fieldName.equals(field.getSimpleName().toString())) {
@@ -1350,21 +1639,29 @@ public class StubParser {
     /**
      * Given a fully-qualified type name, return a TypeElement for it, or null if none exists. Also
      * cache in importedTypes.
+     *
+     * @param name a fully-qualified type name
+     * @return a TypeElement for the name, or null
      */
-    private TypeElement getTypeElementOrNull(String name) {
+    private @Nullable TypeElement getTypeElementOrNull(@FullyQualifiedName String name) {
         TypeElement typeElement = elements.getTypeElement(name);
         if (typeElement != null) {
             importedTypes.put(name, typeElement);
         }
-        // for debugging: stubWarn("getTypeElementOrNull(%s) => %s%n", name, typeElement);
+        // for debugging: stubWarn("getTypeElementOrNull(%s) => %s", name, typeElement);
         return typeElement;
     }
 
     /**
-     * Get the type element for the given fully-qualified type name, or issue a warning if none is
-     * found.
+     * Get the type element for the given fully-qualified type name. If none is found, issue a
+     * warning and return null.
+     *
+     * @param typeName a type name
+     * @param msg a warning message to issue if the type element for {@code typeName} cannot be
+     *     found
+     * @return the type element for the given fully-qualified type name, or null
      */
-    private TypeElement getTypeElement(String typeName, String... msg) {
+    private TypeElement getTypeElement(@FullyQualifiedName String typeName, String... msg) {
         TypeElement classElement = elements.getTypeElement(typeName);
         if (classElement == null) {
             if (msg.length == 0) {
@@ -1387,31 +1684,49 @@ public class StubParser {
     /**
      * Convert {@code annotation} into an AnnotationMirror. Returns null if the annotation isn't
      * supported by the checker or if some error occurred while converting it.
+     *
+     * @param annotation syntax tree for an annotation
+     * @param allStubAnnotations map from simple name to annotation definition
+     * @return the AnnotationMirror for the annotation
      */
     private AnnotationMirror getAnnotation(
-            AnnotationExpr annotation, Map<String, AnnotationMirror> allStubAnnotations) {
-        AnnotationMirror annoMirror;
+            AnnotationExpr annotation, Map<String, TypeElement> allStubAnnotations) {
+
+        TypeElement annoTypeElm = allStubAnnotations.get(annotation.getNameAsString());
+        if (annoTypeElm == null) {
+            // If the annotation was not imported, then #getAllStubAnnotations does
+            // not add it to the allStubAnnotations field. This code compensates for
+            // that deficiency by adding the annotation when it is encountered (i.e. here).
+            // Note that this goes not call #getTypeElement to avoid a spurious diagnostic
+            // if the annotation is actually unknown.
+            @SuppressWarnings("signature") // https://tinyurl.com/cfissue/3094
+            TypeElement annoTypeElt = elements.getTypeElement(annotation.getNameAsString());
+            if (annoTypeElt != null) {
+                putAllNew(
+                        allStubAnnotations,
+                        createNameToAnnotationMap(Collections.singletonList(annoTypeElt)));
+                return getAnnotation(annotation, allStubAnnotations);
+            }
+            // Not a supported annotation -> ignore
+            return null;
+        }
+        @SuppressWarnings("signature") // not anonymous, so name is not empty
+        @CanonicalName String annoName = annoTypeElm.getQualifiedName().toString();
+
         if (annotation instanceof MarkerAnnotationExpr) {
-            String annoName = ((MarkerAnnotationExpr) annotation).getNameAsString();
-            annoMirror = allStubAnnotations.get(annoName);
+            return AnnotationBuilder.fromName(elements, annoName);
         } else if (annotation instanceof NormalAnnotationExpr) {
             NormalAnnotationExpr nrmanno = (NormalAnnotationExpr) annotation;
-            String annoName = nrmanno.getNameAsString();
-            annoMirror = allStubAnnotations.get(annoName);
-            if (annoMirror == null) {
-                // Not a supported qualifier -> ignore
-                return null;
-            }
-            AnnotationBuilder builder = new AnnotationBuilder(processingEnv, annoMirror);
+            AnnotationBuilder builder = new AnnotationBuilder(processingEnv, annoName);
             List<MemberValuePair> pairs = nrmanno.getPairs();
             if (pairs != null) {
                 for (MemberValuePair mvp : pairs) {
                     String member = mvp.getNameAsString();
                     Expression exp = mvp.getValue();
-                    boolean success = handleExpr(builder, member, exp);
+                    boolean success = builderAddElement(builder, member, exp);
                     if (!success) {
                         stubWarn(
-                                "Annotation expression, %s, could not be processed for annotation: %s. ",
+                                "Annotation expression, %s, could not be processed for annotation: %s.",
                                 exp, annotation);
                         return null;
                     }
@@ -1420,18 +1735,12 @@ public class StubParser {
             return builder.build();
         } else if (annotation instanceof SingleMemberAnnotationExpr) {
             SingleMemberAnnotationExpr sglanno = (SingleMemberAnnotationExpr) annotation;
-            String annoName = sglanno.getNameAsString();
-            annoMirror = allStubAnnotations.get(annoName);
-            if (annoMirror == null) {
-                // Not a supported qualifier -> ignore
-                return null;
-            }
-            AnnotationBuilder builder = new AnnotationBuilder(processingEnv, annoMirror);
+            AnnotationBuilder builder = new AnnotationBuilder(processingEnv, annoName);
             Expression valexpr = sglanno.getMemberValue();
-            boolean success = handleExpr(builder, "value", valexpr);
+            boolean success = builderAddElement(builder, "value", valexpr);
             if (!success) {
                 stubWarn(
-                        "Annotation expression, %s, could not be processed for annotation: %s. ",
+                        "Annotation expression, %s, could not be processed for annotation: %s.",
                         valexpr, annotation);
                 return null;
             }
@@ -1439,11 +1748,17 @@ public class StubParser {
         } else {
             throw new BugInCF("StubParser: unknown annotation type: " + annotation);
         }
-        return annoMirror;
     }
 
-    /** Returns the value of {@code expr}, or null if some problem occurred getting the value. */
-    private Object getValueOfExpressionInAnnotation(
+    /**
+     * Returns the value of {@code expr}, or null if some problem occurred getting the value.
+     *
+     * @param name the name of an annotation element/argument, used for diagnostic messages
+     * @param expr the expression to determine the value of
+     * @param valueKind the type of the result
+     * @return the value of {@code expr}, or null if some problem occurred getting the value
+     */
+    private @Nullable Object getValueOfExpressionInAnnotation(
             String name, Expression expr, TypeKind valueKind) {
         if (expr instanceof FieldAccessExpr || expr instanceof NameExpr) {
             VariableElement elem;
@@ -1473,23 +1788,35 @@ public class StubParser {
             // double, too.
             return ((DoubleLiteralExpr) expr).asDouble();
         } else if (expr instanceof IntegerLiteralExpr) {
-            return convert(((IntegerLiteralExpr) expr).asInt(), valueKind);
+            return convert(((IntegerLiteralExpr) expr).asNumber(), valueKind);
         } else if (expr instanceof LongLiteralExpr) {
-            return convert(((LongLiteralExpr) expr).asLong(), valueKind);
+            return convert(((LongLiteralExpr) expr).asNumber(), valueKind);
         } else if (expr instanceof UnaryExpr) {
-            if (((UnaryExpr) expr).getOperator() == UnaryExpr.Operator.MINUS) {
-                Object value =
-                        getValueOfExpressionInAnnotation(
-                                name, ((UnaryExpr) expr).getExpression(), valueKind);
-                if (value instanceof Number) {
-                    return convert((Number) value, valueKind, true);
-                }
+            switch (expr.toString()) {
+                    // Special-case the minimum values.  Separately parsing a "-" and a value
+                    // doesn't correctly handle the minimum values, because the absolute value of
+                    // the smallest member of an integral type is larger than the largest value.
+                case "-9223372036854775808L":
+                case "-9223372036854775808l":
+                    return convert(Long.MIN_VALUE, valueKind, false);
+                case "-2147483648":
+                    return convert(Integer.MIN_VALUE, valueKind, false);
+                default:
+                    if (((UnaryExpr) expr).getOperator() == UnaryExpr.Operator.MINUS) {
+                        Object value =
+                                getValueOfExpressionInAnnotation(
+                                        name, ((UnaryExpr) expr).getExpression(), valueKind);
+                        if (value instanceof Number) {
+                            return convert((Number) value, valueKind, true);
+                        }
+                    }
+                    stubWarn("Unexpected Unary annotation expression: " + expr);
+                    return null;
             }
-            stubWarn("Unexpected Unary annotation expression: " + expr);
-            return null;
         } else if (expr instanceof ClassExpr) {
             ClassExpr classExpr = (ClassExpr) expr;
-            String className = classExpr.getType().toString();
+            @SuppressWarnings("signature") // Type.toString(): @FullyQualifiedName
+            @FullyQualifiedName String className = classExpr.getType().toString();
             if (importedTypes.containsKey(className)) {
                 return importedTypes.get(className).asType();
             }
@@ -1501,7 +1828,7 @@ public class StubParser {
 
             return typeElement.asType();
         } else if (expr instanceof NullLiteralExpr) {
-            stubWarn("Null found as value for %s. Null isn't allowed as an annotation value", name);
+            stubWarn("Illegal annotation value null, for %s", name);
             return null;
         } else {
             stubWarn("Unexpected annotation expression: " + expr);
@@ -1511,23 +1838,24 @@ public class StubParser {
 
     /**
      * Returns the TypeElement with the name {@code name}, if one exists. Otherwise, checks the
-     * class and package of {@code parseState} for a class named {@code name}.
+     * class and package of {@code typeName} for a class named {@code name}.
      *
      * @param name classname (simple, or Outer.Inner, or fully-qualified)
      * @return the TypeElement for {@code name}, or null if not found
      */
-    private @Nullable TypeElement findTypeOfName(String name) {
-        String packageName = parseState.packageName;
+    @SuppressWarnings("signature:argument.type.incompatible") // string concatenation
+    private @Nullable TypeElement findTypeOfName(@FullyQualifiedName String name) {
+        String packageName = typeName.packageName;
         String packagePrefix = (packageName == null) ? "" : packageName + ".";
 
-        // stubWarn("findTypeOfName(%s), parseState %s %s%n", name, packageName, enclosingClass);
+        // stubWarn("findTypeOfName(%s), typeName %s %s", name, packageName, enclosingClass);
 
         // As soon as typeElement is set to a non-null value, it will be returned.
         TypeElement typeElement = getTypeElementOrNull(name);
         if (typeElement == null && packageName != null) {
             typeElement = getTypeElementOrNull(packagePrefix + name);
         }
-        String enclosingClass = parseState.className;
+        String enclosingClass = typeName.className;
         while (typeElement == null && enclosingClass != null) {
             typeElement = getTypeElementOrNull(packagePrefix + enclosingClass + "." + name);
             int lastDot = enclosingClass.lastIndexOf('.');
@@ -1545,12 +1873,14 @@ public class StubParser {
 
     /**
      * Converts {@code number} to {@code expectedKind}.
-     * <p>
-     * {@code @interface Anno { long value();})
-     * {@code @Anno(1)}
+     *
+     * <pre><code>
+     * &nbsp; @interface Anno { long value(); }
+     * &nbsp; @Anno(1)
+     * </code></pre>
      *
      * To properly build @Anno, the IntegerLiteralExpr "1" must be converted from an int to a long.
-     * */
+     */
     private Object convert(Number number, TypeKind expectedKind) {
         return convert(number, expectedKind, false);
     }
@@ -1559,7 +1889,7 @@ public class StubParser {
      * Converts {@code number} to {@code expectedKind}. The value converted is multiplied by -1 if
      * {@code negate} is true
      *
-     * @param number Number value to be converted
+     * @param number a Number value to be converted
      * @param expectedKind one of type {byte, short, int, long, char, float, double}
      * @param negate whether to negate the value of the Number Object while converting
      * @return the converted Object
@@ -1576,8 +1906,13 @@ public class StubParser {
             case LONG:
                 return number.longValue() * scalefactor;
             case CHAR:
-                /* char is not multiplied by the scale factor since it's not possible for `number` to be negative
-                when `expectedkind` is a CHAR and casting a negative value to char is illegal */
+                // It's not possible for `number` to be negative when `expectedkind` is a CHAR, and
+                // casting a negative value to char is illegal.
+                if (negate) {
+                    throw new BugInCF(
+                            "convert(%s, %s, %s): can't negate a char",
+                            number, expectedKind, negate);
+                }
                 return (char) number.intValue();
             case FLOAT:
                 return number.floatValue() * scalefactor;
@@ -1591,9 +1926,12 @@ public class StubParser {
     /**
      * Adds an annotation element (argument) to {@code builder}. The element is a Java expression.
      *
+     * @param builder the builder to side-effect
+     * @param name the element name
+     * @param expr the element value
      * @return true if the expression was parsed and added to {@code builder}, false otherwise
      */
-    private boolean handleExpr(AnnotationBuilder builder, String name, Expression expr) {
+    private boolean builderAddElement(AnnotationBuilder builder, String name, Expression expr) {
         ExecutableElement var = builder.findElement(name);
         TypeMirror expected = var.getReturnType();
         TypeKind valueKind;
@@ -1641,6 +1979,10 @@ public class StubParser {
     /**
      * Cast to non-array values so that correct the correct AnnotationBuilder#setValue method is
      * called. (Different types of values are handled differently.)
+     *
+     * @param builder the builder to side-effect
+     * @param name the element name
+     * @param value the element value
      */
     private void builderSetValue(AnnotationBuilder builder, String name, Object value) {
         if (value instanceof Boolean) {
@@ -1686,7 +2028,8 @@ public class StubParser {
         VariableElement res = null;
         boolean importFound = false;
         for (String imp : importedConstants) {
-            Pair<String, String> partitionedName = StubUtil.partitionQualifiedName(imp);
+            Pair<@FullyQualifiedName String, String> partitionedName =
+                    StubUtil.partitionQualifiedName(imp);
             String typeName = partitionedName.first;
             String fieldName = partitionedName.second;
             if (fieldName.equals(nexpr.getNameAsString())) {
@@ -1723,6 +2066,13 @@ public class StubParser {
     private final Map<FieldAccessExpr, VariableElement> findVariableElementFieldCache =
             new HashMap<>();
 
+    /**
+     * Returns the VariableElement for the given field access.
+     *
+     * @param faexpr a field access expression
+     * @return the VariableElement for the given field access
+     */
+    @SuppressWarnings("signature:argument.type.incompatible") // string manipulation
     private @Nullable VariableElement findVariableElement(FieldAccessExpr faexpr) {
         if (findVariableElementFieldCache.containsKey(faexpr)) {
             return findVariableElementFieldCache.get(faexpr);
@@ -1761,10 +2111,18 @@ public class StubParser {
     /// Map utilities
     ///
 
-    /** Just like Map.put, but does not override any existing value in the map. */
-    private static <K, V> void putNoOverride(Map<K, V> m, K key, V value) {
+    /**
+     * Just like Map.put, but does not override any existing value in the map.
+     *
+     * @param <K> the key type
+     * @param <V> the value type
+     * @param m a map
+     * @param key a key
+     * @param value the value to associate with the key, if the key isn't already in the map
+     */
+    private static <K, V> void putIfAbsent(Map<K, V> m, K key, V value) {
         if (key == null) {
-            throw new BugInCF("StubParser: key is null");
+            throw new BugInCF("StubParser: key is null for value " + value);
         }
         if (!m.containsKey(key)) {
             m.put(key, value);
@@ -1780,32 +2138,50 @@ public class StubParser {
         if (map.containsKey(key)) {
             map.get(key).addAll(annos);
         } else {
-            map.put(key, annos);
+            map.put(key, new HashSet<>(annos));
         }
     }
 
     /**
-     * Just like Map.put, but merges with any existing value for the given key, instead ef replacing
-     * it.
+     * Just like Map.put, but modifies an existing annotated type for the given key in {@code m}. If
+     * {@code m} already has an annotated type for {@code key}, each annotation in {@code newType}
+     * will replace annotations from the same hierarchy at the same location in the existing
+     * annotated type. Annotations in other hierarchies will be preserved.
+     *
+     * @param m the map to put the new type into
+     * @param key the key for the map
+     * @param newType the new type for the key
      */
-    private static void putNew(
-            Map<Element, AnnotatedTypeMirror> m, Element key, AnnotatedTypeMirror value) {
+    private void putMerge(
+            Map<Element, AnnotatedTypeMirror> m, Element key, AnnotatedTypeMirror newType) {
         if (key == null) {
             throw new BugInCF("StubParser: key is null");
         }
         if (m.containsKey(key)) {
-            AnnotatedTypeMirror value2 = m.get(key);
-            AnnotatedTypeMerger.merge(value, value2);
-            m.put(key, value2);
+            AnnotatedTypeMirror existingType = m.get(key);
+            // If the newType is from a JDK stub file, then keep the existing type.  This
+            // way user supplied stub files override JDK stub files.
+            if (!isJdkAsStub) {
+                AnnotatedTypeReplacer.replace(newType, existingType);
+            }
+            m.put(key, existingType);
         } else {
-            m.put(key, value);
+            m.put(key, newType);
         }
     }
 
-    /** Just like Map.putAll, but merges with existing values using {@link #putNew}. */
+    /**
+     * Just like Map.putAll, but modifies existing values using {@link #putIfAbsent(Map, Object,
+     * Object)}.
+     *
+     * @param m the destination map
+     * @param m2 the source map
+     * @param <K> the key type for the maps
+     * @param <V> the value type for the maps
+     */
     private static <K, V> void putAllNew(Map<K, V> m, Map<K, V> m2) {
         for (Map.Entry<K, V> e2 : m2.entrySet()) {
-            putNoOverride(m, e2.getKey(), e2.getValue());
+            putIfAbsent(m, e2.getKey(), e2.getValue());
         }
     }
 
@@ -1821,7 +2197,7 @@ public class StubParser {
      * and the -AstubWarnIfNotFound command-line argument was passed.
      */
     private void stubWarnNotFound(String warning) {
-        if (warnings.add(warning) && (warnIfNotFound || debugStubParser)) {
+        if (warnings.add(warning) && ((!isJdkAsStub && warnIfNotFound) || debugStubParser)) {
             processingEnv
                     .getMessager()
                     .printMessage(javax.tools.Diagnostic.Kind.WARNING, "StubParser: " + warning);
@@ -1848,7 +2224,7 @@ public class StubParser {
      */
     private void stubWarn(String warning, Object... args) {
         warning = String.format(warning, args);
-        if (warnings.add(warning)) {
+        if (warnings.add(warning) && !isJdkAsStub) {
             processingEnv
                     .getMessager()
                     .printMessage(javax.tools.Diagnostic.Kind.WARNING, "StubParser: " + warning);
@@ -1867,22 +2243,33 @@ public class StubParser {
     /// Parse state
     ///
 
-    /** Represents a class: its package name and simple name. */
+    /** Represents a class: its package name and name (including outer class names if any). */
     private static class FqName {
         /** Name of the package being parsed, or null. */
-        public String packageName;
+        public @Nullable String packageName;
 
-        /** Name of the type being parsed. Includes outer class names if any. */
-        public String className;
+        /**
+         * Name of the type being parsed. Includes outer class names if any. Null if the parser has
+         * parsed a package declaration but has not yet gotten to a type declaration.
+         */
+        public @Nullable String className;
 
-        public FqName(String packageName, String className) {
+        /**
+         * Create a new FqName, which represents a class.
+         *
+         * @param packageName name of the package, or null
+         * @param className unqualified name of the type, including outer class names if any. May be
+         *     null.
+         */
+        public FqName(String packageName, @Nullable String className) {
             this.packageName = packageName;
             this.className = className;
         }
 
         /** Fully-qualified name of the class. */
         @Override
-        public String toString() {
+        @SuppressWarnings("signature") // string concatenation
+        public @FullyQualifiedName String toString() {
             if (packageName == null) {
                 return className;
             } else {

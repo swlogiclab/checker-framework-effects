@@ -63,7 +63,7 @@ public class Heuristics {
         return result;
     }
 
-    /** A convenience class for tree-matching algorithms. Skips parentheses by default. */
+    /** A base class for tree-matching algorithms. Skips parentheses by default. */
     public static class Matcher extends SimpleTreeVisitor<Boolean, Void> {
 
         @Override
@@ -76,6 +76,12 @@ public class Heuristics {
             return visit(node.getExpression(), p);
         }
 
+        /**
+         * Returns true if the given path matches this Matcher.
+         *
+         * @param path the path to test
+         * @return true if the given path matches this Matcher
+         */
         public boolean match(TreePath path) {
             return visit(path.getLeaf(), null);
         }
@@ -88,6 +94,7 @@ public class Heuristics {
             this.matcher = matcher;
         }
 
+        @SuppressWarnings("interning:not.interned")
         @Override
         public boolean match(TreePath path) {
             StatementTree stmt = TreeUtils.enclosingOfClass(path, StatementTree.class);
@@ -120,10 +127,24 @@ public class Heuristics {
         }
     }
 
-    public static class WithIn extends Matcher {
+    /**
+     * {@code match()} returns true if called on a path, any element of which matches the given
+     * matcher (supplied at object initialization). That matcher is usually one that matches only
+     * the leaf of a path, ignoring all other parts of it.
+     */
+    public static class Within extends Matcher {
+        /**
+         * The matcher that {@code Within.match} will try, on every parent of the path it is given.
+         */
         private final Matcher matcher;
 
-        public WithIn(Matcher matcher) {
+        /**
+         * Create a new Within matcher.
+         *
+         * @param matcher the matcher that {@code Within.match} will try, on every parent of the
+         *     path it is given
+         */
+        public Within(Matcher matcher) {
             this.matcher = matcher;
         }
 
@@ -141,6 +162,11 @@ public class Heuristics {
         }
     }
 
+    /**
+     * {@code match()} returns true if called on a path whose leaf is within the "then" clause of an
+     * if whose conditon matches the matcher (supplied at object initialization). Also returns true
+     * if the leaf is within the "else" of a negated condition that matches the supplied matcher.
+     */
     public static class WithinTrueBranch extends Matcher {
         private final Matcher matcher;
         /** @param conditionMatcher for the condition */
@@ -148,6 +174,7 @@ public class Heuristics {
             this.matcher = conditionMatcher;
         }
 
+        @SuppressWarnings("interning:not.interned")
         @Override
         public boolean match(TreePath path) {
             TreePath prev = path, p = path.getParentPath();
@@ -172,6 +199,10 @@ public class Heuristics {
         }
     }
 
+    /**
+     * {@code match()} returns true if called on a path whose leaf has the given kind (supplied at
+     * object initialization).
+     */
     public static class OfKind extends Matcher {
         private final Tree.Kind kind;
         private final Matcher matcher;
@@ -190,6 +221,7 @@ public class Heuristics {
         }
     }
 
+    /** {@code match()} returns true if any of the given matchers returns true. */
     public static class OrMatcher extends Matcher {
         private final Matcher[] matchers;
 
@@ -205,28 +237,6 @@ public class Heuristics {
                 }
             }
             return false;
-        }
-    }
-
-    public static class Matchers {
-        public static Matcher preceededBy(Matcher matcher) {
-            return new PreceededBy(matcher);
-        }
-
-        public static Matcher withIn(Matcher matcher) {
-            return new WithIn(matcher);
-        }
-
-        public static Matcher whenTrue(Matcher conditionMatcher) {
-            return new WithinTrueBranch(conditionMatcher);
-        }
-
-        public static Matcher ofKind(Tree.Kind kind, Matcher matcher) {
-            return new OfKind(kind, matcher);
-        }
-
-        public static Matcher or(Matcher... matchers) {
-            return new OrMatcher(matchers);
         }
     }
 }

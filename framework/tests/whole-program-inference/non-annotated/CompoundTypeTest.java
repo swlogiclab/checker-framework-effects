@@ -1,4 +1,5 @@
-import testlib.wholeprograminference.qual.*;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.Sibling1;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.Sibling2;
 
 public class CompoundTypeTest {
     // The default type for fields is @DefaultType.

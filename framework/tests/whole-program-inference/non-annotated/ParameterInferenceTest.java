@@ -1,4 +1,5 @@
-import testlib.wholeprograminference.qual.*;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.Parent;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.Top;
 
 public class ParameterInferenceTest {
 

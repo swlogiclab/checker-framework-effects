@@ -13,7 +13,6 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
-import org.checkerframework.checker.index.IndexUtil;
 import org.checkerframework.checker.index.Subsequence;
 import org.checkerframework.checker.index.qual.HasSubsequence;
 import org.checkerframework.checker.index.qual.LTLengthOf;
@@ -22,13 +21,13 @@ import org.checkerframework.checker.index.upperbound.UBQualifier.LessThanLengthO
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.FlowExpressions.FieldAccess;
-import org.checkerframework.dataflow.analysis.FlowExpressions.LocalVariable;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Receiver;
-import org.checkerframework.dataflow.analysis.FlowExpressions.ThisReference;
-import org.checkerframework.dataflow.analysis.FlowExpressions.ValueLiteral;
-import org.checkerframework.framework.source.Result;
+import org.checkerframework.common.value.ValueCheckerUtils;
+import org.checkerframework.dataflow.expression.FieldAccess;
+import org.checkerframework.dataflow.expression.FlowExpressions;
+import org.checkerframework.dataflow.expression.LocalVariable;
+import org.checkerframework.dataflow.expression.Receiver;
+import org.checkerframework.dataflow.expression.ThisReference;
+import org.checkerframework.dataflow.expression.ValueLiteral;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedArrayType;
@@ -77,7 +76,7 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
     @Override
     public Void visitAnnotation(AnnotationTree node, Void p) {
         AnnotationMirror anno = TreeUtils.annotationFromAnnotationTree(node);
-        if (AnnotationUtils.areSameByClass(anno, LTLengthOf.class)) {
+        if (atypeFactory.areSameByClass(anno, LTLengthOf.class)) {
             List<? extends ExpressionTree> args = node.getArguments();
             if (args.size() == 2) {
                 // If offsets are provided, there must be the same number of them as there are
@@ -87,16 +86,15 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
                 List<String> offsets =
                         AnnotationUtils.getElementValueArray(anno, "offset", String.class, true);
                 if (sequences.size() != offsets.size() && !offsets.isEmpty()) {
-                    checker.report(
-                            Result.failure(
-                                    "different.length.sequences.offsets",
-                                    sequences.size(),
-                                    offsets.size()),
-                            node);
+                    checker.reportError(
+                            node,
+                            "different.length.sequences.offsets",
+                            sequences.size(),
+                            offsets.size());
                     return null;
                 }
             }
-        } else if (AnnotationUtils.areSameByClass(anno, HasSubsequence.class)) {
+        } else if (atypeFactory.areSameByClass(anno, HasSubsequence.class)) {
             // Check that the arguments to a HasSubsequence annotation are valid flow expressions,
             // and issue an error if one of them is not.
 
@@ -116,16 +114,20 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
     }
 
     /**
-     * Determines if the Java expression named by s is effectively final at the current program
-     * location.
+     * Reports an error if the Java expression named by s is not effectively final at the current
+     * program location.
+     *
+     * @param s a Java expression
+     * @param context the flow expression context
+     * @param tree the tree at which to possibly report an error
      */
     private void checkEffectivelyFinalAndParsable(
-            String s, FlowExpressionContext context, Tree error) {
+            String s, FlowExpressionContext context, Tree tree) {
         Receiver rec;
         try {
             rec = FlowExpressionParseUtil.parse(s, context, getCurrentPath(), false);
         } catch (FlowExpressionParseException e) {
-            checker.report(e.getResult(), error);
+            checker.report(tree, e.getDiagMessage());
             return;
         }
         Element element = null;
@@ -137,7 +139,7 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
             return;
         }
         if (element == null || !ElementUtils.isEffectivelyFinal(element)) {
-            checker.report(Result.failure(NOT_FINAL, rec), error);
+            checker.reportError(tree, NOT_FINAL, rec);
         }
     }
 
@@ -163,39 +165,39 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
         AnnotatedTypeMirror indexType = atypeFactory.getAnnotatedType(indexTree);
         UBQualifier qualifier = UBQualifier.createUBQualifier(indexType, atypeFactory.UNKNOWN);
         ValueAnnotatedTypeFactory valueFactory = atypeFactory.getValueAnnotatedTypeFactory();
-        Long valMax = IndexUtil.getMaxValue(indexTree, valueFactory);
+        Long valMax = ValueCheckerUtils.getMaxValue(indexTree, valueFactory);
 
-        if (IndexUtil.getExactValue(indexTree, valueFactory) != null) {
+        if (ValueCheckerUtils.getExactValue(indexTree, valueFactory) != null) {
             // Note that valMax is equal to the exact value in this case.
-            checker.report(
-                    Result.failure(
-                            UPPER_BOUND_CONST,
-                            valMax,
-                            valueFactory.getAnnotatedType(arrTree).toString(),
-                            valMax + 1,
-                            valMax + 1),
-                    indexTree);
-        } else if (valMax != null && qualifier.isUnknown()) {
+            checker.reportError(
+                    indexTree,
+                    UPPER_BOUND_CONST,
+                    valMax,
+                    valueFactory.getAnnotatedType(arrTree).toString(),
+                    valMax + 1,
+                    valMax + 1);
+        } else if (valMax != null && qualifier.isUnknown() && valMax != Integer.MAX_VALUE) {
 
-            checker.report(
-                    Result.failure(
-                            UPPER_BOUND_RANGE,
-                            valueFactory.getAnnotatedType(indexTree).toString(),
-                            valueFactory.getAnnotatedType(arrTree).toString(),
-                            arrName,
-                            arrName,
-                            valMax + 1),
-                    indexTree);
+            checker.reportError(
+                    indexTree,
+                    UPPER_BOUND_RANGE,
+                    valueFactory.getAnnotatedType(indexTree).toString(),
+                    valueFactory.getAnnotatedType(arrTree).toString(),
+                    arrName,
+                    arrName,
+                    valMax + 1);
         } else {
-            checker.report(
-                    Result.failure(UPPER_BOUND, indexType.toString(), arrName, arrName, arrName),
-                    indexTree);
+            checker.reportError(
+                    indexTree, UPPER_BOUND, indexType.toString(), arrName, arrName, arrName);
         }
     }
 
     @Override
     protected void commonAssignmentCheck(
-            Tree varTree, ExpressionTree valueTree, @CompilerMessageKey String errorKey) {
+            Tree varTree,
+            ExpressionTree valueTree,
+            @CompilerMessageKey String errorKey,
+            Object... extraArgs) {
 
         // check that when an assignment to a variable b declared as @HasSubsequence(a, from, to)
         // occurs, to <= a.length, i.e. to is @LTEqLengthOf(a).
@@ -219,49 +221,47 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
 
             if (ltelCheckFailed) {
                 // issue an error
-                checker.report(
-                        Result.failure(
-                                TO_NOT_LTEL,
-                                subSeq.to,
-                                subSeq.array,
-                                anm == null ? "@UpperBoundUnknown" : anm,
-                                subSeq.array,
-                                subSeq.array,
-                                subSeq.array),
-                        valueTree);
+                checker.reportError(
+                        valueTree,
+                        TO_NOT_LTEL,
+                        subSeq.to,
+                        subSeq.array,
+                        anm == null ? "@UpperBoundUnknown" : anm,
+                        subSeq.array,
+                        subSeq.array,
+                        subSeq.array);
             } else {
-                checker.report(
-                        Result.warning(
-                                HSS,
-                                subSeq.array,
-                                subSeq.from,
-                                subSeq.from,
-                                subSeq.to,
-                                subSeq.to,
-                                subSeq.array,
-                                subSeq.array),
-                        valueTree);
+                checker.reportWarning(
+                        valueTree,
+                        HSS,
+                        subSeq.array,
+                        subSeq.from,
+                        subSeq.from,
+                        subSeq.to,
+                        subSeq.to,
+                        subSeq.array,
+                        subSeq.array);
             }
         }
 
-        super.commonAssignmentCheck(varTree, valueTree, errorKey);
+        super.commonAssignmentCheck(varTree, valueTree, errorKey, extraArgs);
     }
 
     @Override
     protected void commonAssignmentCheck(
             AnnotatedTypeMirror varType,
             ExpressionTree valueTree,
-            @CompilerMessageKey String errorKey) {
+            @CompilerMessageKey String errorKey,
+            Object... extraArgs) {
         AnnotatedTypeMirror valueType = atypeFactory.getAnnotatedType(valueTree);
         commonAssignmentCheckStartDiagnostic(varType, valueType, valueTree);
         if (!relaxedCommonAssignment(varType, valueTree)) {
             commonAssignmentCheckEndDiagnostic(
-                    true,
-                    "relaxedCommonAssignment didn't override, now must call super",
+                    "relaxedCommonAssignment did not succeed, now must call super",
                     varType,
                     valueType,
                     valueTree);
-            super.commonAssignmentCheck(varType, valueTree, errorKey);
+            super.commonAssignmentCheck(varType, valueTree, errorKey, extraArgs);
         } else if (checker.hasOption("showchecks")) {
             commonAssignmentCheckEndDiagnostic(
                     true, "relaxedCommonAssignment", varType, valueType, valueTree);
@@ -291,11 +291,15 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
      * <p>If the varType is an array type and the value expression is an array initializer, then the
      * above rules are applied for expression in the initializer where the varType is the component
      * type of the array.
+     *
+     * @param varType the type of the left-hand side (the variable in the assignment)
+     * @param valueExp the right-hand side (the expression in the assignment)
+     * @return true if the assignment is legal based on special Upper Bound rules
      */
     private boolean relaxedCommonAssignment(AnnotatedTypeMirror varType, ExpressionTree valueExp) {
-        List<? extends ExpressionTree> expressions;
         if (valueExp.getKind() == Kind.NEW_ARRAY && varType.getKind() == TypeKind.ARRAY) {
-            expressions = ((NewArrayTree) valueExp).getInitializers();
+            List<? extends ExpressionTree> expressions =
+                    ((NewArrayTree) valueExp).getInitializers();
             if (expressions == null || expressions.isEmpty()) {
                 return false;
             }
@@ -371,8 +375,11 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
      *  is less than the minimum possible length of arrTree, and returns true if so.
      */
     private boolean checkMinLen(ExpressionTree indexTree, ExpressionTree arrTree) {
-        int minLen = IndexUtil.getMinLen(arrTree, atypeFactory.getValueAnnotatedTypeFactory());
-        Long valMax = IndexUtil.getMaxValue(indexTree, atypeFactory.getValueAnnotatedTypeFactory());
+        int minLen =
+                ValueCheckerUtils.getMinLen(arrTree, atypeFactory.getValueAnnotatedTypeFactory());
+        Long valMax =
+                ValueCheckerUtils.getMaxValue(
+                        indexTree, atypeFactory.getValueAnnotatedTypeFactory());
         return valMax != null && valMax < minLen;
     }
 
@@ -417,7 +424,9 @@ public class UpperBoundVisitor extends BaseTypeVisitor<UpperBoundAnnotatedTypeFa
             varLtlQual = (LessThanLengthOf) newLHS;
         }
 
-        Long value = IndexUtil.getMaxValue(valueExp, atypeFactory.getValueAnnotatedTypeFactory());
+        Long value =
+                ValueCheckerUtils.getMaxValue(
+                        valueExp, atypeFactory.getValueAnnotatedTypeFactory());
 
         if (value == null && !expQual.isLessThanLengthQualifier()) {
             return false;

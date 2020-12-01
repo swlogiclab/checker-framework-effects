@@ -11,9 +11,8 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.checker.index.IndexUtil;
 import org.checkerframework.checker.index.qual.SameLen;
+import org.checkerframework.common.value.ValueCheckerUtils;
 import org.checkerframework.dataflow.analysis.ConditionalTransferResult;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Receiver;
 import org.checkerframework.dataflow.analysis.TransferInput;
 import org.checkerframework.dataflow.analysis.TransferResult;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
@@ -22,6 +21,8 @@ import org.checkerframework.dataflow.cfg.node.AssignmentNode;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
+import org.checkerframework.dataflow.expression.FlowExpressions;
+import org.checkerframework.dataflow.expression.Receiver;
 import org.checkerframework.framework.flow.CFAnalysis;
 import org.checkerframework.framework.flow.CFStore;
 import org.checkerframework.framework.flow.CFTransfer;
@@ -29,7 +30,6 @@ import org.checkerframework.framework.flow.CFValue;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.framework.util.FlowExpressionParseUtil;
-import org.checkerframework.javacutil.AnnotationUtils;
 
 /**
  * The transfer function for the SameLen checker. Contains three cases:
@@ -131,8 +131,7 @@ public class SameLenTransfer extends CFTransfer {
                 FlowExpressions.internalReprOf(analysis.getTypeFactory(), node.getExpression());
 
         if (IndexUtil.isSequenceType(node.getTarget().getType())
-                || (rightAnno != null
-                        && AnnotationUtils.areSameByClass(rightAnno, SameLen.class))) {
+                || (rightAnno != null && aTypeFactory.areSameByClass(rightAnno, SameLen.class))) {
 
             AnnotationMirror rightAnnoOrUnknown = rightAnno == null ? UNKNOWN : rightAnno;
 
@@ -162,7 +161,7 @@ public class SameLenTransfer extends CFTransfer {
         if (currentPath == null) {
             return;
         }
-        for (String expr : IndexUtil.getValueOfAnnotationWithStringArgument(sameLenAnno)) {
+        for (String expr : ValueCheckerUtils.getValueOfAnnotationWithStringArgument(sameLenAnno)) {
             Receiver recS;
             try {
                 recS = aTypeFactory.getReceiverFromJavaExpressionString(expr, currentPath);
@@ -287,7 +286,7 @@ public class SameLenTransfer extends CFTransfer {
                 continue;
             }
 
-            List<String> values = IndexUtil.getValueOfAnnotationWithStringArgument(anm);
+            List<String> values = ValueCheckerUtils.getValueOfAnnotationWithStringArgument(anm);
             for (String value : values) {
                 int otherParamIndex = paramNames.indexOf(value);
                 if (otherParamIndex == -1) {

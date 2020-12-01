@@ -7,16 +7,20 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.lang.model.element.Element;
-import org.checkerframework.checker.index.IndexUtil;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
 import org.checkerframework.common.value.ValueChecker;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Receiver;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Unknown;
+import org.checkerframework.common.value.ValueCheckerUtils;
 import org.checkerframework.dataflow.cfg.node.Node;
 import org.checkerframework.dataflow.cfg.node.NumericalAdditionNode;
 import org.checkerframework.dataflow.cfg.node.NumericalSubtractionNode;
+import org.checkerframework.dataflow.expression.FlowExpressions;
+import org.checkerframework.dataflow.expression.LocalVariable;
+import org.checkerframework.dataflow.expression.MethodCall;
+import org.checkerframework.dataflow.expression.Receiver;
+import org.checkerframework.dataflow.expression.Unknown;
+import org.checkerframework.dataflow.expression.ValueLiteral;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.util.FlowExpressionParseUtil;
 import org.checkerframework.framework.util.FlowExpressionParseUtil.FlowExpressionContext;
@@ -61,7 +65,7 @@ public class OffsetEquation {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) {
             return true;
         }
@@ -250,32 +254,32 @@ public class OffsetEquation {
      * Evaluates an offset term. If the term is an integer constant, returns its value. Otherwise,
      * returns null.
      *
-     * @param factory AnnotatedTypeFactory used to access elements annotations. It can be null.
+     * @param factory the AnnotatedTypeFactory used to access elements annotations. It can be null.
      */
     private Integer evalConstantTerm(Receiver termReceiver, BaseAnnotatedTypeFactory factory) {
-        if (termReceiver instanceof FlowExpressions.ValueLiteral) {
+        if (termReceiver instanceof ValueLiteral) {
             // Integer literal
-            Object value = ((FlowExpressions.ValueLiteral) termReceiver).getValue();
+            Object value = ((ValueLiteral) termReceiver).getValue();
             if (value instanceof Integer) {
                 return (Integer) value;
             }
-        } else if (termReceiver instanceof FlowExpressions.MethodCall) {
+        } else if (termReceiver instanceof MethodCall) {
             // TODO: generalize
             // Length of string literal
-            FlowExpressions.MethodCall call = (FlowExpressions.MethodCall) termReceiver;
+            MethodCall call = (MethodCall) termReceiver;
             if (call.getElement().getSimpleName().toString().equals("length")) {
                 Receiver callReceiver = call.getReceiver();
-                if (callReceiver instanceof FlowExpressions.ValueLiteral) {
-                    Object value = ((FlowExpressions.ValueLiteral) callReceiver).getValue();
+                if (callReceiver instanceof ValueLiteral) {
+                    Object value = ((ValueLiteral) callReceiver).getValue();
                     if (value instanceof String) {
                         return ((String) value).length();
                     }
                 }
             }
-        } else if (factory != null && termReceiver instanceof FlowExpressions.LocalVariable) {
-            Element element = ((FlowExpressions.LocalVariable) termReceiver).getElement();
+        } else if (factory != null && termReceiver instanceof LocalVariable) {
+            Element element = ((LocalVariable) termReceiver).getElement();
             Long exactValue =
-                    IndexUtil.getExactValue(
+                    ValueCheckerUtils.getExactValue(
                             element, factory.getTypeFactoryOfSubchecker(ValueChecker.class));
 
             if (exactValue != null) {
@@ -291,7 +295,7 @@ public class OffsetEquation {
      * Terms that evaluate to a integer constant are removed from the list, and the constants are
      * added to or subtracted from the intValue field.
      *
-     * @param factory AnnotatedTypeFactory used for annotation accessing. It can be null.
+     * @param factory the AnnotatedTypeFactory used for annotation accessing. It can be null.
      */
     private void standardizeAndViewpointAdaptExpressions(
             List<String> terms,
@@ -323,10 +327,10 @@ public class OffsetEquation {
     /**
      * Standardizes and viewpoint-adapts the string terms based us the supplied context.
      *
-     * @param context FlowExpressionContext
+     * @param context a FlowExpressionContext
      * @param scope local scope
      * @param useLocalScope whether or not local scope is used
-     * @param factory AnnotatedTypeFactory used for annotation accessing. It can be null.
+     * @param factory an AnnotatedTypeFactory used for annotation accessing. It can be null.
      * @throws FlowExpressionParseException if any term isn't able to be parsed this exception is
      *     thrown. If this happens, no string terms are changed.
      */
@@ -346,7 +350,7 @@ public class OffsetEquation {
     /**
      * Standardizes and viewpoint-adapts the string terms based us the supplied context.
      *
-     * @param context FlowExpressionContext
+     * @param context a FlowExpressionContext
      * @param scope local scope
      * @param useLocalScope whether or not local scope is used
      * @throws FlowExpressionParseException if any term isn't able to be parsed this exception is
@@ -502,7 +506,7 @@ public class OffsetEquation {
      * <p>Otherwise, null is returned.
      *
      * @param node the Node from which to create an offset equation
-     * @param factory AnnotationTypeFactory
+     * @param factory an AnnotationTypeFactory
      * @param op '+' or '-'
      * @return an offset equation from value of known or null if the value isn't known
      */
@@ -510,7 +514,7 @@ public class OffsetEquation {
             Node node, ValueAnnotatedTypeFactory factory, char op) {
         assert op == '+' || op == '-';
         if (node.getTree() != null && TreeUtils.isExpressionTree(node.getTree())) {
-            Long i = IndexUtil.getExactValue(node.getTree(), factory);
+            Long i = ValueCheckerUtils.getExactValue(node.getTree(), factory);
             if (i != null) {
                 if (op == '-') {
                     i = -i;
@@ -531,11 +535,11 @@ public class OffsetEquation {
      * on the value of op.
      *
      * <p>Otherwise the return equation is created by converting the node to a {@link
-     * org.checkerframework.dataflow.analysis.FlowExpressions.Receiver} and then added as a term to
-     * the returned equation. If op is '-' then it is a subtracted term.
+     * org.checkerframework.dataflow.expression.Receiver} and then added as a term to the returned
+     * equation. If op is '-' then it is a subtracted term.
      *
      * @param node the Node from which to create an offset equation
-     * @param factory AnnotationTypeFactory
+     * @param factory an AnnotationTypeFactory
      * @param op '+' or '-'
      * @return an offset equation from the Node
      */

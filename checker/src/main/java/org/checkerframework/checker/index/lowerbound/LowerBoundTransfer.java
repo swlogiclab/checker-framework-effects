@@ -1,7 +1,5 @@
 package org.checkerframework.checker.index.lowerbound;
 
-import static org.checkerframework.checker.index.IndexUtil.getExactValue;
-
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -18,8 +16,7 @@ import org.checkerframework.checker.index.qual.LowerBoundUnknown;
 import org.checkerframework.checker.index.qual.NonNegative;
 import org.checkerframework.checker.index.qual.Positive;
 import org.checkerframework.checker.index.upperbound.OffsetEquation;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Receiver;
+import org.checkerframework.common.value.ValueCheckerUtils;
 import org.checkerframework.dataflow.analysis.RegularTransferResult;
 import org.checkerframework.dataflow.analysis.TransferInput;
 import org.checkerframework.dataflow.analysis.TransferResult;
@@ -34,6 +31,8 @@ import org.checkerframework.dataflow.cfg.node.NumericalMultiplicationNode;
 import org.checkerframework.dataflow.cfg.node.NumericalSubtractionNode;
 import org.checkerframework.dataflow.cfg.node.SignedRightShiftNode;
 import org.checkerframework.dataflow.cfg.node.UnsignedRightShiftNode;
+import org.checkerframework.dataflow.expression.FlowExpressions;
+import org.checkerframework.dataflow.expression.Receiver;
 import org.checkerframework.framework.flow.CFAnalysis;
 import org.checkerframework.framework.flow.CFStore;
 import org.checkerframework.framework.flow.CFValue;
@@ -196,7 +195,8 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
             Node mLiteral, Node otherNode, AnnotationMirror otherAnno, CFStore store) {
 
         Long integerLiteral =
-                getExactValue(mLiteral.getTree(), aTypeFactory.getValueAnnotatedTypeFactory());
+                ValueCheckerUtils.getExactValue(
+                        mLiteral.getTree(), aTypeFactory.getValueAnnotatedTypeFactory());
 
         if (integerLiteral == null) {
             return;
@@ -204,7 +204,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
         long intLiteral = integerLiteral.longValue();
 
         if (intLiteral == 0) {
-            if (AnnotationUtils.areSameByClass(otherAnno, NonNegative.class)) {
+            if (aTypeFactory.areSameByClass(otherAnno, NonNegative.class)) {
                 List<Node> internals = splitAssignments(otherNode);
                 for (Node internal : internals) {
                     Receiver rec = FlowExpressions.internalReprOf(aTypeFactory, internal);
@@ -212,7 +212,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
                 }
             }
         } else if (intLiteral == -1) {
-            if (AnnotationUtils.areSameByClass(otherAnno, GTENegativeOne.class)) {
+            if (aTypeFactory.areSameByClass(otherAnno, GTENegativeOne.class)) {
                 List<Node> internals = splitAssignments(otherNode);
                 for (Node internal : internals) {
                     Receiver rec = FlowExpressions.internalReprOf(aTypeFactory, internal);
@@ -418,7 +418,8 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
 
         // Check if the right side's value is known at compile time.
         Long valRight =
-                getExactValue(rightExprNode.getTree(), aTypeFactory.getValueAnnotatedTypeFactory());
+                ValueCheckerUtils.getExactValue(
+                        rightExprNode.getTree(), aTypeFactory.getValueAnnotatedTypeFactory());
         if (valRight != null) {
             return getAnnotationForLiteralPlus(valRight.intValue(), leftAnno);
         }
@@ -427,7 +428,8 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
 
         // Check if the left side's value is known at compile time.
         Long valLeft =
-                getExactValue(leftExprNode.getTree(), aTypeFactory.getValueAnnotatedTypeFactory());
+                ValueCheckerUtils.getExactValue(
+                        leftExprNode.getTree(), aTypeFactory.getValueAnnotatedTypeFactory());
         if (valLeft != null) {
             return getAnnotationForLiteralPlus(valLeft.intValue(), rightAnno);
         }
@@ -437,16 +439,16 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
          *      nn + * -> *
          *      pos + gte-1 -> nn
          */
-        if (AnnotationUtils.areSameByClass(leftAnno, Positive.class)
-                && AnnotationUtils.areSameByClass(rightAnno, Positive.class)) {
+        if (aTypeFactory.areSameByClass(leftAnno, Positive.class)
+                && aTypeFactory.areSameByClass(rightAnno, Positive.class)) {
             return POS;
         }
 
-        if (AnnotationUtils.areSameByClass(leftAnno, NonNegative.class)) {
+        if (aTypeFactory.areSameByClass(leftAnno, NonNegative.class)) {
             return rightAnno;
         }
 
-        if (AnnotationUtils.areSameByClass(rightAnno, NonNegative.class)) {
+        if (aTypeFactory.areSameByClass(rightAnno, NonNegative.class)) {
             return leftAnno;
         }
 
@@ -476,7 +478,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
 
         // Check if the right side's value is known at compile time.
         Long valRight =
-                getExactValue(
+                ValueCheckerUtils.getExactValue(
                         minusNode.getRightOperand().getTree(),
                         aTypeFactory.getValueAnnotatedTypeFactory());
         if (valRight != null) {
@@ -574,7 +576,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
 
         // Check if the right side's value is known at compile time.
         Long valRight =
-                getExactValue(
+                ValueCheckerUtils.getExactValue(
                         node.getRightOperand().getTree(),
                         aTypeFactory.getValueAnnotatedTypeFactory());
         if (valRight != null) {
@@ -584,7 +586,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
         AnnotationMirror rightAnno = getLowerBoundAnnotation(node.getRightOperand(), p);
         // Check if the left side's value is known at compile time.
         Long valLeft =
-                getExactValue(
+                ValueCheckerUtils.getExactValue(
                         node.getLeftOperand().getTree(),
                         aTypeFactory.getValueAnnotatedTypeFactory());
         if (valLeft != null) {
@@ -662,7 +664,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
 
         // Check if the right side's value is known at compile time.
         Long valRight =
-                getExactValue(
+                ValueCheckerUtils.getExactValue(
                         node.getRightOperand().getTree(),
                         aTypeFactory.getValueAnnotatedTypeFactory());
         if (valRight != null) {
@@ -673,7 +675,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
 
         // Check if the left side's value is known at compile time.
         Long valLeft =
-                getExactValue(
+                ValueCheckerUtils.getExactValue(
                         node.getLeftOperand().getTree(),
                         aTypeFactory.getValueAnnotatedTypeFactory());
         if (valLeft != null) {
@@ -715,7 +717,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
         List<? extends VariableTree> paramTrees = methodTree.getParameters();
 
         for (VariableTree variableTree : paramTrees) {
-            if (TreeUtils.typeOf(variableTree).getKind().equals(TypeKind.CHAR)) {
+            if (TreeUtils.typeOf(variableTree).getKind() == TypeKind.CHAR) {
 
                 Receiver rec = null;
                 try {
@@ -750,7 +752,7 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
 
         // Check if the right side's value is known at compile time.
         Long valRight =
-                getExactValue(
+                ValueCheckerUtils.getExactValue(
                         node.getRightOperand().getTree(),
                         aTypeFactory.getValueAnnotatedTypeFactory());
         if (valRight != null) {
@@ -805,16 +807,34 @@ public class LowerBoundTransfer extends IndexAbstractTransfer {
         return UNKNOWN;
     }
 
+    /**
+     * Returns true if the argument is the @Positive type annotation.
+     *
+     * @param anm the annotation to test
+     * @return true if the the argument is the @Positive type annotation
+     */
     private boolean isPositive(AnnotationMirror anm) {
-        return AnnotationUtils.areSameByClass(anm, Positive.class);
+        return aTypeFactory.areSameByClass(anm, Positive.class);
     }
 
+    /**
+     * Returns true if the argument is the @NonNegative type annotation (or a stronger one).
+     *
+     * @param anm the annotation to test
+     * @return true if the the argument is the @NonNegative type annotation
+     */
     private boolean isNonNegative(AnnotationMirror anm) {
-        return AnnotationUtils.areSameByClass(anm, NonNegative.class) || isPositive(anm);
+        return aTypeFactory.areSameByClass(anm, NonNegative.class) || isPositive(anm);
     }
 
+    /**
+     * Returns true if the argument is the @GTENegativeOne type annotation (or a stronger one).
+     *
+     * @param anm the annotation to test
+     * @return true if the the argument is the @GTENegativeOne type annotation
+     */
     private boolean isGTEN1(AnnotationMirror anm) {
-        return AnnotationUtils.areSameByClass(anm, GTENegativeOne.class) || isNonNegative(anm);
+        return aTypeFactory.areSameByClass(anm, GTENegativeOne.class) || isNonNegative(anm);
     }
 
     private AnnotationMirror getLowerBoundAnnotation(

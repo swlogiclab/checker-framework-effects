@@ -61,26 +61,23 @@ public class ExecUtil {
 
             this.thread =
                     new Thread(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    final InputStreamReader in = new InputStreamReader(inStream);
-                                    try {
+                            () -> {
+                                final InputStreamReader in = new InputStreamReader(inStream);
+                                try {
 
-                                        int read = 0;
-                                        while (read > -1) {
-                                            read = in.read(buffer);
-                                            if (read > 0) {
-                                                out.write(buffer, 0, read);
-                                            }
+                                    int read = 0;
+                                    while (read > -1) {
+                                        read = in.read(buffer);
+                                        if (read > 0) {
+                                            out.write(buffer, 0, read);
                                         }
                                         out.flush();
-
-                                    } catch (IOException exc) {
-                                        exception = exc;
-                                    } finally {
-                                        quietlyClose(in);
                                     }
+
+                                } catch (IOException exc) {
+                                    exception = exc;
+                                } finally {
+                                    quietlyClose(in);
                                 }
                             });
             thread.start();
@@ -92,6 +89,12 @@ public class ExecUtil {
         }
     }
 
+    /**
+     * Close the given writer, ignoring exceptions.
+     *
+     * @param writer the writer to close
+     */
+    @SuppressWarnings("EmptyCatch") // the purpose of this method is to ignore exceptions
     public static void quietlyClose(final Writer writer) {
         try {
             writer.close();
@@ -99,6 +102,12 @@ public class ExecUtil {
         }
     }
 
+    /**
+     * Close the given reader, ignoring exceptions.
+     *
+     * @param reader the reader to close
+     */
+    @SuppressWarnings("EmptyCatch") // the purpose of this method is to ignore exceptions
     public static void quietlyClose(final Reader reader) {
         try {
             reader.close();

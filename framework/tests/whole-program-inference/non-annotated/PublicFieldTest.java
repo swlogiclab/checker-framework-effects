@@ -1,4 +1,8 @@
-import testlib.wholeprograminference.qual.*;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.Parent;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.Sibling1;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.Sibling2;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.Top;
+import org.checkerframework.framework.testchecker.wholeprograminference.qual.WholeProgramInferenceBottom;
 
 public class PublicFieldTest {
     public static int field1; // parent

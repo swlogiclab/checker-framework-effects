@@ -8,13 +8,12 @@ import java.lang.annotation.Target;
 import org.checkerframework.framework.qual.SubtypeOf;
 
 /**
- * The annotation to distinguish compiler message Strings from normal Strings. The programmer should
- * hardly ever need to use it explicitly.
+ * A string that is definitely a compiler message key.
  *
  * @checker_framework.manual #compilermsgs-checker Compiler Message Key Checker
  */
-@SubtypeOf(UnknownCompilerMessageKey.class)
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
+@SubtypeOf(UnknownCompilerMessageKey.class)
 public @interface CompilerMessageKey {}

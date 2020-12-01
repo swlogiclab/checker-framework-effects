@@ -4,12 +4,12 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.checker.nullness.qual.KeyFor;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Receiver;
 import org.checkerframework.dataflow.analysis.TransferInput;
 import org.checkerframework.dataflow.analysis.TransferResult;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
+import org.checkerframework.dataflow.expression.FlowExpressions;
+import org.checkerframework.dataflow.expression.Receiver;
 import org.checkerframework.framework.flow.CFAbstractTransfer;
 import org.checkerframework.javacutil.AnnotationUtils;
 
@@ -49,7 +49,7 @@ public class KeyForTransfer extends CFAbstractTransfer<KeyForValue, KeyForStore,
             final KeyForValue previousKeyValue = in.getValueOfSubNode(node.getArgument(0));
             if (previousKeyValue != null) {
                 for (AnnotationMirror prevAm : previousKeyValue.getAnnotations()) {
-                    if (prevAm != null && AnnotationUtils.areSameByClass(prevAm, KeyFor.class)) {
+                    if (prevAm != null && factory.areSameByClass(prevAm, KeyFor.class)) {
                         keyForMaps.addAll(getKeys(prevAm));
                     }
                 }

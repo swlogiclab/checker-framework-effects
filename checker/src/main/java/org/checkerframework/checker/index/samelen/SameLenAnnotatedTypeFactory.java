@@ -1,7 +1,5 @@
 package org.checkerframework.checker.index.samelen;
 
-import static org.checkerframework.checker.index.IndexUtil.getValueOfAnnotationWithStringArgument;
-
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Tree;
@@ -17,6 +15,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.util.Elements;
 import org.checkerframework.checker.index.IndexMethodIdentifier;
 import org.checkerframework.checker.index.IndexUtil;
 import org.checkerframework.checker.index.qual.PolyLength;
@@ -26,17 +25,18 @@ import org.checkerframework.checker.index.qual.SameLenBottom;
 import org.checkerframework.checker.index.qual.SameLenUnknown;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.FlowExpressions.Receiver;
-import org.checkerframework.framework.qual.PolyAll;
+import org.checkerframework.common.value.ValueCheckerUtils;
+import org.checkerframework.dataflow.expression.ArrayCreation;
+import org.checkerframework.dataflow.expression.ClassName;
+import org.checkerframework.dataflow.expression.FlowExpressions;
+import org.checkerframework.dataflow.expression.Receiver;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
+import org.checkerframework.framework.type.ElementQualifierHierarchy;
 import org.checkerframework.framework.type.QualifierHierarchy;
 import org.checkerframework.framework.type.treeannotator.ListTreeAnnotator;
 import org.checkerframework.framework.type.treeannotator.TreeAnnotator;
 import org.checkerframework.framework.util.FlowExpressionParseUtil;
 import org.checkerframework.framework.util.FlowExpressionParseUtil.FlowExpressionParseException;
-import org.checkerframework.framework.util.MultiGraphQualifierHierarchy;
-import org.checkerframework.framework.util.MultiGraphQualifierHierarchy.MultiGraphFactory;
 import org.checkerframework.javacutil.AnnotationBuilder;
 import org.checkerframework.javacutil.AnnotationUtils;
 
@@ -85,7 +85,6 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     public SameLenAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
 
-        addAliasedAnnotation(PolyAll.class, POLY);
         addAliasedAnnotation(PolyLength.class, POLY);
 
         this.postInit();
@@ -108,8 +107,8 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     @Override
-    public QualifierHierarchy createQualifierHierarchy(MultiGraphFactory factory) {
-        return new SameLenQualifierHierarchy(factory);
+    protected QualifierHierarchy createQualifierHierarchy() {
+        return new SameLenQualifierHierarchy(this.getSupportedTypeQualifiers(), elements);
     }
 
     // Handles case "user-written SameLen"
@@ -131,7 +130,8 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 if (r != null) {
                     String varName = r.toString();
 
-                    List<String> exprs = IndexUtil.getValueOfAnnotationWithStringArgument(anm);
+                    List<String> exprs =
+                            ValueCheckerUtils.getValueOfAnnotationWithStringArgument(anm);
                     if (exprs.contains(varName)) {
                         exprs.remove(varName);
                     }
@@ -150,8 +150,8 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     /** Returns true if the given expression may appear in a @SameLen annotation. */
     public static boolean mayAppearInSameLen(Receiver receiver) {
         return !receiver.containsUnknown()
-                && !(receiver instanceof FlowExpressions.ArrayCreation)
-                && !(receiver instanceof FlowExpressions.ClassName)
+                && !(receiver instanceof ArrayCreation)
+                && !(receiver instanceof ClassName)
                 // Big expressions cause a stack overflow in FlowExpressionParseUtil.
                 // So limit them to an arbitrary length of 999.
                 && receiver.toString().length() < 1000;
@@ -164,11 +164,17 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
      * so @SameLen({"a","b","c"} and @SameLen({"c","f","g"} are actually the same type -- both
      * should usually be replaced by a SameLen with the union of the lists of names.
      */
-    private final class SameLenQualifierHierarchy extends MultiGraphQualifierHierarchy {
+    private final class SameLenQualifierHierarchy extends ElementQualifierHierarchy {
 
-        /** @param factory MultiGraphFactory to use to construct this */
-        public SameLenQualifierHierarchy(MultiGraphQualifierHierarchy.MultiGraphFactory factory) {
-            super(factory);
+        /**
+         * Creates a SameLenQualifierHierarchy from the given classes.
+         *
+         * @param qualifierClasses classes of annotations that are the qualifiers
+         * @param elements element utils
+         */
+        public SameLenQualifierHierarchy(
+                Set<Class<? extends Annotation>> qualifierClasses, Elements elements) {
+            super(qualifierClasses, elements);
         }
 
         @Override
@@ -196,8 +202,8 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         public AnnotationMirror greatestLowerBound(AnnotationMirror a1, AnnotationMirror a2) {
             if (AnnotationUtils.hasElementValue(a1, "value")
                     && AnnotationUtils.hasElementValue(a2, "value")) {
-                List<String> a1Val = getValueOfAnnotationWithStringArgument(a1);
-                List<String> a2Val = getValueOfAnnotationWithStringArgument(a2);
+                List<String> a1Val = ValueCheckerUtils.getValueOfAnnotationWithStringArgument(a1);
+                List<String> a2Val = ValueCheckerUtils.getValueOfAnnotationWithStringArgument(a2);
 
                 Set<String> exprs = unionIfNotDisjoint(a1Val, a2Val);
                 if (exprs == null) {
@@ -207,9 +213,9 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 }
             } else {
                 // the glb is either one of the annotations (if the other is top), or bottom.
-                if (AnnotationUtils.areSameByClass(a1, SameLenUnknown.class)) {
+                if (areSameByClass(a1, SameLenUnknown.class)) {
                     return a2;
-                } else if (AnnotationUtils.areSameByClass(a2, SameLenUnknown.class)) {
+                } else if (areSameByClass(a2, SameLenUnknown.class)) {
                     return a1;
                 } else {
                     return BOTTOM;
@@ -223,8 +229,8 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         public AnnotationMirror leastUpperBound(AnnotationMirror a1, AnnotationMirror a2) {
             if (AnnotationUtils.hasElementValue(a1, "value")
                     && AnnotationUtils.hasElementValue(a2, "value")) {
-                List<String> a1Val = getValueOfAnnotationWithStringArgument(a1);
-                List<String> a2Val = getValueOfAnnotationWithStringArgument(a2);
+                List<String> a1Val = ValueCheckerUtils.getValueOfAnnotationWithStringArgument(a1);
+                List<String> a2Val = ValueCheckerUtils.getValueOfAnnotationWithStringArgument(a2);
 
                 if (!Collections.disjoint(a1Val, a2Val)) {
                     a1Val.retainAll(a2Val);
@@ -235,12 +241,12 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             } else {
                 // the lub is either one of the annotations (if the other is bottom), or top.
-                if (AnnotationUtils.areSameByClass(a1, SameLenBottom.class)) {
+                if (areSameByClass(a1, SameLenBottom.class)) {
                     return a2;
-                } else if (AnnotationUtils.areSameByClass(a2, SameLenBottom.class)) {
+                } else if (areSameByClass(a2, SameLenBottom.class)) {
                     return a1;
-                } else if (AnnotationUtils.areSameByClass(a1, PolySameLen.class)
-                        && AnnotationUtils.areSameByClass(a2, PolySameLen.class)) {
+                } else if (areSameByClass(a1, PolySameLen.class)
+                        && areSameByClass(a2, PolySameLen.class)) {
                     return a1;
                 } else {
                     return UNKNOWN;
@@ -250,16 +256,18 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
         @Override
         public boolean isSubtype(AnnotationMirror subAnno, AnnotationMirror superAnno) {
-            if (AnnotationUtils.areSameByClass(subAnno, SameLenBottom.class)) {
+            if (areSameByClass(subAnno, SameLenBottom.class)) {
                 return true;
-            } else if (AnnotationUtils.areSameByClass(superAnno, SameLenUnknown.class)) {
+            } else if (areSameByClass(superAnno, SameLenUnknown.class)) {
                 return true;
-            } else if (AnnotationUtils.areSameByClass(subAnno, PolySameLen.class)) {
-                return AnnotationUtils.areSameByClass(superAnno, PolySameLen.class);
+            } else if (areSameByClass(subAnno, PolySameLen.class)) {
+                return areSameByClass(superAnno, PolySameLen.class);
             } else if (AnnotationUtils.hasElementValue(subAnno, "value")
                     && AnnotationUtils.hasElementValue(superAnno, "value")) {
-                List<String> subArrays = getValueOfAnnotationWithStringArgument(subAnno);
-                List<String> superArrays = getValueOfAnnotationWithStringArgument(superAnno);
+                List<String> subArrays =
+                        ValueCheckerUtils.getValueOfAnnotationWithStringArgument(subAnno);
+                List<String> superArrays =
+                        ValueCheckerUtils.getValueOfAnnotationWithStringArgument(superAnno);
 
                 if (subArrays.containsAll(superArrays)) {
                     return true;
@@ -298,12 +306,13 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     Receiver rec = FlowExpressions.internalReprOf(this.atypeFactory, sequenceTree);
                     if (mayAppearInSameLen(rec)) {
                         String recString = rec.toString();
-                        if (AnnotationUtils.areSameByClass(sequenceAnno, SameLenUnknown.class)) {
+                        if (areSameByClass(sequenceAnno, SameLenUnknown.class)) {
                             sequenceAnno = createSameLen(Collections.singletonList(recString));
-                        } else if (AnnotationUtils.areSameByClass(sequenceAnno, SameLen.class)) {
+                        } else if (areSameByClass(sequenceAnno, SameLen.class)) {
                             // Add the sequence whose length is being used to the annotation.
                             List<String> exprs =
-                                    getValueOfAnnotationWithStringArgument(sequenceAnno);
+                                    ValueCheckerUtils.getValueOfAnnotationWithStringArgument(
+                                            sequenceAnno);
                             int index = Collections.binarySearch(exprs, recString);
                             if (index < 0) {
                                 exprs.add(-index - 1, recString);
@@ -336,7 +345,7 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         if (sameLenAnno == null) {
             return new ArrayList<>();
         }
-        return getValueOfAnnotationWithStringArgument(sameLenAnno);
+        return ValueCheckerUtils.getValueOfAnnotationWithStringArgument(sameLenAnno);
     }
 
     ///
@@ -381,7 +390,7 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
      * @return a combined SameLen annotation
      */
     public AnnotationMirror createCombinedSameLen(
-            List<FlowExpressions.Receiver> receivers, List<AnnotationMirror> annos) {
+            List<Receiver> receivers, List<AnnotationMirror> annos) {
 
         Set<String> exprs = new TreeSet<>();
         for (Receiver rec : receivers) {
@@ -390,8 +399,8 @@ public class SameLenAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
         }
         for (AnnotationMirror anno : annos) {
-            if (AnnotationUtils.areSameByClass(anno, SameLen.class)) {
-                exprs.addAll(getValueOfAnnotationWithStringArgument(anno));
+            if (areSameByClass(anno, SameLen.class)) {
+                exprs.addAll(ValueCheckerUtils.getValueOfAnnotationWithStringArgument(anno));
             }
         }
         return createSameLen(exprs);

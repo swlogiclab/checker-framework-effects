@@ -1,14 +1,18 @@
 package org.checkerframework.dataflow.cfg.node;
 
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.dataflow.cfg.node.AssignmentContext.MethodParameterContext;
 import org.checkerframework.javacutil.TreeUtils;
+import org.plumelib.util.UtilPlume;
 
 /**
  * A node for method invocation.
@@ -22,13 +26,39 @@ import org.checkerframework.javacutil.TreeUtils;
  */
 public class MethodInvocationNode extends Node {
 
-    protected final MethodInvocationTree tree;
+    /** The tree for the method invocation. */
+    protected final @Nullable MethodInvocationTree tree;
+
+    /**
+     * The target of the method invocation -- that is, the receiver. For a static method, may be a
+     * class name.
+     */
     protected final MethodAccessNode target;
+
+    /** The arguments of the method invocation. */
     protected final List<Node> arguments;
+
+    /** The tree path to the method invocation. */
     protected final TreePath treePath;
 
+    /**
+     * If this MethodInvocationNode is a node for an {@link Iterator#next()} desugared from an
+     * enhanced for loop, then the {@code iterExpression} field is the expression in the for loop,
+     * e.g., {@code iter} in {@code for(Object o: iter}.
+     */
+    protected @Nullable ExpressionTree iterableExpression;
+
+    /**
+     * Create a MethodInvocationNode.
+     *
+     * @param tree for the method invocation
+     * @param target of the method invocation -- that is, the receiver. For a static method, may be
+     *     a class name.
+     * @param arguments arguments of the method invocation
+     * @param treePath path to the method invocation
+     */
     public MethodInvocationNode(
-            MethodInvocationTree tree,
+            @Nullable MethodInvocationTree tree,
             MethodAccessNode target,
             List<Node> arguments,
             TreePath treePath) {
@@ -66,8 +96,30 @@ public class MethodInvocationNode extends Node {
         return treePath;
     }
 
+    /**
+     * If this MethodInvocationNode is a node for an {@link Iterator#next()} desugared from an
+     * enhanced for loop, then return the expression in the for loop, e.g., {@code iter} in {@code
+     * for(Object o: iter}. Otherwise, return null.
+     *
+     * @return the iter expression, or null if this is not a {@link Iterator#next()} from an
+     *     enhanced for loop
+     */
+    public @Nullable ExpressionTree getIterableExpression() {
+        return iterableExpression;
+    }
+
+    /**
+     * Set the iterable expression from a for loop.
+     *
+     * @param iterableExpression iterable expression
+     * @see #getIterableExpression()
+     */
+    public void setIterableExpression(@Nullable ExpressionTree iterableExpression) {
+        this.iterableExpression = iterableExpression;
+    }
+
     @Override
-    public MethodInvocationTree getTree() {
+    public @Nullable MethodInvocationTree getTree() {
         return tree;
     }
 
@@ -78,23 +130,11 @@ public class MethodInvocationNode extends Node {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(target);
-        sb.append("(");
-        boolean needComma = false;
-        for (Node arg : arguments) {
-            if (needComma) {
-                sb.append(", ");
-            }
-            sb.append(arg);
-            needComma = true;
-        }
-        sb.append(")");
-        return sb.toString();
+        return target + "(" + UtilPlume.join(", ", arguments) + ")";
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (!(obj instanceof MethodInvocationNode)) {
             return false;
         }

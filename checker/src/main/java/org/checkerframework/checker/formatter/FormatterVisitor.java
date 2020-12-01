@@ -17,10 +17,13 @@ import org.checkerframework.checker.formatter.FormatterTreeUtil.InvocationType;
 import org.checkerframework.checker.formatter.FormatterTreeUtil.Result;
 import org.checkerframework.checker.formatter.qual.ConversionCategory;
 import org.checkerframework.checker.formatter.qual.FormatMethod;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
+import org.checkerframework.common.wholeprograminference.WholeProgramInference;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.javacutil.AnnotationUtils;
+import org.checkerframework.javacutil.ElementUtils;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypesUtils;
 
@@ -40,11 +43,12 @@ public class FormatterVisitor extends BaseTypeVisitor<FormatterAnnotatedTypeFact
         FormatterTreeUtil tu = atypeFactory.treeUtil;
         if (tu.isFormatCall(node, atypeFactory)) {
             FormatCall fc = atypeFactory.treeUtil.new FormatCall(node, atypeFactory);
+            MethodTree enclosingMethod = TreeUtils.enclosingMethod(atypeFactory.getPath(fc.node));
 
             Result<String> errMissingFormat = fc.hasFormatAnnotation();
             if (errMissingFormat != null) {
                 // The string's type has no @Format annotation.
-                if (isWrappedFormatCall(fc)) {
+                if (isWrappedFormatCall(fc, enclosingMethod)) {
                     // Nothing to do, because call is legal.
                 } else {
                     // I.1
@@ -88,9 +92,15 @@ public class FormatterVisitor extends BaseTypeVisitor<FormatterAnnotatedTypeFact
                                     default:
                                         if (!fc.isValidParameter(formatCat, paramType)) {
                                             // II.3
+                                            ExecutableElement method =
+                                                    TreeUtils.elementFromUse(node);
+                                            CharSequence methodName =
+                                                    ElementUtils.getSimpleNameOrDescription(method);
                                             tu.failure(
                                                     param,
                                                     "argument.type.incompatible",
+                                                    "", // parameter name is not useful
+                                                    methodName,
                                                     paramType,
                                                     formatCat);
                                         }
@@ -117,18 +127,29 @@ public class FormatterVisitor extends BaseTypeVisitor<FormatterAnnotatedTypeFact
                         break;
                 }
             }
+
+            // Support -Ainfer command-line argument.
+            WholeProgramInference wpi = atypeFactory.getWholeProgramInference();
+            if (wpi != null && forwardsArguments(node, enclosingMethod)) {
+                wpi.addMethodDeclarationAnnotation(
+                        TreeUtils.elementFromDeclaration(enclosingMethod),
+                        atypeFactory.FORMATMETHOD);
+            }
         }
         return super.visitMethodInvocation(node, p);
     }
 
     /**
-     * Returns true if fc is within a method m annotated as {@code @FormatMethod}, and fc's
+     * Returns true if {@code fc} is within a method m annotated as {@code @FormatMethod}, and fc's
      * arguments are m's formal parameters. In other words, fc forwards m's arguments to another
      * format method.
+     *
+     * @param fc an invocation of a format method
+     * @param enclosingMethod the method that contains the call
+     * @return true if {@code fc} is a call to a format method that forwards its containing method's
+     *     arguments
      */
-    private boolean isWrappedFormatCall(FormatCall fc) {
-
-        MethodTree enclosingMethod = TreeUtils.enclosingMethod(atypeFactory.getPath(fc.node));
+    private boolean isWrappedFormatCall(FormatCall fc, @Nullable MethodTree enclosingMethod) {
         if (enclosingMethod == null) {
             return false;
         }
@@ -137,11 +158,28 @@ public class FormatterVisitor extends BaseTypeVisitor<FormatterAnnotatedTypeFact
         boolean withinFormatMethod =
                 (atypeFactory.getDeclAnnotation(enclosingMethodElement, FormatMethod.class)
                         != null);
-        if (!withinFormatMethod) {
+        return withinFormatMethod && forwardsArguments(fc.node, enclosingMethod);
+    }
+
+    /**
+     * Returns true if {@code fc} is within a method m, and fc's arguments are m's formal
+     * parameters. In other words, fc forwards m's arguments.
+     *
+     * @param invocTree an invocation of a method
+     * @param enclosingMethod the method that contains the call
+     * @return true if {@code fc} is a call to a method that forwards its containing method's
+     *     arguments
+     */
+    private boolean forwardsArguments(
+            MethodInvocationTree invocTree, @Nullable MethodTree enclosingMethod) {
+
+        if (enclosingMethod == null) {
             return false;
         }
+        ExecutableElement enclosingMethodElement =
+                TreeUtils.elementFromDeclaration(enclosingMethod);
 
-        List<? extends ExpressionTree> args = fc.node.getArguments();
+        List<? extends ExpressionTree> args = invocTree.getArguments();
         List<? extends VariableTree> params = enclosingMethod.getParameters();
         List<? extends VariableElement> paramElements = enclosingMethodElement.getParameters();
 
@@ -154,15 +192,17 @@ public class FormatterVisitor extends BaseTypeVisitor<FormatterAnnotatedTypeFact
             params = params.subList(1, params.size());
         }
 
-        if (args.size() == params.size()) {
-            for (int i = 0; i < args.size(); i++) {
-                ExpressionTree arg = args.get(i);
-                if (!(arg instanceof IdentifierTree
-                        && ((IdentifierTree) arg).getName().equals(params.get(i).getName()))) {
-                    return false;
-                }
+        if (args.size() != params.size()) {
+            return false;
+        }
+        for (int i = 0; i < args.size(); i++) {
+            ExpressionTree arg = args.get(i);
+            if (!(arg instanceof IdentifierTree
+                    && ((IdentifierTree) arg).getName() == params.get(i).getName())) {
+                return false;
             }
         }
+
         return true;
     }
 
@@ -171,8 +211,9 @@ public class FormatterVisitor extends BaseTypeVisitor<FormatterAnnotatedTypeFact
             AnnotatedTypeMirror varType,
             AnnotatedTypeMirror valueType,
             Tree valueTree,
-            @CompilerMessageKey String errorKey) {
-        super.commonAssignmentCheck(varType, valueType, valueTree, errorKey);
+            @CompilerMessageKey String errorKey,
+            Object... extraArgs) {
+        super.commonAssignmentCheck(varType, valueType, valueTree, errorKey, extraArgs);
 
         AnnotationMirror rhs = valueType.getAnnotationInHierarchy(atypeFactory.UNKNOWNFORMAT);
         AnnotationMirror lhs = varType.getAnnotationInHierarchy(atypeFactory.UNKNOWNFORMAT);
@@ -181,20 +222,21 @@ public class FormatterVisitor extends BaseTypeVisitor<FormatterAnnotatedTypeFact
         // than required, but a warning is issued."
         // The format.missing.arguments warning is issued here for assignments.
         // For method calls, it is issued in visitMethodInvocation.
-        if (AnnotationUtils.areSameByName(rhs, atypeFactory.FORMAT)
-                && AnnotationUtils.areSameByName(lhs, atypeFactory.FORMAT)) {
+        if (rhs != null
+                && lhs != null
+                && AnnotationUtils.areSameByName(rhs, FormatterAnnotatedTypeFactory.FORMAT_NAME)
+                && AnnotationUtils.areSameByName(lhs, FormatterAnnotatedTypeFactory.FORMAT_NAME)) {
             ConversionCategory[] rhsArgTypes =
                     atypeFactory.treeUtil.formatAnnotationToCategories(rhs);
             ConversionCategory[] lhsArgTypes =
                     atypeFactory.treeUtil.formatAnnotationToCategories(lhs);
 
             if (rhsArgTypes.length < lhsArgTypes.length) {
-                checker.report(
-                        org.checkerframework.framework.source.Result.warning(
-                                "format.missing.arguments",
-                                varType.toString(),
-                                valueType.toString()),
-                        valueTree);
+                checker.reportWarning(
+                        valueTree,
+                        "format.missing.arguments",
+                        varType.toString(),
+                        valueType.toString());
             }
         }
     }

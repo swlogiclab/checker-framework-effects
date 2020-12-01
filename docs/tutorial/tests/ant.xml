@@ -39,7 +39,7 @@
         <arg value="-Xprefer:newer"/>
         <arg line="@{files}"/>
         <arg value="-Alint=@{lint}"/>
-        <arg value="-Anocheckjdk"/>
+        <arg value="-ApermitMissingJdk"/>
         <arg value="-AsuppressWarnings=purity"/>
       </java>
     </sequential>
@@ -99,7 +99,7 @@
 
         <!-- ignore version of Checker Framework javac -->
         <arg value="-I"/>
-        <arg value="^javac 1.8"/>
+        <arg value="^javac "/>
 
         <!-- ignore paths -->
         <arg value="-I"/>

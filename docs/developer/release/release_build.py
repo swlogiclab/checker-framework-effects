@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 """
 release_build.py
@@ -23,7 +23,7 @@ notest = False
 
 def print_usage():
     """Print usage information."""
-    print "Usage:    python release_build.py [projects] [options]"
+    print "Usage:    python3 release_build.py [projects] [options]"
     print_projects(1, 4)
     print "\n  --auto  accepts or chooses the default for all prompts"
     print "\n  --debug  turns on debugging mode which produces verbose output"
@@ -33,7 +33,8 @@ def clone_or_update_repos(auto):
     """Clone the relevant repos from scratch or update them if they exist and
     if directed to do so by the user."""
     message = """Before building the release, we clone or update the release repositories.
-However, if you have had to run the script multiple times and no files have changed, you may skip this step.
+However, if you have had to run the script multiple times today and no files
+have changed since the last attempt, you may skip this step.
 WARNING: IF THIS IS YOUR FIRST RUN OF THE RELEASE ON RELEASE DAY, DO NOT SKIP THIS STEP.
 The following repositories will be cloned or updated from their origins:
 """
@@ -151,17 +152,6 @@ def get_current_date():
     "Return today's date in a string format similar to: 02 May 2016"
     return CURRENT_DATE.strftime("%d %b %Y")
 
-def download_jsr308_langtools():
-    """Download and unzip jsr308-langtools"""
-    langtools_dir = BUILD_DIR+"/jsr308-langtools"
-    langtools_2_4_0_dir = langtools_dir + "/jsr308-langtools-2.4.0"
-    if (os.path.exists(langtools_2_4_0_dir)):
-        print "Not downloading jsr308-langtools because found " + langtools_2_4_0_dir
-        return
-    execute('wget -q https://checkerframework.org/jsr308/jsr308-langtools-2.4.0.zip', True, False, BUILD_DIR)
-    execute('unzip -q jsr308-langtools-2.4.0.zip', True, False, BUILD_DIR)
-    execute('mv jsr308-langtools-2.4.0 '+langtools_dir, True, False, BUILD_DIR)
-
 def build_annotation_tools_release(version, afu_interm_dir):
     """Build the Annotation File Utilities project's artifacts and place them
     in the development web site."""
@@ -174,23 +164,13 @@ def build_annotation_tools_release(version, afu_interm_dir):
     execute(ant_cmd)
 
     # Deploy to intermediate site
-    ant_cmd = "ant %s -buildfile %s -e web-no-checks -Dafu.version=%s -Ddeploy-dir=%s" % (ant_debug, build, version, afu_interm_dir)
-    execute(ant_cmd)
+    gradle_cmd = "./gradlew releaseBuild -Pafu.version=%s -Pdeploy-dir=%s" % (version, afu_interm_dir)
+    execute(gradle_cmd, True, False, ANNO_FILE_UTILITIES)
 
     update_project_dev_website("annotation-file-utilities", version)
 
 def build_and_locally_deploy_maven(version):
-    protocol_length = len("file://")
-    maven_dev_repo_without_protocol = MAVEN_DEV_REPO[protocol_length:]
-
-    execute("mkdir -p " + maven_dev_repo_without_protocol)
-
-    # Deploy jars to Maven Central repo
-    mvn_deploy(CHECKER_BINARY, CHECKER_BINARY_POM, MAVEN_DEV_REPO)
-    mvn_deploy(CHECKER_QUAL, CHECKER_QUAL_POM, MAVEN_DEV_REPO)
-    mvn_deploy(JDK8_BINARY, JDK8_BINARY_POM, MAVEN_DEV_REPO)
-
-    return
+    execute("./gradlew deployArtifactsToLocalRepo", working_dir=CHECKER_FRAMEWORK)
 
 def build_checker_framework_release(version, old_cf_version, afu_version, afu_release_date, checker_framework_interm_dir, manual_only=False):
     """Build the release files for the Checker Framework project, including the
@@ -203,7 +183,7 @@ def build_checker_framework_release(version, old_cf_version, afu_version, afu_re
     execute("mvn package -Dmaven.test.skip=true", True, False, STUBPARSER)
 
     # build annotation-tools
-    execute("ant -e compile", True, False, ANNO_TOOLS)
+    execute("./gradlew assemble -Prelease=true", True, False, ANNO_FILE_UTILITIES)
 
     # update versions
     ant_props = "-Dchecker=%s -Drelease.ver=%s -Dafu.version=%s -Dafu.properties=%s -Dafu.release.date=\"%s\"" % (checker_dir, version, afu_version, afu_build_properties, afu_release_date)
@@ -212,10 +192,11 @@ def build_checker_framework_release(version, old_cf_version, afu_version, afu_re
     execute(ant_cmd, True, False, CHECKER_FRAMEWORK_RELEASE)
 
     # Check that updating versions didn't overlook anything.
-    print "Here are occurrences of the old version number, " + old_cf_version
     old_cf_version_regex = old_cf_version.replace('.', '\.')
     find_cmd = 'find . -type d \( -path \*/build -o -path \*/.git \) -prune  -o \! -type d \( -name \*\~ -o -name \*.bin \) -prune -o  -type f -exec grep -i -n -e \'\b%s\b\' {} +' % old_cf_version_regex
-    execute(find_cmd, False, True, CHECKER_FRAMEWORK_RELEASE)
+    old_version_occurrences = execute(find_cmd, True, False, CHECKER_FRAMEWORK)
+    print "Here are occurrences of the old version number, " + old_cf_version
+    print old_version_occurrences
     continue_or_exit("If any occurrence is not acceptable, then stop the release, update target \"update-checker-framework-versions\" in file release.xml, and start over.")
 
     if not manual_only:
@@ -416,15 +397,12 @@ def main(argv):
     print_step("Build Step 5: Build projects and websites.") # AUTO
     print projects_to_release
 
-    print_step("6a: Download Type Annotations Compiler.")
-    download_jsr308_langtools()
-
     if projects_to_release[AFU_OPT]:
-        print_step("6b: Build Annotation File Utilities.")
+        print_step("5a: Build Annotation File Utilities.")
         build_annotation_tools_release(afu_version, afu_interm_dir)
 
     if projects_to_release[CF_OPT]:
-        print_step("6c: Build Checker Framework.")
+        print_step("5b: Build Checker Framework.")
         build_checker_framework_release(cf_version, old_cf_version, afu_version, afu_date, checker_framework_interm_dir)
 
 

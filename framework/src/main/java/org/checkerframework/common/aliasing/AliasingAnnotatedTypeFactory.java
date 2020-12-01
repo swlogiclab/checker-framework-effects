@@ -2,9 +2,10 @@ package org.checkerframework.common.aliasing;
 
 import com.sun.source.tree.NewArrayTree;
 import java.lang.annotation.Annotation;
-import java.util.Map;
+import java.util.Collection;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.util.Elements;
 import org.checkerframework.common.aliasing.qual.LeakedToResult;
 import org.checkerframework.common.aliasing.qual.MaybeAliased;
 import org.checkerframework.common.aliasing.qual.MaybeLeaked;
@@ -17,13 +18,11 @@ import org.checkerframework.framework.flow.CFStore;
 import org.checkerframework.framework.flow.CFTransfer;
 import org.checkerframework.framework.flow.CFValue;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
+import org.checkerframework.framework.type.NoElementQualifierHierarchy;
 import org.checkerframework.framework.type.QualifierHierarchy;
 import org.checkerframework.framework.type.treeannotator.ListTreeAnnotator;
 import org.checkerframework.framework.type.treeannotator.TreeAnnotator;
-import org.checkerframework.framework.util.MultiGraphQualifierHierarchy;
-import org.checkerframework.framework.util.MultiGraphQualifierHierarchy.MultiGraphFactory;
 import org.checkerframework.javacutil.AnnotationBuilder;
-import org.checkerframework.javacutil.AnnotationUtils;
 
 /** Annotated type factory for the Aliasing Checker. */
 public class AliasingAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
@@ -44,18 +43,18 @@ public class AliasingAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     /** Create the type factory. */
     public AliasingAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
-        if (this.getClass().equals(AliasingAnnotatedTypeFactory.class)) {
+        if (this.getClass() == AliasingAnnotatedTypeFactory.class) {
             this.postInit();
         }
     }
 
     // @NonLeaked and @LeakedToResult are type qualifiers because of a checker
     // framework limitation (Issue 383). Once the stub parser gets updated to read
-    // non-type-qualifers annotations on stub files, this annotation won't be a
+    // non-type-qualifiers annotations on stub files, this annotation won't be a
     // type qualifier anymore.
     @Override
     protected Set<Class<? extends Annotation>> createSupportedTypeQualifiers() {
-        return getBundledTypeQualifiersWithoutPolyAll(MaybeLeaked.class);
+        return getBundledTypeQualifiers(MaybeLeaked.class);
     }
 
     @Override
@@ -84,43 +83,34 @@ public class AliasingAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     @Override
-    protected MultiGraphQualifierHierarchy.MultiGraphFactory createQualifierHierarchyFactory() {
-        return new MultiGraphQualifierHierarchy.MultiGraphFactory(this);
+    protected QualifierHierarchy createQualifierHierarchy() {
+        return new AliasingQualifierHierarchy(this.getSupportedTypeQualifiers(), elements);
     }
 
-    @Override
-    public QualifierHierarchy createQualifierHierarchy(MultiGraphFactory factory) {
-        return new AliasingQualifierHierarchy(factory);
-    }
+    /** AliasingQualifierHierarchy. */
+    protected class AliasingQualifierHierarchy extends NoElementQualifierHierarchy {
 
-    protected class AliasingQualifierHierarchy extends MultiGraphQualifierHierarchy {
-
-        protected AliasingQualifierHierarchy(MultiGraphFactory f) {
-            super(f);
+        /**
+         * Create AliasingQualifierHierarchy.
+         *
+         * @param qualifierClasses classes of annotations that are the qualifiers
+         * @param elements element utils
+         */
+        protected AliasingQualifierHierarchy(
+                Collection<Class<? extends Annotation>> qualifierClasses, Elements elements) {
+            super(qualifierClasses, elements);
         }
 
-        @Override
-        protected Set<AnnotationMirror> findBottoms(
-                Map<AnnotationMirror, Set<AnnotationMirror>> supertypes) {
-            Set<AnnotationMirror> newbottoms = AnnotationUtils.createAnnotationSet();
-            newbottoms.add(UNIQUE);
-            newbottoms.add(MAYBE_LEAKED);
-            return newbottoms;
-        }
-
-        @Override
-        protected Set<AnnotationMirror> findTops(
-                Map<AnnotationMirror, Set<AnnotationMirror>> supertypes) {
-            Set<AnnotationMirror> newtops = AnnotationUtils.createAnnotationSet();
-            newtops.add(MAYBE_ALIASED);
-            newtops.add(NON_LEAKED);
-            return newtops;
-        }
-
+        /**
+         * Returns true is {@code anno} is annotation in the Leaked hierarchy.
+         *
+         * @param anno an annotation
+         * @return true is {@code anno} is annotation in the Leaked hierarchy
+         */
         private boolean isLeakedQualifier(AnnotationMirror anno) {
-            return AnnotationUtils.areSameByClass(anno, MaybeLeaked.class)
-                    || AnnotationUtils.areSameByClass(anno, NonLeaked.class)
-                    || AnnotationUtils.areSameByClass(anno, LeakedToResult.class);
+            return areSameByClass(anno, MaybeLeaked.class)
+                    || areSameByClass(anno, NonLeaked.class)
+                    || areSameByClass(anno, LeakedToResult.class);
         }
 
         @Override

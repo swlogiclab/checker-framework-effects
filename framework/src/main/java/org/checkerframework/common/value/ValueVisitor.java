@@ -8,29 +8,31 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.TypeCastTree;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
-import org.checkerframework.common.value.qual.ArrayLen;
-import org.checkerframework.common.value.qual.ArrayLenRange;
-import org.checkerframework.common.value.qual.BoolVal;
-import org.checkerframework.common.value.qual.DoubleVal;
-import org.checkerframework.common.value.qual.IntRange;
 import org.checkerframework.common.value.qual.IntRangeFromGTENegativeOne;
 import org.checkerframework.common.value.qual.IntRangeFromNonNegative;
 import org.checkerframework.common.value.qual.IntRangeFromPositive;
-import org.checkerframework.common.value.qual.IntVal;
-import org.checkerframework.common.value.qual.StringVal;
+import org.checkerframework.common.value.qual.StaticallyExecutable;
 import org.checkerframework.common.value.util.NumberUtils;
 import org.checkerframework.common.value.util.Range;
-import org.checkerframework.framework.source.Result;
+import org.checkerframework.dataflow.qual.Pure;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedDeclaredType;
 import org.checkerframework.framework.type.visitor.AnnotatedTypeScanner;
 import org.checkerframework.javacutil.AnnotationUtils;
+import org.checkerframework.javacutil.ElementUtils;
 import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.javacutil.TypesUtils;
 
 /** Visitor for the Constant Value type system. */
 public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
@@ -52,16 +54,18 @@ public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
      *
      * @param varType the annotated type of the lvalue (usually a variable)
      * @param valueExp the AST node for the rvalue (the new value)
-     * @param errorKey the error message to use if the check fails (must be a compiler message key,
+     * @param errorKey the error message key to use if the check fails
+     * @param extraArgs arguments to the error message key, before "found" and "expected" types
      */
     @Override
     protected void commonAssignmentCheck(
             AnnotatedTypeMirror varType,
             ExpressionTree valueExp,
-            @CompilerMessageKey String errorKey) {
+            @CompilerMessageKey String errorKey,
+            Object... extraArgs) {
 
         replaceSpecialIntRangeAnnotations(varType);
-        super.commonAssignmentCheck(varType, valueExp, errorKey);
+        super.commonAssignmentCheck(varType, valueExp, errorKey, extraArgs);
     }
 
     @Override
@@ -69,23 +73,25 @@ public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
             AnnotatedTypeMirror varType,
             AnnotatedTypeMirror valueType,
             Tree valueTree,
-            @CompilerMessageKey String errorKey) {
+            @CompilerMessageKey String errorKey,
+            Object... extraArgs) {
 
         replaceSpecialIntRangeAnnotations(varType);
 
-        if (valueType.getKind().equals(TypeKind.CHAR)
+        if (valueType.getKind() == TypeKind.CHAR
                 && valueType.hasAnnotation(getTypeFactory().UNKNOWNVAL)) {
             valueType.addAnnotation(
                     getTypeFactory().createIntRangeAnnotation(Range.CHAR_EVERYTHING));
         }
 
-        super.commonAssignmentCheck(varType, valueType, valueTree, errorKey);
+        super.commonAssignmentCheck(varType, valueType, valueTree, errorKey, extraArgs);
     }
 
     /**
      * Return types for methods that are annotated with {@code @IntRangeFromX} annotations need to
      * be replaced with {@code @UnknownVal}. See the documentation on {@link
-     * #commonAssignmentCheck(AnnotatedTypeMirror, ExpressionTree, String) commonAssignmentCheck}.
+     * #commonAssignmentCheck(AnnotatedTypeMirror, ExpressionTree, String, Object[])
+     * commonAssignmentCheck}.
      *
      * <p>A separate override is necessary because checkOverride doesn't actually use the
      * commonAssignmentCheck.
@@ -127,7 +133,7 @@ public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
 
                     @Override
                     public Void visitDeclared(AnnotatedDeclaredType type, Void p) {
-                        // Skip type arguments.
+                        // Don't call super so that the type arguments are not visited.
                         if (type.getEnclosingType() != null) {
                             scan(type.getEnclosingType(), p);
                         }
@@ -148,7 +154,23 @@ public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
      *
      * <p>Issues an error if any @IntRange annotation has its 'from' value greater than 'to' value.
      *
+     * <p>Issues an error if any constant-value annotation has no arguments.
+     *
      * <p>Issues a warning if any constant-value annotation has &gt; MAX_VALUES arguments.
+     *
+     * <p>Issues a warning if any @ArrayLen/@ArrayLenRange annotations contain a negative array
+     * length.
+     *
+     * <p>Issues a warning if any {@literal @}MatchesRegex annotation contains an invalid regular
+     * expression.
+     */
+    /* Implementation note: the ValueTypeAnnotator replaces such invalid annotations with valid ones.
+     * Therefore, the usual validation in #validateType cannot perform this validation.
+     * These warnings cannot be issued in the ValueAnnotatedTypeFactory, because the conversions
+     * might happen multiple times.
+     * On the other hand, not all validations can happen here, because only the annotations are
+     * available, not the full types.
+     * Therefore, some validation is still done in #validateType below.
      */
     @Override
     public Void visitAnnotation(AnnotationTree node, Void p) {
@@ -160,57 +182,74 @@ public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
         }
 
         AnnotationMirror anno = TreeUtils.annotationFromAnnotationTree(node);
+        switch (AnnotationUtils.annotationName(anno)) {
+            case ValueAnnotatedTypeFactory.INTRANGE_NAME:
+                // If there are 2 arguments, issue an error if from.greater.than.to.
+                // If there are fewer than 2 arguments, we needn't worry about this problem because
+                // the other argument will be defaulted to Long.MIN_VALUE or Long.MAX_VALUE
+                // accordingly.
+                if (args.size() == 2) {
+                    long from = AnnotationUtils.getElementValue(anno, "from", Long.class, true);
+                    long to = AnnotationUtils.getElementValue(anno, "to", Long.class, true);
+                    if (from > to) {
+                        checker.reportError(node, "from.greater.than.to");
+                        return null;
+                    }
+                }
+                break;
+            case ValueAnnotatedTypeFactory.ARRAYLEN_NAME:
+            case ValueAnnotatedTypeFactory.BOOLVAL_NAME:
+            case ValueAnnotatedTypeFactory.DOUBLEVAL_NAME:
+            case ValueAnnotatedTypeFactory.INTVAL_NAME:
+            case ValueAnnotatedTypeFactory.STRINGVAL_NAME:
+                List<Object> values =
+                        AnnotationUtils.getElementValueArray(anno, "value", Object.class, true);
 
-        if (AnnotationUtils.areSameByClass(anno, IntRange.class)) {
-            // If there are 2 arguments, issue an error if from.greater.than.to.
-            // If there are fewer than 2 arguments, we needn't worry about this problem because the
-            // other argument will be defaulted to Long.MIN_VALUE or Long.MAX_VALUE accordingly.
-            if (args.size() == 2) {
-                long from = AnnotationUtils.getElementValue(anno, "from", Long.class, true);
-                long to = AnnotationUtils.getElementValue(anno, "to", Long.class, true);
+                if (values.isEmpty()) {
+                    checker.reportWarning(node, "no.values.given");
+                    return null;
+                } else if (values.size() > ValueAnnotatedTypeFactory.MAX_VALUES) {
+                    checker.reportWarning(
+                            node,
+                            (AnnotationUtils.areSameByName(
+                                            anno, ValueAnnotatedTypeFactory.INTVAL_NAME)
+                                    ? "too.many.values.given.int"
+                                    : "too.many.values.given"),
+                            ValueAnnotatedTypeFactory.MAX_VALUES);
+                    return null;
+                } else if (AnnotationUtils.areSameByName(
+                        anno, ValueAnnotatedTypeFactory.ARRAYLEN_NAME)) {
+                    List<Integer> arrayLens = ValueAnnotatedTypeFactory.getArrayLength(anno);
+                    if (Collections.min(arrayLens) < 0) {
+                        checker.reportWarning(
+                                node, "negative.arraylen", Collections.min(arrayLens));
+                        return null;
+                    }
+                }
+                break;
+            case ValueAnnotatedTypeFactory.ARRAYLENRANGE_NAME:
+                int from = AnnotationUtils.getElementValue(anno, "from", Integer.class, true);
+                int to = AnnotationUtils.getElementValue(anno, "to", Integer.class, true);
                 if (from > to) {
-                    checker.report(Result.failure("from.greater.than.to"), node);
+                    checker.reportError(node, "from.greater.than.to");
+                    return null;
+                } else if (from < 0) {
+                    checker.reportWarning(node, "negative.arraylen", from);
                     return null;
                 }
-            }
-        } else if (AnnotationUtils.areSameByClass(anno, ArrayLen.class)
-                || AnnotationUtils.areSameByClass(anno, BoolVal.class)
-                || AnnotationUtils.areSameByClass(anno, DoubleVal.class)
-                || AnnotationUtils.areSameByClass(anno, IntVal.class)
-                || AnnotationUtils.areSameByClass(anno, StringVal.class)) {
-            List<Object> values =
-                    AnnotationUtils.getElementValueArray(anno, "value", Object.class, true);
-
-            if (values.isEmpty()) {
-                checker.report(Result.warning("no.values.given"), node);
-                return null;
-            } else if (values.size() > ValueAnnotatedTypeFactory.MAX_VALUES) {
-                checker.report(
-                        Result.warning(
-                                (AnnotationUtils.areSameByClass(anno, IntVal.class)
-                                        ? "too.many.values.given.int"
-                                        : "too.many.values.given"),
-                                ValueAnnotatedTypeFactory.MAX_VALUES),
-                        node);
-                return null;
-            } else if (AnnotationUtils.areSameByClass(anno, ArrayLen.class)) {
-                List<Integer> arrayLens = ValueAnnotatedTypeFactory.getArrayLength(anno);
-                if (Collections.min(arrayLens) < 0) {
-                    checker.report(
-                            Result.warning("negative.arraylen", Collections.min(arrayLens)), node);
-                    return null;
+                break;
+            case ValueAnnotatedTypeFactory.MATCHES_REGEX_NAME:
+                List<String> regexes = ValueAnnotatedTypeFactory.getStringValues(anno);
+                for (String regex : regexes) {
+                    try {
+                        Pattern.compile(regex);
+                    } catch (PatternSyntaxException pse) {
+                        checker.reportWarning(node, "invalid.matches.regex", pse.getMessage());
+                    }
                 }
-            }
-        } else if (AnnotationUtils.areSameByClass(anno, ArrayLenRange.class)) {
-            int from = AnnotationUtils.getElementValue(anno, "from", Integer.class, true);
-            int to = AnnotationUtils.getElementValue(anno, "to", Integer.class, true);
-            if (from > to) {
-                checker.report(Result.failure("from.greater.than.to"), node);
-                return null;
-            } else if (from < 0) {
-                checker.report(Result.warning("negative.arraylen", from), node);
-                return null;
-            }
+                break;
+            default:
+                // Do nothing.
         }
 
         return super.visitAnnotation(node, p);
@@ -237,20 +276,21 @@ public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
                 && exprAnno != null
                 && atypeFactory.isIntRange(castAnno)
                 && atypeFactory.isIntRange(exprAnno)) {
-            Range castRange = ValueAnnotatedTypeFactory.getRange(castAnno);
-            if (castType.getKind() == TypeKind.BYTE && castRange.isByteEverything()) {
+            final Range castRange = ValueAnnotatedTypeFactory.getRange(castAnno);
+            final TypeKind castTypeKind = castType.getKind();
+            if (castTypeKind == TypeKind.BYTE && castRange.isByteEverything()) {
                 return p;
             }
-            if (castType.getKind() == TypeKind.CHAR && castRange.isCharEverything()) {
+            if (castTypeKind == TypeKind.CHAR && castRange.isCharEverything()) {
                 return p;
             }
-            if (castType.getKind() == TypeKind.SHORT && castRange.isShortEverything()) {
+            if (castTypeKind == TypeKind.SHORT && castRange.isShortEverything()) {
                 return p;
             }
-            if (castType.getKind() == TypeKind.INT && castRange.isIntEverything()) {
+            if (castTypeKind == TypeKind.INT && castRange.isIntEverything()) {
                 return p;
             }
-            if (castType.getKind() == TypeKind.LONG && castRange.isLongEverything()) {
+            if (castTypeKind == TypeKind.LONG && castRange.isLongEverything()) {
                 return p;
             }
             if (Range.ignoreOverflow) {
@@ -258,11 +298,10 @@ public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
                 // In that case, do not warn if the range of the expression encompasses
                 // the whole type being casted to (i.e. the warning is actually about overflow).
                 Range exprRange = ValueAnnotatedTypeFactory.getRange(exprAnno);
-                TypeKind casttypekind = castType.getKind();
-                if (casttypekind == TypeKind.BYTE
-                        || casttypekind == TypeKind.CHAR
-                        || casttypekind == TypeKind.SHORT
-                        || casttypekind == TypeKind.INT) {
+                if (castTypeKind == TypeKind.BYTE
+                        || castTypeKind == TypeKind.CHAR
+                        || castTypeKind == TypeKind.SHORT
+                        || castTypeKind == TypeKind.INT) {
                     exprRange = NumberUtils.castRange(castType.getUnderlyingType(), exprRange);
                 }
                 if (castRange.equals(exprRange)) {
@@ -277,29 +316,119 @@ public class ValueVisitor extends BaseTypeVisitor<ValueAnnotatedTypeFactory> {
      * Overridden to issue errors at the appropriate place if an {@code IntRange} or {@code
      * ArrayLenRange} annotation has {@code from > to}. {@code from > to} either indicates a user
      * error when writing an annotation or an error in the checker's implementation, as {@code from}
-     * should always be {@code <= to}.
+     * should always be {@code <= to}. Note that additional checks are performed in {@link
+     * #visitAnnotation(AnnotationTree, Void)}.
+     *
+     * @see #visitAnnotation(AnnotationTree, Void)
      */
     @Override
     public boolean validateType(Tree tree, AnnotatedTypeMirror type) {
-        boolean result = super.validateType(tree, type);
-        if (!result) {
-            AnnotationMirror anno = type.getAnnotationInHierarchy(atypeFactory.UNKNOWNVAL);
-            if (AnnotationUtils.areSameByClass(anno, IntRange.class)) {
-                long to = atypeFactory.getToValueFromIntRange(type);
+        replaceSpecialIntRangeAnnotations(type);
+        if (!super.validateType(tree, type)) {
+            return false;
+        }
+
+        AnnotationMirror anno = type.getAnnotationInHierarchy(atypeFactory.UNKNOWNVAL);
+        if (anno == null) {
+            return false;
+        }
+
+        if (AnnotationUtils.areSameByName(anno, ValueAnnotatedTypeFactory.INTRANGE_NAME)) {
+            if (TypesUtils.isIntegralPrimitiveOrBoxed(type.getUnderlyingType())) {
                 long from = atypeFactory.getFromValueFromIntRange(type);
+                long to = atypeFactory.getToValueFromIntRange(type);
                 if (from > to) {
-                    checker.report(Result.failure("from.greater.than.to"), tree);
+                    checker.reportError(tree, "from.greater.than.to");
                     return false;
                 }
-            } else if (AnnotationUtils.areSameByClass(anno, ArrayLenRange.class)) {
-                int from = AnnotationUtils.getElementValue(anno, "from", Integer.class, true);
-                int to = AnnotationUtils.getElementValue(anno, "to", Integer.class, true);
-                if (from > to) {
-                    checker.report(Result.failure("from.greater.than.to"), tree);
+            } else {
+                TypeMirror utype = type.getUnderlyingType();
+                if (!TypesUtils.isObject(utype)
+                        && !TypesUtils.isDeclaredOfName(utype, "java.lang.Number")
+                        && !TypesUtils.isFloatingPoint(utype)) {
+                    checker.reportError(tree, "annotation.intrange.on.noninteger");
                     return false;
                 }
             }
+        } else if (AnnotationUtils.areSameByName(
+                anno, ValueAnnotatedTypeFactory.ARRAYLENRANGE_NAME)) {
+            int from = AnnotationUtils.getElementValue(anno, "from", Integer.class, true);
+            int to = AnnotationUtils.getElementValue(anno, "to", Integer.class, true);
+            if (from > to) {
+                checker.reportError(tree, "from.greater.than.to");
+                return false;
+            }
         }
-        return result;
+
+        return true;
+    }
+
+    /**
+     * Returns true if an expression of the given type can be a compile-time constant value.
+     *
+     * @param tm a type
+     * @return true if an expression of the given type can be a compile-time constant value
+     */
+    private boolean canBeConstant(TypeMirror tm) {
+        return TypesUtils.isPrimitive(tm)
+                || TypesUtils.isBoxedPrimitive(tm)
+                || TypesUtils.isString(tm)
+                || (tm.getKind() == TypeKind.ARRAY
+                        && canBeConstant(((ArrayType) tm).getComponentType()));
+    }
+
+    @Override
+    public Void visitMethod(MethodTree node, Void p) {
+        super.visitMethod(node, p);
+
+        ExecutableElement method = TreeUtils.elementFromDeclaration(node);
+        if (atypeFactory.getDeclAnnotation(method, StaticallyExecutable.class) != null) {
+            // The method is annotated as @StaticallyExecutable.
+            if (atypeFactory.getDeclAnnotation(method, Pure.class) == null) {
+                checker.reportWarning(node, "statically.executable.not.pure");
+            }
+            TypeMirror returnType = method.getReturnType();
+            if (returnType.getKind() != TypeKind.VOID && !canBeConstant(returnType)) {
+                checker.reportError(
+                        node, "statically.executable.nonconstant.return.type", returnType);
+            }
+
+            // Ways to determine the receiver type.
+            // 1. This definition of receiverType is null when receiver is implicit and method has
+            //    class com.sun.tools.javac.code.Symbol$MethodSymbol.  WHY?
+            //        TypeMirror receiverType = method.getReceiverType();
+            //    The same is true of TreeUtils.elementFromDeclaration(node).getReceiverType()
+            //    which seems to conflict with ExecutableType's documentation.
+            // 2. Can't use the tree, because the receiver might not be explicit.
+            // 3. Check whether method is static and use the declaring class.  Doesn't handle all
+            //    cases, but handles the most common ones.
+            TypeMirror receiverType = method.getReceiverType();
+            // If the method is static, issue no warning.  This is incorrect in the case of a
+            // constructor or a static method in an inner class.
+            if (!ElementUtils.isStatic(method)) {
+                receiverType = ElementUtils.getType(ElementUtils.enclosingClass(method));
+            }
+            if (receiverType != null
+                    && receiverType.getKind() != TypeKind.NONE
+                    && !canBeConstant(receiverType)) {
+                checker.reportError(
+                        node,
+                        "statically.executable.nonconstant.parameter.type",
+                        "this (the receiver)",
+                        returnType);
+            }
+
+            for (VariableElement param : method.getParameters()) {
+                TypeMirror paramType = param.asType();
+                if (paramType.getKind() != TypeKind.NONE && !canBeConstant(paramType)) {
+                    checker.reportError(
+                            node,
+                            "statically.executable.nonconstant.parameter.type",
+                            param.getSimpleName().toString(),
+                            returnType);
+                }
+            }
+        }
+        return null;
     }
 }

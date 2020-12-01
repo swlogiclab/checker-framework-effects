@@ -6,12 +6,12 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.checkerframework.framework.qual.DefaultFor;
-import org.checkerframework.framework.qual.DefaultInUncheckedCodeFor;
 import org.checkerframework.framework.qual.DefaultQualifierInHierarchy;
 import org.checkerframework.framework.qual.JavaExpression;
 import org.checkerframework.framework.qual.SubtypeOf;
 import org.checkerframework.framework.qual.TypeKind;
 import org.checkerframework.framework.qual.TypeUseLocation;
+import org.checkerframework.framework.qual.UpperBoundFor;
 
 /**
  * Indicates that a thread may dereference the value referred to by the annotated variable only if
@@ -34,10 +34,11 @@ import org.checkerframework.framework.qual.TypeUseLocation;
  * @checker_framework.manual #lock-checker Lock Checker
  * @checker_framework.manual #lock-examples-guardedby Example use of @GuardedBy
  */
-@SubtypeOf(GuardedByUnknown.class)
 @Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
+@SubtypeOf(GuardedByUnknown.class)
 @DefaultQualifierInHierarchy
-@DefaultInUncheckedCodeFor({TypeUseLocation.PARAMETER})
 // These are required because the default for local variables is @GuardedByUnknown, but if the local
 // variable is one of these type kinds, the default should be @GuardedByUnknown.
 @DefaultFor(
@@ -52,9 +53,19 @@ import org.checkerframework.framework.qual.TypeUseLocation;
             TypeKind.LONG,
             TypeKind.SHORT
         },
-        types = {java.lang.String.class, Void.class})
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
+        types = {String.class, Void.class})
+@UpperBoundFor(
+        typeKinds = {
+            TypeKind.BOOLEAN,
+            TypeKind.BYTE,
+            TypeKind.CHAR,
+            TypeKind.DOUBLE,
+            TypeKind.FLOAT,
+            TypeKind.INT,
+            TypeKind.LONG,
+            TypeKind.SHORT
+        },
+        types = String.class)
 public @interface GuardedBy {
     /**
      * The Java value expressions that need to be held.
