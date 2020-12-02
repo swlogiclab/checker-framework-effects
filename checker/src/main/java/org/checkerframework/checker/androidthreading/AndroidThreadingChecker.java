@@ -1,9 +1,5 @@
 package org.checkerframework.checker.androidthreading;
 
-import java.lang.annotation.Annotation;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import org.checkerframework.checker.genericeffects.GenericEffectChecker;
 import org.checkerframework.checker.genericeffects.GenericEffectExtension;
 import org.checkerframework.checker.genericeffects.GenericEffectLattice;
@@ -19,23 +15,6 @@ public class AndroidThreadingChecker extends GenericEffectChecker {
     @Override
     protected BaseTypeVisitor<?> createSourceVisitor() {
         return new GenericEffectVisitor(this, new GenericEffectExtension(getEffectLattice()));
-    }
-
-    @Override
-    public Collection<String> getSuppressWarningsKeys() {
-        Set<Class<? extends Annotation>> annos =
-                ((BaseTypeVisitor<?>) visitor).getTypeFactory().getSupportedTypeQualifiers();
-        if (annos.isEmpty()) {
-            return super.getSuppressWarningsKeys();
-        }
-
-        Set<String> swKeys = new HashSet<>();
-        swKeys.add(SUPPRESS_ALL_KEY);
-        for (Class<? extends Annotation> anno : annos) {
-            swKeys.add(anno.getSimpleName().toLowerCase());
-        }
-
-        return swKeys;
     }
 
     /**
