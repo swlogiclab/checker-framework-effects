@@ -19,10 +19,7 @@ import com.sun.source.tree.IfTree;
 import com.sun.source.tree.InstanceOfTree;
 import com.sun.source.tree.IntersectionTypeTree;
 import com.sun.source.tree.LabeledStatementTree;
-import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewArrayTree;
@@ -48,8 +45,6 @@ import javax.lang.model.element.TypeElement;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
-import org.checkerframework.framework.source.Result;
-import org.checkerframework.framework.type.AnnotatedTypeMirror.AnnotatedExecutableType;
 import org.checkerframework.javacutil.TreeUtils;
 
 public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFactory> {
@@ -107,23 +102,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
 
     /**
-     * This method is here because the inherited version of this method complains about the way that
-     * certain checks are done. TODO: Please document the use of this with respect to the generic
-     * effect checker better. Note: The GuiEffectChecker uses a similar setup and provides more
-     * documentation.
-     *
-     * @param method
-     * @param node
-     */
-    @Override
-    protected void checkMethodInvocability(
-            AnnotatedExecutableType method, MethodInvocationTree node) {}
-
-    /**
      * TODO: Please document the use off this with respect to the generic effect checker better.
      * Note: The GuiEffectChecker uses a similar setup and provides more documentation.
      *
-     * @param node
+     * @param node Class declaration to process
      */
     @Override
     public void processClassTree(ClassTree node) {
@@ -213,11 +195,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             Class<? extends Annotation> targetEffect,
             Class<? extends Annotation> callerEffect,
             @CompilerMessageKey String failureMsg) {
-        if (!ignoringErrors)
-            checker.report(Result.failure(failureMsg, targetEffect, callerEffect), node);
+        if (!ignoringErrors) checker.reportError(node, failureMsg, targetEffect, callerEffect);
         else if (ignoringErrors
                 && !extension.isIgnored(checker.getOption("ignoreErrors"), failureMsg))
-            checker.report(Result.failure(failureMsg, targetEffect, callerEffect), node);
+            checker.reportError(node, failureMsg, targetEffect, callerEffect);
     }
 
     /**
@@ -234,11 +215,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             Class<? extends Annotation> targetEffect,
             Class<? extends Annotation> callerEffect,
             @CompilerMessageKey String warningMsg) {
-        if (!ignoringWarnings)
-            checker.report(Result.warning(warningMsg, targetEffect, callerEffect), node);
+        if (!ignoringWarnings) checker.reportWarning(node, warningMsg, targetEffect, callerEffect);
         else if (ignoringWarnings
                 && !extension.isIgnored(checker.getOption("ignoreWarnings"), warningMsg))
-            checker.report(Result.warning(warningMsg, targetEffect, callerEffect), node);
+            checker.reportWarning(node, warningMsg, targetEffect, callerEffect);
     }
 
     /**
@@ -262,42 +242,6 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         ClassTree clsTree = TreeUtils.enclosingClass(getCurrentPath());
         Element clsElt = TreeUtils.elementFromDeclaration(clsTree);
         return atypeFactory.getDefaultEffect(clsElt);
-    }
-
-    /**
-     * TODO: This is not supported yet but should be treated similar to a method.
-     *
-     * @param node
-     * @param p
-     * @return
-     */
-    @Override
-    public Void visitLambdaExpression(LambdaExpressionTree node, Void p) {
-        return super.visitLambdaExpression(node, p);
-    }
-
-    /**
-     * TODO: Determine if this requires the same effect checks as for methods.
-     *
-     * @param node
-     * @param p
-     * @return
-     */
-    @Override
-    public Void visitMemberReference(MemberReferenceTree node, Void p) {
-        return super.visitMemberReference(node, p);
-    }
-
-    /**
-     * TODO: Determine if this requires the same effect checks as for methods.
-     *
-     * @param node
-     * @param p
-     * @return
-     */
-    @Override
-    public Void visitMemberSelect(MemberSelectTree node, Void p) {
-        return super.visitMemberSelect(node, p);
     }
 
     /**

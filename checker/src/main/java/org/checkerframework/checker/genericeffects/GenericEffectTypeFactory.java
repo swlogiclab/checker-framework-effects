@@ -17,7 +17,6 @@ import javax.lang.model.util.Types;
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
-import org.checkerframework.framework.source.Result;
 
 public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
@@ -209,14 +208,13 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
             if (overrides != null) {
                 Class<? extends Annotation> superClassEffect = getDeclaredEffect(overrides);
                 if (!genericEffect.LE(overridingEffect, superClassEffect)) {
-                    checker.report(
-                            Result.failure(
-                                    "override.effect.invalid",
-                                    overridingMethod,
-                                    declaringType,
-                                    overrides,
-                                    superclass),
-                            errorNode);
+                    checker.reportError(
+                            errorNode,
+                            "override.effect.invalid",
+                            overridingMethod,
+                            declaringType,
+                            overrides,
+                            superclass);
                 }
             }
 
@@ -235,14 +233,13 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
                         Class<? extends Annotation> interfaceEffect = getDeclaredEffect(overrides);
                         if (!genericEffect.LE(overridingEffect, interfaceEffect)
                                 && issueConflictWarning) {
-                            checker.report(
-                                    Result.failure(
-                                            "override.effect.invalid",
-                                            overridingMethod,
-                                            declaringType,
-                                            overrides,
-                                            implementedInterface),
-                                    errorNode);
+                            checker.reportError(
+                                    errorNode,
+                                    "override.effect.invalid",
+                                    overridingMethod,
+                                    declaringType,
+                                    overrides,
+                                    implementedInterface);
                         }
                     }
                 }
