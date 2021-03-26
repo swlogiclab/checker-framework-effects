@@ -36,6 +36,21 @@ public interface GenericEffectLattice {
         }
     }
 
+    public default Class<? extends Annotation> LUB(
+	    Class<? extends Annotation> l, Class<? extends Annotation> r) {
+	if (LE(l, r)) {
+	    return r;
+	} else if(LE(r, l)){
+	    return l;
+	} else {
+	    return null;
+	}
+    }
+
+    public default Class<? extends Annotation> seq(Class<? extends Annotation> l, Class<? extends Annotation> r) {
+        return LUB(l,r);	
+    }
+
     // Get the collection of valid effects.
     ArrayList<Class<? extends Annotation>> getValidEffects();
 

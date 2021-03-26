@@ -140,7 +140,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
         currentMethods.addFirst(node);
 
-        effStack.addFirst(atypeFactory.getDeclaredEffect(methElt));
+        effStack.addFirst(genericEffect.getBottomMostEffectInLattice());
 
         if (debugSpew) {
             System.err.println(
@@ -148,7 +148,15 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         }
 
         Void ret = super.visitMethod(node, p);
-        currentMethods.removeFirst();
+      
+	Class<? extends Annotation> targetEffect = effStack.peek();
+	Class<? extends Annotation> callerEffect = atypeFactory.getDeclaredEffect(methElt);
+	if (isInvalid(targetEffect, callerEffect))
+		checkError(node, targetEffect, callerEffect, extension.reportError(node));
+	else if (extension.reportWarning(node) != null)
+		 checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
+	
+	currentMethods.removeFirst();
         effStack.removeFirst();
         return ret;
     }
@@ -254,19 +262,18 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      */
     @Override
     public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
-        if (hasEnclosingMethod()) {
-            ExecutableElement elt = TreeUtils.elementFromUse(node);
-            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(elt);
-            Class<? extends Annotation> callerEffect = getMethodCallerEffect();
-            if (isInvalid(targetEffect, callerEffect))
-                checkError(node, targetEffect, callerEffect, "call.invalid.effect");
-        } else {
-            ExecutableElement elt = TreeUtils.elementFromUse(node);
-            Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(elt);
-            Class<? extends Annotation> callerEffect = getDefaultClassEffect();
-            if (isInvalid(targetEffect, callerEffect))
-                checkError(node, targetEffect, callerEffect, "call.invalid.effect");
-        }
+	effStack.push(genericEffect.getBottomMostEffectInLattice());
+	scan(node.getMethodSelect(), p);
+	Class<? extends Annotation> x = effStack.pop();
+	for(Tree args : node.getArguments()){
+            effStack.push(genericEffect.getBottomMostEffectInLattice());
+	    scan(args, p);
+	    Class<? extends Annotation> argEffect = effStack.pop();
+	    x = genericEffect.seq(x,argEffect);
+	}
+	x = genericEffect.seq(x, getMethodCallerEffect());
+	effStack.push(x);	
+	    
         return super.visitMethodInvocation(node, p);
     }
 
@@ -453,22 +460,12 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     @Override
     public Void visitCase(CaseTree node, Void p) {
         if (extension.doesCaseCheck()) {
-            if (hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkCase(node);
-                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
-                if (isInvalid(targetEffect, callerEffect))
-                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
-                else if (extension.reportWarning(node) != null)
-                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            } else {
-                Class<? extends Annotation> targetEffect = extension.checkCase(node);
-                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
-                if (isInvalid(targetEffect, callerEffect))
-                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
-                else if (extension.reportWarning(node) != null)
-                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-        }
+            Class<? extends Annotation> topEffect = effStack.pop();
+            Class<? extends Annotation> currentEffect = getMethodCallerEffect();
+            Class<? extends Annotation> leastUpperBound = genericEffect.LUB(topEffect, currentEffect);
+            effStack.addFirst(leastUpperBound);
+
+	}
         return super.visitCase(node, p);
     }
 
@@ -565,22 +562,18 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     @Override
     public Void visitDoWhileLoop(DoWhileLoopTree node, Void p) {
         if (extension.doesDoWhileLoopCheck()) {
-            if (hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkDoWhileLoop(node);
-                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
-                if (isInvalid(targetEffect, callerEffect))
-                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
-                else if (extension.reportWarning(node) != null)
-                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            } else {
-                Class<? extends Annotation> targetEffect = extension.checkDoWhileLoop(node);
-                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
-                if (isInvalid(targetEffect, callerEffect))
-                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
-                else if (extension.reportWarning(node) != null)
-                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-        }
+            //Condition
+            effStack.push(genericEffect.getBottomMostEffectInLattice());
+            scan(node.getCondition(), p);
+            Class<? extends Annotation> Xc = effStack.pop();
+            //Statement
+            effStack.push(genericEffect.getBottomMostEffectInLattice());
+            scan(node.getStatement(), p);
+            Class<? extends Annotation> Xs = effStack.pop();
+	    
+	    Class<? extends Annotation> x = genericEffect.seq(Xc, Xs);
+	    effStack.push(x);
+	}
         return super.visitDoWhileLoop(node, p);
     }
 
@@ -631,22 +624,22 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     @Override
     public Void visitIf(IfTree node, Void p) {
         if (extension.doesIfCheck()) {
-            if (hasEnclosingMethod()) {
-                Class<? extends Annotation> targetEffect = extension.checkIf(node);
-                Class<? extends Annotation> callerEffect = getMethodCallerEffect();
-                if (isInvalid(targetEffect, callerEffect))
-                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
-                else if (extension.reportWarning(node) != null)
-                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            } else {
-                Class<? extends Annotation> targetEffect = extension.checkIf(node);
-                Class<? extends Annotation> callerEffect = getDefaultClassEffect();
-                if (isInvalid(targetEffect, callerEffect))
-                    checkError(node, targetEffect, callerEffect, extension.reportError(node));
-                else if (extension.reportWarning(node) != null)
-                    checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
-            }
-        }
+	    //Condition
+            effStack.push(genericEffect.getBottomMostEffectInLattice());
+	    scan(node.getCondition(), p); 
+	    Class<? extends Annotation> Xc = effStack.pop();
+	    //If
+	    effStack.push(genericEffect.getBottomMostEffectInLattice());
+            scan(node.getThenStatement(), p);
+            Class<? extends Annotation> X1 = effStack.pop();
+	    //Else
+	    effStack.push(genericEffect.getBottomMostEffectInLattice());
+            scan(node.getElseStatement(), p);
+            Class<? extends Annotation> X2 = effStack.pop();
+	    
+	    effStack.push(genericEffect.seq(Xc, genericEffect.LUB(X1,X2)));
+		
+	}
         return super.visitIf(node, p);
     }
 
