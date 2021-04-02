@@ -347,7 +347,7 @@ public class GenericEffectExtension {
         String[] parsedArgs = compilerArgs.split(",");
         for (String args : parsedArgs) {
             if (args.equals(anno.getSimpleName()))
-                return genericEffects.getBottomMostEffectInLattice();
+                return genericEffects.unit();
         }
         return anno;
     }

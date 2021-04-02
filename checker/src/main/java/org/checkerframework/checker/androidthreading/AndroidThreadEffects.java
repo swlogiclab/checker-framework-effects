@@ -71,7 +71,7 @@ public final class AndroidThreadEffects implements GenericEffectLattice {
      * NoIOEffect
      */
     @Override
-    public Class<? extends Annotation> getBottomMostEffectInLattice() {
+    public Class<? extends Annotation> unit() {
         return AnyThread;
     }
 }
