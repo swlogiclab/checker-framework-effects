@@ -3,15 +3,15 @@
 import lombok.Builder;
 
 @Builder(toBuilder = true)
-class LombokToBuilderExample {
-    @lombok.NonNull String req;
+public class LombokToBuilderExample {
+  @lombok.NonNull String req;
 
-    static void test(LombokToBuilderExample foo) {
-        foo.toBuilder().build();
-    }
+  static void test(LombokToBuilderExample foo) {
+    foo.toBuilder().build();
+  }
 
-    static void ensureThatErrorIssued() {
-        // :: error: finalizer.invocation.invalid
-        LombokToBuilderExample.builder().build();
-    }
+  static void ensureThatErrorIssued() {
+    // :: error: finalizer.invocation.invalid
+    LombokToBuilderExample.builder().build();
+  }
 }

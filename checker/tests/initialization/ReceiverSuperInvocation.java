@@ -3,14 +3,14 @@
 
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
-class ReceiverSuperInvocation {
-    void foo(@UnderInitialization(ReceiverSuperInvocation.class) ReceiverSuperInvocation this) {}
+public class ReceiverSuperInvocation {
+  void foo(@UnderInitialization(ReceiverSuperInvocation.class) ReceiverSuperInvocation this) {}
 }
 
 class ReceiverSuperInvocationSubclass extends ReceiverSuperInvocation {
-    @Override
-    void foo(@UnderInitialization(Object.class) ReceiverSuperInvocationSubclass this) {
-        // :: error: (method.invocation.invalid)
-        super.foo();
-    }
+  @Override
+  void foo(@UnderInitialization(Object.class) ReceiverSuperInvocationSubclass this) {
+    // :: error: (method.invocation.invalid)
+    super.foo();
+  }
 }
