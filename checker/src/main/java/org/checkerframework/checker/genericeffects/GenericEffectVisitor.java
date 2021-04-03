@@ -40,6 +40,7 @@ import com.sun.source.tree.WildcardTree;
 import java.lang.annotation.Annotation;
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.lang.model.element.Element;
@@ -169,11 +170,11 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
         Map<Class<? extends Exception>,Class<? extends Annotation>> excBehaviors = new HashMap<>();
         // Check that any @ThrownEffect uses are valid
-        for (var thrown : atypeFactory.getDeclAnnotations(methElt)) {
+        for (AnnotationMirror thrown : atypeFactory.getDeclAnnotations(methElt)) {
             if (thrown.getClass() == ThrownEffect.class) {
-                var thrownEff = (ThrownEffect)thrown;
+                ThrownEffect thrownEff = (ThrownEffect)thrown;
                 // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
-                var prev = excBehaviors.put(thrownEff.exception(), thrownEff.behavior());
+                Class<? extends Annotation> prev = excBehaviors.put(thrownEff.exception(), thrownEff.behavior());
                 if (prev != null) {
                     checker.reportError(node, "duplicate.annotation.thrown", thrownEff.exception(), thrownEff.behavior(), prev);
                 }
@@ -254,11 +255,11 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     private void checkResidual(
             Tree node) {
         if (!ignoringErrors) {
-            var pathEffect = effStack.peek().currentPathEffect();
+            Class<? extends Annotation> pathEffect = effStack.peek().currentPathEffect();
             if (pathEffect == Impossible.class) {
                 return; // In an enclosing context of a path that always throws/returns
             }
-            var methodEffect = atypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()));
+            Class<? extends Annotation> methodEffect = atypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()));
             if (genericEffect.residual(pathEffect, methodEffect) == null) {
                 checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
             }
@@ -395,8 +396,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         // Assertions may or may not execute, so ensure either possibility is acceptable
         effStack.peek().mark();
 	    scan(node.getCondition(), p);
-        var condEff = effStack.peek().squashMark(node);
-        var joinWithUnit = genericEffect.LUB(genericEffect.unit(), condEff);
+        Class<? extends Annotation> condEff = effStack.peek().squashMark(node);
+        Class<? extends Annotation> joinWithUnit = genericEffect.LUB(genericEffect.unit(), condEff);
         if (joinWithUnit == null) {
             checker.reportError(node, "undefined.join.assertion", condEff);
         }
@@ -502,12 +503,12 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         if (repeff == null) {
             checker.reportError(node, "undefined.repetition.twopart", bodyEff, condEff);
             // Pretend we ran the loop and condition once each 
-            var success = effStack.peek().pushEffect(genericEffect.seq(bodyEff, condEff), node);
+            boolean success = effStack.peek().pushEffect(genericEffect.seq(bodyEff, condEff), node);
             assert success; // TODO fix
         } else {
             // Valid iteration
             Class<? extends Annotation> eff = genericEffect.seq(condEff, repeff);
-            var success = effStack.peek().pushEffect(eff, node);
+            boolean success = effStack.peek().pushEffect(eff, node);
             assert success; // TODO fix
         }
         checkResidual(node);
@@ -536,7 +537,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         // mark for updates, since there may be multiple
         effStack.peek().mark();
         scan(node.getUpdate(), p);
-        var updateEff = effStack.peek().squashMark(null);
+        Class<? extends Annotation> updateEff = effStack.peek().squashMark(null);
 
         // If we're reached here, it's possible to run the initializers, cond, body, update in that order
         // We care about iterating body-update-cond, though
@@ -667,7 +668,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         // TODO extension
         // Note: We don't iterate even if there is a single initializer for all array cells, because the expression is evaluated only once, and the value is duplicated
         effStack.peek().mark();
-        for (var init : node.getInitializers()) {
+        for (ExpressionTree init : node.getInitializers()) {
             scan(init, p);
         }
         effStack.peek().squashMark(node);

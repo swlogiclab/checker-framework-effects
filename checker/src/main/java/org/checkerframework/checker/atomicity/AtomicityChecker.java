@@ -1,6 +1,5 @@
 package org.checkerframework.checker.atomicity;
 
-import org.checkerframework.checker.genericeffects.AtomicityQuantale;
 import org.checkerframework.checker.genericeffects.GenericEffectChecker;
 import org.checkerframework.checker.genericeffects.GenericEffectExtension;
 import org.checkerframework.checker.genericeffects.GenericEffectLattice;

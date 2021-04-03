@@ -44,7 +44,7 @@ public class AtomicityQuantale implements GenericEffectLattice {
     }
 
     @Override
-    public  Class<? extends Annotation> seq(Class<? extends Annotation> l, Class<? extends Annotation> r) {
+    public  Class<? extends Annotation> seq(Class<? extends Annotation> left, Class<? extends Annotation> right) {
         if (left == N || right == N) {
             return N;
         } else if (left == B) {
@@ -52,31 +52,25 @@ public class AtomicityQuantale implements GenericEffectLattice {
         } else if (right == B) {
             return left;
         } else {
-            switch (left) {
-                case R: 
+            //switch (left) {
+            if (left ==  R) { 
                     // Sequencing after a right-mover, cases for N or B other already handled
-                    switch (right) {
-                        case R: return R;
-                        case A: return A;
-                        case L: return A;
-                        assert (false); return null;
-                    }
-                case L:
-                    // Sequencing after a right-mover, cases for N or B other already handled
-                    switch (right) {
-                        case R: return N;
-                        case L: return L;
-                        case A; return N;
-                        assert (false); return null;
-                    }
-                case A:
-                    // Sequencing after an atomic, N and B already handled
-                    switch (right) {
-                        case R: return N;
-                        case L: return A;
-                        case A: return N;
-                        assert (false); return null;
-                    }
+                if (right == R) return R;
+                if (right == A) return A;
+                if (right == L) return A;
+                assert (false); return null;
+            } else if (left == L) {
+                // Sequencing after a right-mover, cases for N or B other already handled
+                if (right == R) return N;
+                if (right == L) return L;
+                if (right == A) return N;
+                assert (false); return null;
+            } else if (left == A) {
+                // Sequencing after an atomic, N and B already handled
+                if (right == R) return N;
+                if (right == L) return A;
+                if (right == A) return N;
+                assert (false); return null;
             }
         }
         assert (false); return null;
@@ -102,32 +96,31 @@ public class AtomicityQuantale implements GenericEffectLattice {
     public Class<? extends Annotation> residual(Class<? extends Annotation> sofar, Class<? extends Annotation> target) {
         // Anything can be sequenced after B and obtain itself, since B is unit
         if (sofar == B) { return target; } 
-        switch (target) {
-            case N: return N;
-            case A:
-                if (sofar == L) {
-                    // L\A=L
-                    return L;
-                } else if (sofar == R) {
-                    // R\A=A
-                    return A;
-                } else if (sofar == A) {
-                    // A\A=L
-                    return L;
-                }
-                // N\A is undef, B\A was handled above
-                return null;
-            case L:
-                // The only X such that X\L=L are B (handled above) and L
-                return (sofar == L ? L : null);
-            case R:
-                // The only X such that X\R=R are B (handled above) and R
-                return (sofar == R ? R : null);
-            default:
-                assert (false);
-                return null;
+        if (target == N) return N;
+        if (target == A) {
+            if (sofar == L) {
+                // L\A=L
+                return L;
+            } else if (sofar == R) {
+                // R\A=A
+                return A;
+            } else if (sofar == A) {
+                // A\A=L
+                return L;
+            }
+            // N\A is undef, B\A was handled above
+            return null;
         }
+        if (target == L) {
+            // The only X such that X\L=L are B (handled above) and L
+            return (sofar == L ? L : null);
+        }
+        if (target == R) {
+            // The only X such that X\R=R are B (handled above) and R
+            return (sofar == R ? R : null);
+        }
+        assert (false);
+        return null;
     }
-    
     
 }

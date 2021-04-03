@@ -18,7 +18,7 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeIntegerCast;
  *
  * <p>Creates and checks relationship among the valid effects of Casting Effect Checker
  */
-public final class CastingEffects implements GenericEffectLattice {
+public final class CastingEffects extends FlowInsensitiveEffectLattice {
 
     ArrayList<Class<? extends Annotation>> listOfEffects = new ArrayList<>();
 
@@ -99,7 +99,7 @@ public final class CastingEffects implements GenericEffectLattice {
      * @return The bottom most effect (SafeCast).
      */
     @Override
-    public Class<? extends Annotation> getBottomMostEffectInLattice() {
+    public Class<? extends Annotation> bottomEffect() {
         return SafeCast.class;
     }
 }

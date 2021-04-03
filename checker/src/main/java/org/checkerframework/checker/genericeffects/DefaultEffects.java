@@ -10,7 +10,7 @@ import org.checkerframework.checker.genericeffects.qual.NoIOEffect;
  *
  * <p>Creates and checks relationship among the valid effects of IO Effect Checker
  */
-public final class DefaultEffects implements GenericEffectLattice {
+public final class DefaultEffects extends FlowInsensitiveEffectLattice {
 
     /**
      * Method to check Less than equal to Effect
@@ -51,7 +51,7 @@ public final class DefaultEffects implements GenericEffectLattice {
      * NoIOEffect
      */
     @Override
-    public Class<? extends Annotation> getBottomMostEffectInLattice() {
+    public Class<? extends Annotation> bottomEffect() {
         return NoIOEffect.class;
     }
 }

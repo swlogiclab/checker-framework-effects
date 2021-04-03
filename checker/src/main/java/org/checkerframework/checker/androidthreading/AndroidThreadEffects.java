@@ -2,7 +2,7 @@ package org.checkerframework.checker.androidthreading;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
-import org.checkerframework.checker.genericeffects.GenericEffectLattice;
+import org.checkerframework.checker.genericeffects.FlowInsensitiveEffectLattice;
 
 /*
  * See documentation on Thread annotations:
@@ -10,7 +10,7 @@ import org.checkerframework.checker.genericeffects.GenericEffectLattice;
  * and on adding these annotations to the class path for a project:
  *  https://developer.android.com/studio/write/annotations.html#adding-library
  */
-public final class AndroidThreadEffects implements GenericEffectLattice {
+public final class AndroidThreadEffects extends FlowInsensitiveEffectLattice {
 
     private ArrayList<Class<? extends Annotation>> effects = new ArrayList<>();
     public final Class<? extends Annotation> MainThread;
@@ -71,7 +71,7 @@ public final class AndroidThreadEffects implements GenericEffectLattice {
      * NoIOEffect
      */
     @Override
-    public Class<? extends Annotation> unit() {
+    public Class<? extends Annotation> bottomEffect() {
         return AnyThread;
     }
 }

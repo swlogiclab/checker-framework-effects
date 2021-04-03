@@ -66,7 +66,7 @@ public class ContextEffect {
         // TODO: do legwork to verify this assertion is true (i.e., enforced by Java's compiler)
         assert context != Impossible.class: "System assumes it is impossible to have code visited after (only) returns and/or throws";
         // TODO: Need to deal with case where seq is undefined, and recover. leave unmodified if seq fails, and return boolean to caller?
-        var sq = lat.seq(context, eff);
+        Class<? extends Annotation> sq = lat.seq(context, eff);
         if (sq != null) {
             context = sq;
             contextSinceLastMark = lat.seq(contextSinceLastMark, eff);

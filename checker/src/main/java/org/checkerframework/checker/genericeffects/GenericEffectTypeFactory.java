@@ -125,7 +125,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
         try {
             clsElt.getAnnotation(DefaultEffect.class).value();
         } catch (NullPointerException e) {
-            return genericEffect.getBottomMostEffectInLattice();
+            return genericEffect.unit();
         } catch (MirroredTypeException e) {
             clsAnno = e.getTypeMirror();
         }
@@ -137,7 +137,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
         for (Class<? extends Annotation> validEffect : genericEffect.getValidEffects()) {
             if (name.equals(validEffect.getSimpleName())) return validEffect;
         }
-        return genericEffect.getBottomMostEffectInLattice();
+        return genericEffect.unit();
     }
 
     /**

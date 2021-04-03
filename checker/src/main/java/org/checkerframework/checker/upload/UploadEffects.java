@@ -60,8 +60,18 @@ public final class UploadEffects implements GenericEffectLattice {
     	 * NoIOEffect
     	 */
     	@Override
-    	public Class<? extends Annotation> getBottomMostEffectInLattice() {
+    	public Class<? extends Annotation> unit() {
     	    return Noop.class;
     	}
+
+    public Class<? extends Annotation> residual(Class<? extends Annotation> sofar, Class<? extends Annotation> target) {
+        // TODO
+        throw new UnsupportedOperationException();
+    }
+
+    public Class<? extends Annotation> iter(Class<? extends Annotation> x) {
+        // TODO
+        throw new UnsupportedOperationException();
+    }
 }
 
