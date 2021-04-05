@@ -50,25 +50,27 @@ public final class UploadEffects implements GenericEffectLattice {
 	}
 
 	/** Get the collection of valid effects. */
-    	@Override
-    	public ArrayList<Class<? extends Annotation>> getValidEffects() {
-    	    return effects;
-    	}
+    @Override
+    public ArrayList<Class<? extends Annotation>> getValidEffects() {
+        return effects;
+    }
 
 	/**
-    	 * Get the Bottom Most Effect of Lattice. For IO EFfect checker: Bottom Most Effect of Lattice:
-    	 * NoIOEffect
-    	 */
-    	@Override
-    	public Class<? extends Annotation> unit() {
-    	    return Noop.class;
-    	}
+     * Get the Bottom Most Effect of Lattice. For IO EFfect checker: Bottom Most Effect of Lattice:
+     * NoIOEffect
+     */
+    @Override
+    public Class<? extends Annotation> unit() {
+        return Noop.class;
+    }
 
+    @Override
     public Class<? extends Annotation> residual(Class<? extends Annotation> sofar, Class<? extends Annotation> target) {
         // TODO
         throw new UnsupportedOperationException();
     }
 
+    @Override
     public Class<? extends Annotation> iter(Class<? extends Annotation> x) {
         // TODO
         throw new UnsupportedOperationException();

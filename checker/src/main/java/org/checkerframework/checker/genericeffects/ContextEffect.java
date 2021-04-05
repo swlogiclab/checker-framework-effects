@@ -24,6 +24,8 @@ public class ContextEffect {
     private Class<? extends Annotation> contextSinceLastMark;
     private GenericEffectLattice lat;
 
+    // Suppress ErrorProne complaints about access speed; we need a stack impl that supports null.
+    @SuppressWarnings("JdkObsolete")
     public ContextEffect(GenericEffectLattice l) {
         rep = new LinkedList<>();
         snapshots = new LinkedList<>();
@@ -43,7 +45,10 @@ public class ContextEffect {
 
     /**
      * Return the effects up to the last snapshot, in program-order
+     * 
+     * Suppress ErrorProne complaints about access speed; we need a stack impl that supports null.
      */
+    @SuppressWarnings("JdkObsolete")
     public LinkedList<Class<? extends Annotation>> rewindToMark() {
         LinkedList<Class<? extends Annotation>> results = new LinkedList<>();
         while (rep.peekFirst() != null) {
@@ -56,9 +61,10 @@ public class ContextEffect {
     }
 
     /**
+     * Add an effect sequenced after the current execution path(s) summarized by the context.
      * 
-     * @param eff
-     * @param t
+     * @param eff The effect sequenced
+     * @param t The {@link Tree} instance for the ast leading to this effect
      * @return True when sequencing was valid, false when sequencing was undefined
      */
     public boolean pushEffect(Class<? extends Annotation> eff, Tree t) {
@@ -76,7 +82,7 @@ public class ContextEffect {
         }
     }
 
-    public boolean markImpossible(Tree t) {
+    public void markImpossible(Tree t) {
         rep.addFirst(new AbstractMap.SimpleEntry<Class<? extends Annotation>,Tree>(Impossible.class,t));
         context = Impossible.class;
         contextSinceLastMark = Impossible.class;

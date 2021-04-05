@@ -43,6 +43,8 @@ import java.util.LinkedList;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.lang.model.util.Types;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -52,6 +54,7 @@ import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.javacutil.TreePathUtil;
 
 /**
  * GenericEffectVisitor is a base class for effect systems, including sequential effect systems.
@@ -171,7 +174,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         Map<Class<? extends Exception>,Class<? extends Annotation>> excBehaviors = new HashMap<>();
         // Check that any @ThrownEffect uses are valid
         for (AnnotationMirror thrown : atypeFactory.getDeclAnnotations(methElt)) {
-            if (thrown.getClass() == ThrownEffect.class) {
+            if (atypeFactory.areSameByClass(thrown, ThrownEffect.class)) {
                 ThrownEffect thrownEff = (ThrownEffect)thrown;
                 // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
                 Class<? extends Annotation> prev = excBehaviors.put(thrownEff.exception(), thrownEff.behavior());
@@ -210,8 +213,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      * @return A boolean representing whether the node is enclosed by a method (true) or not
      *     (false).
      */
+    @SuppressWarnings("UnusedMethod")
     private boolean hasEnclosingMethod() {
-        MethodTree callerTree = TreeUtils.enclosingMethod(getCurrentPath());
+        MethodTree callerTree = TreePathUtil.enclosingMethod(getCurrentPath());
         return callerTree != null;
     }
 
@@ -292,7 +296,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      * @return Effect of a method that a node is within.
      */
     private Class<? extends Annotation> getMethodCallerEffect() {
-        MethodTree callerTree = TreeUtils.enclosingMethod(getCurrentPath());
+        MethodTree callerTree = TreePathUtil.enclosingMethod(getCurrentPath());
         ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
         return atypeFactory.getDeclaredEffect(callerElt);
     }
@@ -305,8 +309,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      *
      * @return The default effect of a class that a node is within.
      */
+    @SuppressWarnings("UnusedMethod")
     private Class<? extends Annotation> getDefaultClassEffect() {
-        ClassTree clsTree = TreeUtils.enclosingClass(getCurrentPath());
+        ClassTree clsTree = TreePathUtil.enclosingClass(getCurrentPath());
         Element clsElt = TreeUtils.elementFromDeclaration(clsTree);
         return atypeFactory.getDefaultEffect(clsElt);
     }
