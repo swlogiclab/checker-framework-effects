@@ -79,7 +79,8 @@ public final class CastingEffects
       return left.equals(SafeCast.class) || left.equals(IntegerOverflow.class);
     else if (right.equals(DecimalOverflow.class))
       return left.equals(SafeCast.class) || left.equals(DecimalOverflow.class);
-    else if (right.equals(SafeCast.class)) return left.equals(SafeCast.class);
+    else if (right.equals(SafeCast.class))
+     return left.equals(SafeCast.class);
 
     return false;
   }
@@ -88,7 +89,90 @@ public final class CastingEffects
   public Class<? extends Annotation> LUB(
       Class<? extends Annotation> left, Class<? extends Annotation> right) {
     assert (left != null && right != null);
-    throw new UnsupportedOperationException("Conversion to effect quantales is incomplete");
+
+    boolean integer = false;
+    boolean decimal = false;
+    boolean overflow = false;
+    boolean precisionloss = false;
+
+    // Shortcut
+    if (left.equals(UnsafeCast.class) || right.equals(UnsafeCast.class)) {
+      return UnsafeCast.class;
+    }
+
+    if (left.equals(NumberOverflow.class) || right.equals(NumberOverflow.class)) {
+      integer = true;
+      decimal = true;
+      overflow = true;
+    }
+    if (left.equals(UnsafeIntegerCast.class) || right.equals(UnsafeIntegerCast.class)) {
+      integer = true;
+      overflow = true;
+      precisionloss = true;
+    }
+    if (left.equals(UnsafeDecimalCast.class) || right.equals(UnsafeDecimalCast.class)) {
+      decimal = true;
+      overflow = true;
+      precisionloss = true;
+    }
+    if (left.equals(NumberPrecisionLoss.class) || right.equals(NumberPrecisionLoss.class)) {
+      integer = true;
+      decimal = true;
+      precisionloss = true;
+    }
+    if (left.equals(IntegerPrecisionLoss.class) || right.equals(IntegerPrecisionLoss.class)) {
+      integer = true;
+      precisionloss = true;
+    }
+    if (left.equals(DecimalPrecisionLoss.class) || right.equals(DecimalPrecisionLoss.class)) {
+      decimal = true;
+      precisionloss = true;
+    }
+    if (left.equals(IntegerOverflow.class) || right.equals(IntegerOverflow.class)) {
+      integer = true;
+      overflow = true;
+    }
+    if (left.equals(DecimalOverflow.class) || right.equals(DecimalOverflow.class)) {
+      decimal = true;
+      overflow = true;
+    }
+
+    if (integer && decimal) {
+      // Number || Unsafe
+      if (overflow && precisionloss) {
+        return UnsafeCast.class;
+      } else if (overflow) {
+        return NumberOverflow.class;
+      } else if (precisionloss) {
+        return NumberPrecisionLoss.class;
+      } else {
+        assert false : "Shouldn't have Integer and Decimal set without some kind of specific cast mistake";
+      }
+    } else if (integer) {
+      // Integer
+      if (overflow && precisionloss) {
+        return UnsafeIntegerCast.class;
+      } else if (overflow) {
+        return IntegerOverflow.class;
+      } else if (precisionloss) {
+        return IntegerPrecisionLoss.class;
+      } else {
+        assert false : "Shouldn't have Integer set without some kind of specific cast mistake";
+      }
+    } else if (decimal) {
+      // Decimal
+      if (overflow && precisionloss) {
+        return UnsafeDecimalCast.class;
+      } else if (overflow) {
+        return DecimalOverflow.class;
+      } else if (precisionloss) {
+        return DecimalPrecisionLoss.class;
+      } else {
+        assert false : "Shouldn't have Decimal set without some kind of specific cast mistake";
+      }
+    } 
+    assert (!overflow && !precisionloss) : "No specific numeric categories possible, so no specific errors should be possible either";
+    return SafeCast.class;
   }
 
   /**
