@@ -26,7 +26,7 @@ public class ControlEffectQuantale<X> extends EffectQuantale<ControlEffectQuanta
 
     // Some helper methods for functional set ops
     private <T> Set<T> union(Set<T> a, Set<T> b) {
-        var uset = new HashSet<>(a);
+        Set<T> uset = new HashSet<>(a);
         uset.addAll(b);
         return uset;
     }
@@ -58,7 +58,9 @@ public class ControlEffectQuantale<X> extends EffectQuantale<ControlEffectQuanta
             if (!(other instanceof ControlEffectQuantale.LocatedEffect)) {
                 return false;
             }
-            var o = (ControlEffectQuantale.LocatedEffect<X>)other;
+	    @SuppressWarnings("rawtypes")
+	    // Using rawtype here to avoid issue with unchecked cast, since the generic param can't be checked
+            ControlEffectQuantale.LocatedEffect o = (ControlEffectQuantale.LocatedEffect)other;
             return effect.equals(o.effect) && loc.equals(o.loc);
         }
     }
@@ -101,14 +103,14 @@ public class ControlEffectQuantale<X> extends EffectQuantale<ControlEffectQuanta
         } else {
             // Need to join where common
             Map<Class<?>,Set<LocatedEffect<X>>> m = new HashMap<>();
-            for (var exc : l.excMap.keySet()) {
+            for (Class<?> exc : l.excMap.keySet()) {
                 // will be non-null by assumption
-                var left = l.excMap.get(exc);
+                Set<LocatedEffect<X>> left = l.excMap.get(exc);
                 // might be null
-                var right = r.excMap.get(exc);
+                Set<LocatedEffect<X>> right = r.excMap.get(exc);
                 m.put(exc, unionPossiblyNull(left, right));
             }
-            for (var exc : r.excMap.keySet()) {
+            for (Class<?> exc : r.excMap.keySet()) {
                 if (l.excMap.get(exc) == null) {
                     m.put(exc,r.excMap.get(exc));
                 }
@@ -143,12 +145,12 @@ public class ControlEffectQuantale<X> extends EffectQuantale<ControlEffectQuanta
         }
 
         Set<X> sndInCtxt = new HashSet<>();
-        for (var x : r.breakset) {
-            var tmp = underlying.seq(l.base, x);
+        for (X x : r.breakset) {
+            X tmp = underlying.seq(l.base, x);
             if (x == null) {
                 return null;
             }
-            sndInCtxt.add(x);
+            sndInCtxt.add(tmp);
         }
         bset = unionPossiblyNull(l.breakset, sndInCtxt);
 
@@ -156,16 +158,16 @@ public class ControlEffectQuantale<X> extends EffectQuantale<ControlEffectQuanta
 
         // Need to join where common
          emap = new HashMap<>();
-        for (var exc : l.excMap.keySet()) {
+        for (Class<?> exc : l.excMap.keySet()) {
             // will be non-null by assumption
-            var left = l.excMap.get(exc);
+            Set<LocatedEffect<X>> left = l.excMap.get(exc);
             emap.put(exc, new HashSet<>(left));
         }
-        for (var exc : r.excMap.keySet()) {
-            var lpartial = l.excMap.get(exc);
+        for (Class<?> exc : r.excMap.keySet()) {
+            Set<LocatedEffect<X>> lpartial = l.excMap.get(exc);
             Set<LocatedEffect<X>> s = new HashSet<>();
-            for (var leff : r.excMap.get(exc)) {
-                var tmp = underlying.seq(l.base, leff.effect);
+            for (LocatedEffect<X> leff : r.excMap.get(exc)) {
+                X tmp = underlying.seq(l.base, leff.effect);
                 if (tmp == null) {
                     return null;
                 }
@@ -182,7 +184,7 @@ public class ControlEffectQuantale<X> extends EffectQuantale<ControlEffectQuanta
     }
 
     @Override
-    ArrayList<ControlEffect<X>> getValidEffects() {
+    public ArrayList<ControlEffect<X>> getValidEffects() {
         // TODO Auto-generated method stub
         return null;
     }

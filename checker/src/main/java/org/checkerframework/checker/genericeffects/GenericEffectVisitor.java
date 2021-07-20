@@ -145,7 +145,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     public void processClassTree(ClassTree node) {
         // Fix up context for static initializers of new class
         currentMethods.addFirst(null);
-        effStack.addFirst(new ContextEffect(genericEffect));
+        effStack.addFirst(new ContextEffect<Class<? extends Annotation>>(genericEffect));
         super.processClassTree(node);
         currentMethods.removeFirst();
         effStack.removeFirst();
@@ -188,7 +188,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
         // Initialize method stack
         currentMethods.addFirst(node);
-        effStack.addFirst(new ContextEffect(genericEffect));
+        effStack.addFirst(new ContextEffect<Class<? extends Annotation>>(genericEffect));
 
         if (debugSpew) {
             System.err.println(
@@ -750,9 +750,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         // TODO extension
         throw new UnsupportedOperationException("not yet implemented");
 
-        BlockTree body = node.getBlock();
-        BlockTree finblock = node.getFinallyBlock();
-        var catches = node.getCatches();
+        //BlockTree body = node.getBlock();
+        //BlockTree finblock = node.getFinallyBlock();
+        //var catches = node.getCatches();
 
         // TODO: Okay, can't just append finally block effect to all entries in the exception map, because there might be some in there from another branch of execution (e.g., the then branch of a conditional, where this try is in the else block). The solution is to properly implement C(X).
 

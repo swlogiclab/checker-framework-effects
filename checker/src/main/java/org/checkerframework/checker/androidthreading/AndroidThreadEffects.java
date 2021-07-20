@@ -10,7 +10,7 @@ import org.checkerframework.checker.genericeffects.FlowInsensitiveEffectLattice;
  * and on adding these annotations to the class path for a project:
  *  https://developer.android.com/studio/write/annotations.html#adding-library
  */
-public final class AndroidThreadEffects extends FlowInsensitiveEffectLattice {
+public final class AndroidThreadEffects extends FlowInsensitiveEffectLattice<Class<? extends Annotation>> {
 
     private ArrayList<Class<? extends Annotation>> effects = new ArrayList<>();
     public final Class<? extends Annotation> MainThread;
@@ -43,21 +43,16 @@ public final class AndroidThreadEffects extends FlowInsensitiveEffectLattice {
         effects.add(AnyThread);
     }
 
-    /**
-     * Method to check Less than equal to Effect
-     *
-     * @param left : Left Effect
-     * @param right: Right Effect
-     * @return boolean true : if bottom effect is left effect and is equal to NoIOEffect OR if top
-     *     effect is right effect and is equal to IOEffect OR if left effect and right effect are
-     *     the same
-     *     <p>false : otherwise
-     */
     @Override
-    public boolean LE(Class<? extends Annotation> left, Class<? extends Annotation> right) {
+    public Class<? extends Annotation> LUB(Class<? extends Annotation> left, Class<? extends Annotation> right) {
         assert (left != null && right != null);
 
-        return left.equals(right) || left.equals(AnyThread);
+	if (left.equals(AnyThread)) {
+            return right;
+	} else if (right.equals(AnyThread)) {
+            return left;
+	}
+        return left.equals(right) ? left : null;
     }
 
     /** Get the collection of valid effects. */

@@ -26,7 +26,7 @@ public class ContextEffect<X> {
     private X contextSinceLastMark;
     private EffectQuantale<X> lat;
 
-    private Map<Class<? extends Exception>, Set<Map.Entry<X,Tree>>> excMap;
+    //private Map<Class<? extends Exception>, Set<Map.Entry<X,Tree>>> excMap;
 
     // Suppress ErrorProne complaints about access speed; we need a stack impl that supports null.
     @SuppressWarnings("JdkObsolete")
@@ -36,7 +36,7 @@ public class ContextEffect<X> {
         lat = l;
         context = lat.unit();
         contextSinceLastMark = lat.unit();
-        excMap = new HashMap<>();
+        //excMap = new HashMap<>();
     }
 
     /**

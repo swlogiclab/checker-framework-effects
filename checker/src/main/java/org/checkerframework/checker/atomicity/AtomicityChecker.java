@@ -1,5 +1,6 @@
 package org.checkerframework.checker.atomicity;
 
+import java.lang.annotation.Annotation;
 import org.checkerframework.checker.genericeffects.GenericEffectChecker;
 import org.checkerframework.checker.genericeffects.GenericEffectExtension;
 import org.checkerframework.checker.genericeffects.EffectQuantale;
@@ -23,7 +24,7 @@ public class AtomicityChecker extends GenericEffectChecker {
      * @return A GenericEffectLattice object that represents the lattice of the checker.
      */
     @Override
-    public EffectQuantale<Class? extends Annotation>> getEffectLattice() {
+    public EffectQuantale<Class<? extends Annotation>> getEffectLattice() {
         if (lattice == null) {
             lattice = new AtomicityQuantale();
         }

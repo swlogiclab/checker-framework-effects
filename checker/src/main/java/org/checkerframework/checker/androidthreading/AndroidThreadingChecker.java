@@ -1,8 +1,9 @@
 package org.checkerframework.checker.androidthreading;
 
+import java.lang.annotation.Annotation;
 import org.checkerframework.checker.genericeffects.GenericEffectChecker;
 import org.checkerframework.checker.genericeffects.GenericEffectExtension;
-import org.checkerframework.checker.genericeffects.GenericEffectLattice;
+import org.checkerframework.checker.genericeffects.EffectQuantale;
 import org.checkerframework.checker.genericeffects.GenericEffectVisitor;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
@@ -23,7 +24,7 @@ public class AndroidThreadingChecker extends GenericEffectChecker {
      * @return A GenericEffectLattice object that represents the lattice of the checker.
      */
     @Override
-    public GenericEffectLattice getEffectLattice() {
+    public EffectQuantale<Class<? extends Annotation>> getEffectLattice() {
         if (lattice == null) {
             try {
                 lattice = AndroidThreadEffects.getAndroidThreadEffects();
