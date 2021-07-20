@@ -140,6 +140,9 @@ public abstract class BaseTypeChecker extends SourceChecker {
   /** Supported options for this checker. */
   private @MonotonicNonNull Set<String> supportedOptions = null;
 
+  /** Options passed to this checker. */
+  private @MonotonicNonNull Map<String, String> options = null;
+
   /**
    * TreePathCacher to share between instances. Initialized either in getTreePathCacher (which is
    * also called from instantiateSubcheckers).
@@ -205,9 +208,7 @@ public abstract class BaseTypeChecker extends SourceChecker {
    * @return true if reflection should be resolved
    */
   public boolean shouldResolveReflection() {
-    // Because this method is indirectly called by getSubcheckers and this.getOptions or
-    // this.hasOption also call getSubcheckers, super.getOptions is called here.
-    return super.getOptions().containsKey("resolveReflection");
+    return hasOptionNoSubcheckers("resolveReflection");
   }
 
   /**
@@ -401,18 +402,17 @@ public abstract class BaseTypeChecker extends SourceChecker {
    * Returns the type factory used by a subchecker. Returns null if no matching subchecker was found
    * or if the type factory is null. The caller must know the exact checker class to request.
    *
-   * @param checkerClass the class of the subchecker
+   * <p>Because the visitor state is copied, call this method each time a subfactory is needed
+   * rather than store the returned subfactory in a field.
+   *
+   * @param subCheckerClass the class of the subchecker
+   * @param <T> the type of {@code subCheckerClass}'s {@link AnnotatedTypeFactory}
    * @return the type factory of the requested subchecker or null if not found
    */
-  @SuppressWarnings({"unchecked", "TypeParameterUnusedInFormals"}) // Intentional abuse
-  public <T extends GenericAnnotatedTypeFactory<?, ?, ?, ?>, U extends BaseTypeChecker>
-      T getTypeFactoryOfSubchecker(Class<U> checkerClass) {
-    BaseTypeChecker checker = getSubchecker(checkerClass);
-    if (checker != null) {
-      return (T) checker.getTypeFactory();
-    }
-
-    return null;
+  @SuppressWarnings("TypeParameterUnusedInFormals") // Intentional abuse
+  public <T extends GenericAnnotatedTypeFactory<?, ?, ?, ?>> @Nullable T getTypeFactoryOfSubchecker(
+      Class<? extends BaseTypeChecker> subCheckerClass) {
+    return getTypeFactory().getTypeFactoryOfSubchecker(subCheckerClass);
   }
 
   /*
@@ -478,7 +478,7 @@ public abstract class BaseTypeChecker extends SourceChecker {
     if (subcheckers == null) {
       // Instantiate the checkers this one depends on, if any.
       LinkedHashMap<Class<? extends BaseTypeChecker>, BaseTypeChecker> checkerMap =
-          new LinkedHashMap<>();
+          new LinkedHashMap<>(1);
 
       immediateSubcheckers = instantiateSubcheckers(checkerMap);
 
@@ -622,7 +622,10 @@ public abstract class BaseTypeChecker extends SourceChecker {
   /**
    * Stores all messages issued by this checker and its subcheckers for the current compilation
    * unit. The messages are printed after all checkers have processed the current compilation unit.
-   * If this checker has no subcheckers and is not a subchecker for any other checker, then
+   * The purpose is to sort messages, grouping together all messages about a particular line of
+   * code.
+   *
+   * <p>If this checker has no subcheckers and is not a subchecker for any other checker, then
    * messageStore is null and messages will be printed as they are issued by this checker.
    */
   private TreeSet<CheckerMessage> messageStore = null;
@@ -654,10 +657,8 @@ public abstract class BaseTypeChecker extends SourceChecker {
    * @param unit current compilation unit
    */
   private void printStoredMessages(CompilationUnitTree unit) {
-    if (messageStore != null) {
-      for (CheckerMessage msg : messageStore) {
-        super.printOrStoreMessage(msg.kind, msg.message, msg.source, unit, msg.trace);
-      }
+    for (CheckerMessage msg : messageStore) {
+      super.printOrStoreMessage(msg.kind, msg.message, msg.source, unit, msg.trace);
     }
   }
 
@@ -814,13 +815,47 @@ public abstract class BaseTypeChecker extends SourceChecker {
 
   @Override
   public Map<String, String> getOptions() {
-    Map<String, String> options = new HashMap<>(super.getOptions());
+    if (this.options == null) {
+      Map<String, String> options = new HashMap<>(super.getOptions());
 
-    for (BaseTypeChecker checker : getSubcheckers()) {
-      options.putAll(checker.getOptions());
+      for (BaseTypeChecker checker : getSubcheckers()) {
+        options.putAll(checker.getOptions());
+      }
+      this.options = Collections.unmodifiableMap(options);
     }
 
-    return options;
+    return this.options;
+  }
+
+  /**
+   * Like {@link #getOptions}, but only includes options provided to this checker. Does not include
+   * those passed to subcheckers.
+   *
+   * @return the the active options for this checker, not including those passed to subcheckers
+   */
+  public Map<String, String> getOptionsNoSubcheckers() {
+    return super.getOptions();
+  }
+
+  /**
+   * Like {@link #hasOption}, but checks whether the given option is provided to this checker. Does
+   * not consider those passed to subcheckers.
+   *
+   * @param name the name of the option to check
+   * @return true if the option name was provided to this checker, false otherwise
+   */
+  public final boolean hasOptionNoSubcheckers(String name) {
+    return getOptionsNoSubcheckers().containsKey(name);
+  }
+
+  /**
+   * Return a list of additional stub files to be treated as if they had been written in a
+   * {@code @StubFiles} annotation.
+   *
+   * @return stub files to be treated as if they had been written in a {@code @StubFiles} annotation
+   */
+  public List<String> getExtraStubFiles() {
+    return new ArrayList<>();
   }
 
   @Override

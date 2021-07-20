@@ -6,7 +6,6 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.util.TreePath;
 import java.lang.annotation.Annotation;
@@ -43,6 +42,7 @@ import org.checkerframework.checker.index.qual.PolyUpperBound;
 import org.checkerframework.checker.index.qual.SameLen;
 import org.checkerframework.checker.index.qual.SearchIndexFor;
 import org.checkerframework.checker.index.qual.UpperBoundBottom;
+import org.checkerframework.checker.index.qual.UpperBoundLiteral;
 import org.checkerframework.checker.index.qual.UpperBoundUnknown;
 import org.checkerframework.checker.index.samelen.SameLenAnnotatedTypeFactory;
 import org.checkerframework.checker.index.samelen.SameLenChecker;
@@ -51,6 +51,7 @@ import org.checkerframework.checker.index.searchindex.SearchIndexChecker;
 import org.checkerframework.checker.index.substringindex.SubstringIndexAnnotatedTypeFactory;
 import org.checkerframework.checker.index.substringindex.SubstringIndexChecker;
 import org.checkerframework.checker.index.upperbound.UBQualifier.LessThanLengthOf;
+import org.checkerframework.checker.index.upperbound.UBQualifier.UpperBoundLiteralQualifier;
 import org.checkerframework.checker.index.upperbound.UBQualifier.UpperBoundUnknownQualifier;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
@@ -113,6 +114,21 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactoryForI
       AnnotationBuilder.fromClass(elements, UpperBoundBottom.class);
   /** The @{@link PolyUpperBound} annotation. */
   public final AnnotationMirror POLY = AnnotationBuilder.fromClass(elements, PolyUpperBound.class);
+  /** The @{@link UpperBoundLiteral}(-1) annotation. */
+  public final AnnotationMirror NEGATIVEONE =
+      new AnnotationBuilder(getProcessingEnv(), UpperBoundLiteral.class)
+          .setValue("value", -1)
+          .build();
+  /** The @{@link UpperBoundLiteral}(0) annotation. */
+  public final AnnotationMirror ZERO =
+      new AnnotationBuilder(getProcessingEnv(), UpperBoundLiteral.class)
+          .setValue("value", 0)
+          .build();
+  /** The @{@link UpperBoundLiteral}(1) annotation. */
+  public final AnnotationMirror ONE =
+      new AnnotationBuilder(getProcessingEnv(), UpperBoundLiteral.class)
+          .setValue("value", 1)
+          .build();
 
   /** The NegativeIndexFor.value element/field. */
   public final ExecutableElement negativeIndexForValueElement =
@@ -161,6 +177,7 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactoryForI
             LTEqLengthOf.class,
             LTLengthOf.class,
             LTOMLengthOf.class,
+            UpperBoundLiteral.class,
             UpperBoundBottom.class,
             PolyUpperBound.class));
   }
@@ -279,7 +296,7 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactoryForI
             && !offsets.isEmpty()) {
           // Cannot use type.replaceAnnotation because it will call isSubtype, which will
           // try to process the annotation and throw an error.
-          type.clearAnnotations();
+          type.clearPrimaryAnnotations();
           type.addAnnotation(BOTTOM);
         }
       }
@@ -466,20 +483,9 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactoryForI
 
     @Override
     public Void visitLiteral(LiteralTree node, AnnotatedTypeMirror type) {
-      // A negative literal is not too large for any array.
-      switch (node.getKind()) {
-        case INT_LITERAL:
-          if (((Integer) node.getValue()).intValue() < 0) {
-            type.addAnnotation(BOTTOM);
-          }
-          break;
-        case LONG_LITERAL:
-          if (((Long) node.getValue()).longValue() < 0) {
-            type.addAnnotation(BOTTOM);
-          }
-          break;
-        default:
-          break;
+      // Could also handle long literals, but array indexes are always ints.
+      if (node.getKind() == Tree.Kind.INT_LITERAL) {
+        type.addAnnotation(createLiteral(((Integer) node.getValue()).intValue()));
       }
       return super.visitLiteral(node, type);
     }
@@ -488,7 +494,7 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactoryForI
     @Override
     public Void visitUnary(UnaryTree node, AnnotatedTypeMirror type) {
       // Dataflow refines this type if possible
-      if (node.getKind() == Kind.BITWISE_COMPLEMENT) {
+      if (node.getKind() == Tree.Kind.BITWISE_COMPLEMENT) {
         addAnnotationForBitwiseComplement(
             getSearchIndexAnnotatedTypeFactory().getAnnotatedType(node.getExpression()), type);
       } else {
@@ -718,7 +724,7 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactoryForI
      */
     private UBQualifier plusTreeDivideByVal(int divisor, ExpressionTree numeratorTree) {
       numeratorTree = TreeUtils.withoutParens(numeratorTree);
-      if (divisor < 2 || numeratorTree.getKind() != Kind.PLUS) {
+      if (divisor < 2 || numeratorTree.getKind() != Tree.Kind.PLUS) {
         return UpperBoundUnknownQualifier.UNKNOWN;
       }
       BinaryTree plusTree = (BinaryTree) numeratorTree;
@@ -785,6 +791,33 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactoryForI
     }
   }
 
+  /**
+   * Creates a @{@link UpperBoundLiteral} annotation.
+   *
+   * @param i the integer
+   * @return a @{@link UpperBoundLiteral} annotation
+   */
+  public AnnotationMirror createLiteral(int i) {
+    switch (i) {
+      case -1:
+        return NEGATIVEONE;
+      case 0:
+        return ZERO;
+      case 1:
+        return ONE;
+      default:
+        return new AnnotationBuilder(getProcessingEnv(), UpperBoundLiteral.class)
+            .setValue("value", i)
+            .build();
+    }
+  }
+
+  /**
+   * Convert the internal representation to an annotation.
+   *
+   * @param qualifier a UBQualifier
+   * @return an annotation corresponding to the given qualifier
+   */
   public AnnotationMirror convertUBQualifierToAnnotation(UBQualifier qualifier) {
     if (qualifier.isUnknown()) {
       return UNKNOWN;
@@ -792,6 +825,8 @@ public class UpperBoundAnnotatedTypeFactory extends BaseAnnotatedTypeFactoryForI
       return BOTTOM;
     } else if (qualifier.isPoly()) {
       return POLY;
+    } else if (qualifier.isLiteral()) {
+      return createLiteral(((UpperBoundLiteralQualifier) qualifier).getValue());
     }
 
     LessThanLengthOf ltlQualifier = (LessThanLengthOf) qualifier;

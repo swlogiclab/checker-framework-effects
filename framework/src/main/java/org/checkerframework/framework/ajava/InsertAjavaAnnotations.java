@@ -12,7 +12,7 @@ import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
-import com.github.javaparser.printer.PrettyPrinter;
+import com.github.javaparser.printer.DefaultPrettyPrinter;
 import com.github.javaparser.utils.Pair;
 import com.sun.source.util.JavacTask;
 import java.io.File;
@@ -69,7 +69,7 @@ public class InsertAjavaAnnotations {
   /**
    * Gets an instance of {@code Elements} from the current Java compiler.
    *
-   * @return Element utilities
+   * @return the Element utilities
    */
   private static Elements createElements() {
     JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
@@ -157,7 +157,7 @@ public class InsertAjavaAnnotations {
     /** The annotation insertions seen so far. */
     public List<Insertion> insertions;
     /** A printer for annotations. */
-    private PrettyPrinter printer;
+    private DefaultPrettyPrinter printer;
     /** The lines of the String representation of the second AST. */
     private List<String> lines;
     /** The line separator used in the text the second AST was parsed from */
@@ -179,7 +179,7 @@ public class InsertAjavaAnnotations {
     public BuildInsertionsVisitor(String destFileContents, String lineSeparator) {
       allAnnotations = null;
       insertions = new ArrayList<>();
-      printer = new PrettyPrinter();
+      printer = new DefaultPrettyPrinter();
       String[] lines = destFileContents.split(lineSeparator);
       this.lines = Arrays.asList(lines);
       this.lineSeparator = lineSeparator;
@@ -313,7 +313,7 @@ public class InsertAjavaAnnotations {
      * insertion position on its own line).
      *
      * @param position the position of the insertion
-     * @param annotations List of annotations to insert
+     * @param annotations list of annotations to insert
      */
     private void addAnnotationOnOwnLine(Position position, List<AnnotationExpr> annotations) {
       String line = lines.get(position.line - 1);
@@ -353,7 +353,7 @@ public class InsertAjavaAnnotations {
      * adds it to {@link #insertions}.
      *
      * @param position the position of the insertion
-     * @param annotations List of annotations to insert
+     * @param annotations list of annotations to insert
      * @param offset additional offset of the insertion after {@code position}
      * @param addSpaceBefore if true, the insertion content will start with a space
      */
@@ -576,7 +576,7 @@ public class InsertAjavaAnnotations {
 
             Set<String> annotationFilesForRoot = new LinkedHashSet<>();
             for (TypeDeclaration<?> type : root.getTypes()) {
-              String name = JavaParserUtils.getFullyQualifiedName(type, root);
+              String name = JavaParserUtil.getFullyQualifiedName(type, root);
               annotationFilesForRoot.addAll(annotationFiles.getAnnotationFileForType(name));
             }
 

@@ -11,7 +11,6 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -38,6 +37,8 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import org.checkerframework.checker.formatter.qual.FormatMethod;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.common.basetype.BaseTypeChecker;
@@ -173,12 +174,18 @@ public abstract class GenericAnnotatedTypeFactory<
   /**
    * The Java types on which users may write this type system's type annotations. null means no
    * restrictions. Arrays are handled by separate field {@code #arraysAreRelevant}.
+   *
+   * <p>If the relevant type is generic, this contains its erasure.
+   *
+   * <p>Although a {@code Class<?>} object exists for every element, this does not contain those
+   * {@code Class<?>} objects because the elements will be compared to TypeMirrors for which Class
+   * objects may not exist (they might not be on the classpath).
    */
   public @Nullable Set<TypeMirror> relevantJavaTypes;
 
   /**
-   * Whether users may write type annotations on arrays. Ignored unless relevantJavaTypes is
-   * non-null.
+   * Whether users may write type annotations on arrays. Ignored unless {@link #relevantJavaTypes}
+   * is non-null.
    */
   boolean arraysAreRelevant = false;
 
@@ -344,9 +351,12 @@ public abstract class GenericAnnotatedTypeFactory<
       this.relevantJavaTypes = null;
       this.arraysAreRelevant = true;
     } else {
-      this.relevantJavaTypes = new HashSet<TypeMirror>();
+      Types types = getChecker().getTypeUtils();
+      Elements elements = getElementUtils();
+      Class<?>[] classes = relevantJavaTypesAnno.value();
+      this.relevantJavaTypes = new HashSet<>(CollectionsPlume.mapCapacity(classes.length));
       this.arraysAreRelevant = false;
-      for (Class<?> clazz : relevantJavaTypesAnno.value()) {
+      for (Class<?> clazz : classes) {
         if (clazz == Object[].class) {
           arraysAreRelevant = true;
         } else if (clazz.isArray()) {
@@ -354,8 +364,8 @@ public abstract class GenericAnnotatedTypeFactory<
               "Don't use arrays other than Object[] in @RelevantJavaTypes on "
                   + this.getClass().getSimpleName());
         } else {
-          relevantJavaTypes.add(
-              TypesUtils.typeFromClass(clazz, getChecker().getTypeUtils(), getElementUtils()));
+          TypeMirror relevantType = TypesUtils.typeFromClass(clazz, types, elements);
+          relevantJavaTypes.add(types.erasure(relevantType));
         }
       }
     }
@@ -897,8 +907,9 @@ public abstract class GenericAnnotatedTypeFactory<
     JavaExpression expressionObj = parseJavaExpressionString(expression, path);
     return getAnnotationFromJavaExpression(expressionObj, tree, clazz);
   }
+
   /**
-   * Returns the primary annotation on an expression.
+   * Returns the primary annotation on an expression, at a particular location.
    *
    * @param expr the expression for which the annotation is returned
    * @param tree current tree
@@ -907,31 +918,46 @@ public abstract class GenericAnnotatedTypeFactory<
    */
   public AnnotationMirror getAnnotationFromJavaExpression(
       JavaExpression expr, Tree tree, Class<? extends Annotation> clazz) {
+    return getAnnotationByClass(getAnnotationsFromJavaExpression(expr, tree), clazz);
+  }
 
-    AnnotationMirror annotationMirror = null;
+  /**
+   * Returns the primary annotations on an expression, at a particular location.
+   *
+   * @param expr the expression for which the annotation is returned
+   * @param tree current tree
+   * @return the annotation on expression or null if one does not exist
+   */
+  public Set<AnnotationMirror> getAnnotationsFromJavaExpression(JavaExpression expr, Tree tree) {
+
+    // Look in the store
     if (CFAbstractStore.canInsertJavaExpression(expr)) {
       Store store = getStoreBefore(tree);
-      Value value = store.getValue(expr);
-      if (value != null) {
-        annotationMirror = getAnnotationByClass(value.getAnnotations(), clazz);
+      // `store` can be null if the tree is in a field initializer.
+      if (store != null) {
+        Value value = store.getValue(expr);
+        if (value != null) {
+          // Is it possible that this lacks some annotations that appear in the type factory?
+          return value.getAnnotations();
+        }
       }
     }
-    // If the specific annotation wasn't in the store, look in the type factory.
-    if (annotationMirror == null) {
-      if (expr instanceof LocalVariable) {
-        Element ele = ((LocalVariable) expr).getElement();
-        // Because of
-        // https://github.com/eisop/checker-framework/issues/14
-        // and the workaround in
-        // org.checkerframework.framework.type.ElementAnnotationApplier.applyInternal
-        // The annotationMirror may not contain all explicitly written annotations.
-        annotationMirror = getAnnotatedType(ele).getAnnotation(clazz);
-      } else if (expr instanceof FieldAccess) {
-        Element ele = ((FieldAccess) expr).getField();
-        annotationMirror = getAnnotatedType(ele).getAnnotation(clazz);
-      }
+
+    // Look in the type factory, if not found in the store.
+    if (expr instanceof LocalVariable) {
+      Element ele = ((LocalVariable) expr).getElement();
+      // Because of
+      // https://github.com/eisop/checker-framework/issues/14
+      // and the workaround in
+      // org.checkerframework.framework.type.ElementAnnotationApplier.applyInternal
+      // The annotationMirror may not contain all explicitly written annotations.
+      return getAnnotatedType(ele).getAnnotations();
+    } else if (expr instanceof FieldAccess) {
+      Element ele = ((FieldAccess) expr).getField();
+      return getAnnotatedType(ele).getAnnotations();
+    } else {
+      return Collections.emptySet();
     }
-    return annotationMirror;
   }
 
   /**
@@ -1247,7 +1273,7 @@ public abstract class GenericAnnotatedTypeFactory<
     }
 
     // no need to scan annotations
-    if (classTree.getKind() == Kind.ANNOTATION_TYPE) {
+    if (classTree.getKind() == Tree.Kind.ANNOTATION_TYPE) {
       // Mark finished so that default annotations will be applied.
       scannedClasses.put(classTree, ScanState.FINISHED);
       return;
@@ -1286,7 +1312,14 @@ public abstract class GenericAnnotatedTypeFactory<
 
       try {
         List<CFGMethod> methods = new ArrayList<>();
-        for (Tree m : ct.getMembers()) {
+        List<? extends Tree> members = ct.getMembers();
+        if (!Ordering.from(sortVariablesFirst).isOrdered(members)) {
+          members = new ArrayList<>(members);
+          // Process variables before methods, so all field initializers are observed before the
+          // constructor is analyzed and reports uninitialized variables.
+          members.sort(sortVariablesFirst);
+        }
+        for (Tree m : members) {
           switch (m.getKind()) {
             case METHOD:
               MethodTree mt = (MethodTree) m;
@@ -1324,7 +1357,7 @@ public abstract class GenericAnnotatedTypeFactory<
                     isStatic,
                     capturedStore);
                 Value value = flowResult.getValue(initializer);
-                if (vt.getModifiers().getFlags().contains(Modifier.FINAL) && value != null) {
+                if (value != null) {
                   // Store the abstract value for the field.
                   VariableElement element = TreeUtils.elementFromDeclaration(vt);
                   fieldValues.add(Pair.of(element, value));
@@ -1377,7 +1410,8 @@ public abstract class GenericAnnotatedTypeFactory<
         while (!lambdaQueue.isEmpty()) {
           Pair<LambdaExpressionTree, Store> lambdaPair = lambdaQueue.poll();
           MethodTree mt =
-              (MethodTree) TreePathUtil.enclosingOfKind(getPath(lambdaPair.first), Kind.METHOD);
+              (MethodTree)
+                  TreePathUtil.enclosingOfKind(getPath(lambdaPair.first), Tree.Kind.METHOD);
           analyze(
               queue,
               lambdaQueue,
@@ -1390,10 +1424,10 @@ public abstract class GenericAnnotatedTypeFactory<
               lambdaPair.second);
         }
 
-        // by convention we store the static initialization store as the regular exit
+        // By convention we store the static initialization store as the regular exit
         // store of the class node, so that it can later be used to check
         // that all fields are initialized properly.
-        // see InitializationVisitor.visitClass
+        // See InitializationVisitor.visitClass().
         if (initializationStaticStore == null) {
           regularExitStores.put(ct, emptyStore);
         } else {
@@ -1410,6 +1444,23 @@ public abstract class GenericAnnotatedTypeFactory<
       scannedClasses.put(ct, ScanState.FINISHED);
     }
   }
+
+  /** Sorts a list of trees with the variables first. */
+  Comparator<Tree> sortVariablesFirst =
+      new Comparator<Tree>() {
+        @Override
+        public int compare(Tree t1, Tree t2) {
+          boolean variable1 = t1.getKind() == Tree.Kind.VARIABLE;
+          boolean variable2 = t2.getKind() == Tree.Kind.VARIABLE;
+          if (variable1 && !variable2) {
+            return -1;
+          } else if (!variable1 && variable2) {
+            return 1;
+          } else {
+            return 0;
+          }
+        }
+      };
 
   /**
    * Analyze the AST {@code ast} and store the result. Additional operations that should be
@@ -1677,7 +1728,7 @@ public abstract class GenericAnnotatedTypeFactory<
   @Override
   public AnnotatedTypeMirror getMethodReturnType(MethodTree m) {
     AnnotatedTypeMirror returnType = super.getMethodReturnType(m);
-    dependentTypesHelper.atReturnType(returnType, m);
+    dependentTypesHelper.atMethodBody(returnType, m);
     return returnType;
   }
 
@@ -1789,10 +1840,23 @@ public abstract class GenericAnnotatedTypeFactory<
 
   /**
    * Returns the inferred value (by the org.checkerframework.dataflow analysis) for a given tree.
+   *
+   * @param tree the tree
+   * @return the value for the tree, if one has been computed by dataflow. If no value has been
+   *     computed, null is returned (this does not mean that no value will ever be computed for the
+   *     given tree).
    */
-  public Value getInferredValueFor(Tree tree) {
+  public @Nullable Value getInferredValueFor(Tree tree) {
     if (tree == null) {
       throw new BugInCF("GenericAnnotatedTypeFactory.getInferredValueFor called with null tree");
+    }
+    if (stubTypes.isParsing()
+        || ajavaTypes.isParsing()
+        || (currentFileAjavaTypes != null && currentFileAjavaTypes.isParsing())) {
+      // When parsing stub or ajava files, the analysis is not running (it has not yet started),
+      // and flowResult is null (no analysis has occurred). Instead of attempting to find a
+      // non-existent inferred type, return null.
+      return null;
     }
     Value as = null;
     if (analysis.isRunning()) {
@@ -1901,7 +1965,7 @@ public abstract class GenericAnnotatedTypeFactory<
     }
 
     Tree declTree = declarationFromElement(elt);
-    if (declTree == null || declTree.getKind() != Kind.VARIABLE) {
+    if (declTree == null || declTree.getKind() != Tree.Kind.VARIABLE) {
       return;
     }
 
@@ -1994,17 +2058,29 @@ public abstract class GenericAnnotatedTypeFactory<
   }
 
   /**
-   * Returns the AnnotatedTypeFactory of the subchecker and copies the current visitor state to the
-   * sub-factory so that the types are computed properly. Because the visitor state is copied, call
-   * this method each time a subfactory is needed rather than store the returned subfactory in a
-   * field.
+   * Returns the type factory used by a subchecker. Returns null if no matching subchecker was found
+   * or if the type factory is null. The caller must know the exact checker class to request.
    *
-   * @see BaseTypeChecker#getTypeFactoryOfSubchecker(Class)
+   * <p>Because the visitor state is copied, call this method each time a subfactory is needed
+   * rather than store the returned subfactory in a field.
+   *
+   * @param subCheckerClass the exact class of the subchecker
+   * @param <T> the type of {@code subCheckerClass}'s {@link AnnotatedTypeFactory}
+   * @return the AnnotatedTypeFactory of the subchecker or null if no subchecker exists
    */
   @SuppressWarnings("TypeParameterUnusedInFormals") // Intentional abuse
-  public <T extends GenericAnnotatedTypeFactory<?, ?, ?, ?>, U extends BaseTypeChecker>
-      T getTypeFactoryOfSubchecker(Class<U> checkerClass) {
-    T subFactory = checker.getTypeFactoryOfSubchecker(checkerClass);
+  public <T extends GenericAnnotatedTypeFactory<?, ?, ?, ?>> @Nullable T getTypeFactoryOfSubchecker(
+      Class<? extends BaseTypeChecker> subCheckerClass) {
+    BaseTypeChecker subchecker = checker.getSubchecker(subCheckerClass);
+    if (subchecker == null) {
+      return null;
+    }
+
+    @SuppressWarnings(
+        "unchecked" // This might not be safe, but the caller of the method should use the correct
+    // type.
+    )
+    T subFactory = (T) subchecker.getTypeFactory();
     if (subFactory != null && subFactory.getVisitorState() != null) {
       // Copy the visitor state so that the types are computed properly.
       VisitorState subFactoryVisitorState = subFactory.getVisitorState();
@@ -2200,6 +2276,7 @@ public abstract class GenericAnnotatedTypeFactory<
    * @return true if users can write type annotations from this type system on the given Java type
    */
   public boolean isRelevant(TypeMirror tm) {
+    tm = types.erasure(tm);
     Boolean cachedResult = allFoundRelevantTypes.get(tm);
     if (cachedResult != null) {
       return cachedResult;
@@ -2272,10 +2349,12 @@ public abstract class GenericAnnotatedTypeFactory<
    */
   // TODO: Cache results to avoid recomputation.
   public AnnotatedTypeMirror getDefaultValueAnnotatedType(TypeMirror typeMirror) {
-    AnnotatedTypeMirror defaultValue = AnnotatedTypeMirror.createType(typeMirror, this, false);
-    addComputedTypeAnnotations(
-        TreeUtils.getDefaultValueTree(typeMirror, processingEnv), defaultValue, false);
-    return defaultValue;
+    Tree defaultValueTree = TreeUtils.getDefaultValueTree(typeMirror, processingEnv);
+    TypeMirror defaultValueTM = TreeUtils.typeOf(defaultValueTree);
+    AnnotatedTypeMirror defaultValueATM =
+        AnnotatedTypeMirror.createType(defaultValueTM, this, false);
+    addComputedTypeAnnotations(defaultValueTree, defaultValueATM, false);
+    return defaultValueATM;
   }
 
   /**
