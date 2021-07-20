@@ -10,7 +10,7 @@ import org.checkerframework.checker.genericeffects.qual.NoIOEffect;
  *
  * <p>Creates and checks relationship among the valid effects of IO Effect Checker
  */
-public final class DefaultEffects extends FlowInsensitiveEffectLattice {
+public final class DefaultEffects extends FlowInsensitiveEffectLattice<Class<? extends Annotation>> {
 
     /**
      * Method to check Less than equal to Effect
@@ -23,13 +23,14 @@ public final class DefaultEffects extends FlowInsensitiveEffectLattice {
      *     <p>false : otherwise
      */
     @Override
-    public boolean LE(Class<? extends Annotation> left, Class<? extends Annotation> right) {
+    public Class<? extends Annotation> LUB(Class<? extends Annotation> left, Class<? extends Annotation> right) {
         assert (left != null && right != null);
 
-        boolean leftBottom = left.equals(NoIOEffect.class) ? true : false;
-        boolean rightTop = right.equals(IOEffect.class) ? true : false;
-
-        return leftBottom || rightTop;
+        if (left.equals(IOEffect.class) || right.equals(IOEffect.class)) {
+            return IOEffect.class;
+        } else {
+            return NoIOEffect.class;
+        }
     }
 
     /**

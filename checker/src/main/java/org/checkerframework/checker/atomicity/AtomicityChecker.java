@@ -2,7 +2,7 @@ package org.checkerframework.checker.atomicity;
 
 import org.checkerframework.checker.genericeffects.GenericEffectChecker;
 import org.checkerframework.checker.genericeffects.GenericEffectExtension;
-import org.checkerframework.checker.genericeffects.GenericEffectLattice;
+import org.checkerframework.checker.genericeffects.EffectQuantale;
 import org.checkerframework.checker.genericeffects.GenericEffectVisitor;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
@@ -23,7 +23,7 @@ public class AtomicityChecker extends GenericEffectChecker {
      * @return A GenericEffectLattice object that represents the lattice of the checker.
      */
     @Override
-    public GenericEffectLattice getEffectLattice() {
+    public EffectQuantale<Class? extends Annotation>> getEffectLattice() {
         if (lattice == null) {
             lattice = new AtomicityQuantale();
         }

@@ -37,14 +37,14 @@ import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 
 public class GenericEffectExtension {
 
-    protected GenericEffectLattice genericEffects;
+    protected EffectQuantale<Class<? extends Annotation>> genericEffects;
 
     /**
      * Constructor to set the lattice.
      *
      * @param lattice The lattice of the checker.
      */
-    public GenericEffectExtension(GenericEffectLattice lattice) {
+    public GenericEffectExtension(EffectQuantale<Class<? extends Annotation>> lattice) {
         genericEffects = lattice;
     }
 

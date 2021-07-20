@@ -21,7 +21,7 @@ public class CastingEffectsExtension extends GenericEffectExtension {
      *
      * @param lattice The effect lattice for the checker.
      */
-    public CastingEffectsExtension(GenericEffectLattice lattice) {
+    public CastingEffectsExtension(EffectQuantale<Class<? extends Annotation>> lattice) {
         super(lattice);
     }
 

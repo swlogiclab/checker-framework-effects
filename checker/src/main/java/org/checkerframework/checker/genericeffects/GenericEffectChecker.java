@@ -1,5 +1,6 @@
 package org.checkerframework.checker.genericeffects;
 
+import java.lang.annotation.Annotation;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
@@ -14,14 +15,14 @@ public class GenericEffectChecker extends BaseTypeChecker {
         return new GenericEffectVisitor(this, new CastingEffectsExtension(this.getEffectLattice()));
     }
 
-    protected GenericEffectLattice lattice;
+    protected EffectQuantale<Class<? extends Annotation>> lattice;
 
     /**
      * Method to get the lattice of the checker.
      *
-     * @return A GenericEffectLattice object that represents the lattice of the checker.
+     * @return A EffectQuantale object that represents the lattice of the checker.
      */
-    public GenericEffectLattice getEffectLattice() {
+    public EffectQuantale<Class<? extends Annotation>> getEffectLattice() {
         if (lattice == null) {
             lattice = new CastingEffects();
         }

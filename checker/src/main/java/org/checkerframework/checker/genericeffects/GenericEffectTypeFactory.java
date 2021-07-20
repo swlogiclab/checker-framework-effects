@@ -21,7 +21,7 @@ import org.checkerframework.common.basetype.BaseTypeChecker;
 public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
     protected final boolean debugSpew;
-    private GenericEffectLattice genericEffect;
+    private EffectQuantale<Class<? extends Annotation>> genericEffect;
 
     /**
      * Constructor for the checker's type factory.

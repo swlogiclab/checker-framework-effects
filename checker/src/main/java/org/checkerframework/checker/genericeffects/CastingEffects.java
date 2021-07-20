@@ -18,7 +18,7 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeIntegerCast;
  *
  * <p>Creates and checks relationship among the valid effects of Casting Effect Checker
  */
-public final class CastingEffects extends FlowInsensitiveEffectLattice {
+public final class CastingEffects extends FlowInsensitiveEffectLattice<Class<? extends Annotation>> {
 
     ArrayList<Class<? extends Annotation>> listOfEffects = new ArrayList<>();
 
@@ -81,6 +81,12 @@ public final class CastingEffects extends FlowInsensitiveEffectLattice {
         else if (right.equals(SafeCast.class)) return left.equals(SafeCast.class);
 
         return false;
+    }
+
+    @Override
+    public Class<? extends Annotation> LUB(Class<? extends Annotation> left, Class<? extends Annotation> right) {
+        assert (left != null && right != null);
+        throw new UnsupportedOperationException("Conversion to effect quantales is incomplete");
     }
 
     /**

@@ -1,6 +1,6 @@
 package org.checkerframework.checker.atomicity;
 
-import org.checkerframework.checker.genericeffects.GenericEffectLattice;
+import org.checkerframework.checker.genericeffects.EffectQuantale;
 import org.checkerframework.checker.atomicity.qual.Atomic;
 import org.checkerframework.checker.atomicity.qual.Both;
 import org.checkerframework.checker.atomicity.qual.Left;
@@ -10,7 +10,7 @@ import org.checkerframework.checker.atomicity.qual.NonAtomic;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 
-public class AtomicityQuantale implements GenericEffectLattice {
+public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation>> {
 
     public final Class<? extends Annotation> A = Atomic.class;
     public final Class<? extends Annotation> B = Both.class;

@@ -14,6 +14,16 @@ public class CoreAtomicityTests {
         public void DoStuff();
     }
 
+    public static class BasicSubEffectTests {
+        public AtomicityTestHelper h;
+        @Right public void bothSubRight() { h.DoNothing(); }
+        @Left public void bothSubLeft() { h.DoNothing(); }
+        @Atomic public void leftSubAtomic() { h.Unlock(); }
+        @Atomic public void rightSubAtomic() { h.Lock(); }
+        @NonAtomic public void atomicNot() { h.WellSync(); }
+        @NonAtomic public void bottomTop() { h.DoNothing(); }
+    }
+
     @Atomic
     public void somethingAtomic(AtomicityTestHelper h) {
         h.Lock();

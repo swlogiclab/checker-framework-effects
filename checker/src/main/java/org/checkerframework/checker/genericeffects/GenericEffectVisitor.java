@@ -5,6 +5,7 @@ import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.BreakTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CatchTree;
@@ -54,13 +55,14 @@ import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.javacutil.TypesUtils;
 import org.checkerframework.javacutil.TreePathUtil;
 
 /**
  * GenericEffectVisitor is a base class for effect systems, including sequential effect systems.
  * 
  * The general idea is for checking the effect of a method to proceed by initializing an accumulator
- * to the unit effect for the particular system (from {@link GenericEffectLattice.getUnitEffect()}),
+ * to the unit effect for the particular system (from {@link EffectQuantale.getUnitEffect()}),
  * then recursively traverse the AST to accumulate the overall effect of various subtrees. Each
  * visit method should leave the accumulator holding the effect of (only) the AST node visited.
  * 
@@ -82,11 +84,11 @@ import org.checkerframework.javacutil.TreePathUtil;
 public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFactory> {
 
     protected final boolean debugSpew;
-    private GenericEffectLattice genericEffect;
+    private EffectQuantale<Class<? extends Annotation>> genericEffect;
     private GenericEffectExtension extension;
 
     // effStack and currentMethods should always be the same size.
-    protected final Deque<ContextEffect> effStack;
+    protected final Deque<ContextEffect<Class<? extends Annotation>>> effStack;
     protected final Deque<MethodTree> currentMethods;
 
     // fields for compiler arguments
@@ -111,7 +113,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
         /* ErrorProne JdkObsolete warnings are suppressed here because we must use a deque/stack implementation that permits null.
          * Without supressing this warning, ErrorProne complains we should be using ArrayDeque, which rejects null elements. */
-        effStack = new LinkedList<ContextEffect>();
+        effStack = new LinkedList<ContextEffect<Class<? extends Annotation>>>();
         currentMethods = new LinkedList<MethodTree>();
 
         extension = ext;
@@ -729,12 +731,31 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
          * TODO: Throw captures current path effect... ah, but should capture from most recent /relevant/ mark, which will usually be start of method but might be start of loop (to fix loops).... I guess the right solution is for the throws to be tracked as part of the ContextEffect.... And this affects early return as well (e.g., return from within loop).  So really we need a way to mark control points (i.e. prompt boundaries).
          * We also need to think carefully about how residual checks integrate with throws --- a residual check on a behavior leading up to a throw can be incorrect.  But: if we have a meta-annotation for throw behaviors, the residual check can give an error only if the residual is undefined w.r.t *all* possible behaviors (i.e., all throws and early returns).
         */
+        //scan(node.getExpression(), p);
+        //// Note: we explicitly do *not* check the residual here!
+        //// In principle we could check residuals (against @ThrownEffect annotations) when the thrown exception is a type we know is in the
+        //// @ThrownEffects set *and* we're not inside a try-catch that handles the same effect *and*.... 
+        //// TODO: Fix this to check *exception* residuals when possible and valid. For now we fall back to global checks for throws
+        //// TODO: Actually, not residuals, but flat out completion for exceptional returns
+
+
+        //// TODO: This won't be quite right yet: we really want to track throws up to a particular mark, OR we want a way to restore a full stack with marks. Determine based on try
+        //effStack.peek().trackExplicitThrow((Class<? extends Exception>)TypesUtils.getClassFromType(TreeUtils.typeOf(node.getExpression())), node);
+        //effStack.peek().markImpossible(node);
+        //return p;
     }
 
     @Override
     public Void visitTry(TryTree node, Void p) {
         // TODO extension
         throw new UnsupportedOperationException("not yet implemented");
+
+        BlockTree body = node.getBlock();
+        BlockTree finblock = node.getFinallyBlock();
+        var catches = node.getCatches();
+
+        // TODO: Okay, can't just append finally block effect to all entries in the exception map, because there might be some in there from another branch of execution (e.g., the then branch of a conditional, where this try is in the else block). The solution is to properly implement C(X).
+
     }
 
     @Override
