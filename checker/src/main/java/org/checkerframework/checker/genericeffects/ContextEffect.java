@@ -178,8 +178,8 @@ public class ContextEffect<X> {
 
   public void rewriteLastEffectToCommutativeUnit() {
     assert (lat.isCommutative());
-    Map.Entry<X,Tree> oldfirst = rep.removeFirst();
-    rep.addFirst(new AbstractMap.SimpleEntry<X,Tree>(lat.unit(), oldfirst.getValue()));
+    Map.Entry<X, Tree> oldfirst = rep.removeFirst();
+    rep.addFirst(new AbstractMap.SimpleEntry<X, Tree>(lat.unit(), oldfirst.getValue()));
     // Now need to recompute context and contextSinceLastMark
     // Start by popping and re-pushing, since there's no direct access
     if (snapshots.size() == 0) {
@@ -193,7 +193,7 @@ public class ContextEffect<X> {
       snapshots.addFirst(context);
       snapshots.addFirst(contextSinceLastMark);
     }
-    for (Map.Entry<X,Tree> nd : rep) {
+    for (Map.Entry<X, Tree> nd : rep) {
       if (nd == null) {
         break;
       }

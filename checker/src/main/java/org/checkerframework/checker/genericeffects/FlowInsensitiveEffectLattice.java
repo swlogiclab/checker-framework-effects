@@ -26,5 +26,7 @@ public abstract class FlowInsensitiveEffectLattice<X> extends EffectQuantale<X> 
   }
 
   @Override
-  public boolean isCommutative() { return true; }
+  public boolean isCommutative() {
+    return true;
+  }
 }

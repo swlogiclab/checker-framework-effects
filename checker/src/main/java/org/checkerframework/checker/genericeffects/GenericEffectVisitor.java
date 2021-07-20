@@ -309,7 +309,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
       if (genericEffect.residual(pathEffect, methodEffect) == null) {
         checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
         if (genericEffect.isCommutative()) {
-          // For commutative systems, we *don't* set the current path error flag, but do reset the accumulator so future residual checks *also* yield errors (we know they should since sequencing is commutative)
+          // For commutative systems, we *don't* set the current path error flag, but do reset the
+          // accumulator so future residual checks *also* yield errors (we know they should since
+          // sequencing is commutative)
           effStack.peek().rewriteLastEffectToCommutativeUnit();
         } else {
           errorOnCurrentPath = true;

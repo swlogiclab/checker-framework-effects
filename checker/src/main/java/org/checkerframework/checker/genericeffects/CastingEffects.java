@@ -79,8 +79,7 @@ public final class CastingEffects
       return left.equals(SafeCast.class) || left.equals(IntegerOverflow.class);
     else if (right.equals(DecimalOverflow.class))
       return left.equals(SafeCast.class) || left.equals(DecimalOverflow.class);
-    else if (right.equals(SafeCast.class))
-     return left.equals(SafeCast.class);
+    else if (right.equals(SafeCast.class)) return left.equals(SafeCast.class);
 
     return false;
   }
@@ -146,7 +145,8 @@ public final class CastingEffects
       } else if (precisionloss) {
         return NumberPrecisionLoss.class;
       } else {
-        assert false : "Shouldn't have Integer and Decimal set without some kind of specific cast mistake";
+        assert false
+            : "Shouldn't have Integer and Decimal set without some kind of specific cast mistake";
       }
     } else if (integer) {
       // Integer
@@ -170,8 +170,10 @@ public final class CastingEffects
       } else {
         assert false : "Shouldn't have Decimal set without some kind of specific cast mistake";
       }
-    } 
-    assert (!overflow && !precisionloss) : "No specific numeric categories possible, so no specific errors should be possible either";
+    }
+    assert (!overflow && !precisionloss)
+        : "No specific numeric categories possible, so no specific errors should be possible"
+              + " either";
     return SafeCast.class;
   }
 
