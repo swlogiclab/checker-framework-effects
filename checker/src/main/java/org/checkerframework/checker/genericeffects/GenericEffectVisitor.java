@@ -225,6 +225,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     // to report *all* errors...
     // TODO: Maybe an extra flag on the lattice, so we handle non-comm differently from comm
     // systems?
+    // TODO: Work out laws for residuals w/ comm: e.g., x\(y\z) def <-> y\(x\z) def?
     if (!errorOnCurrentPath) {
       Class<? extends Annotation> targetEffect = effStack.peek().currentPathEffect();
       Class<? extends Annotation> callerEffect = atypeFactory.getDeclaredEffect(methElt);
@@ -236,6 +237,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     currentMethods.removeFirst();
     effStack.removeFirst();
+    if (debugSpew) {
+      System.err.println("Finished visiting method " + methElt + "\n");
+    }
     return ret;
   }
 
@@ -287,6 +291,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
   }
 
   private void checkResidual(Tree node) {
+    // TODO: Impose actual checks on static & instance field initializer expression effects
+    if (currentMethods.peek() == null) {
+      return;
+    }
     // Skip the check if we've already reported an error on this path.
     if (!ignoringErrors && !errorOnCurrentPath) {
       Class<? extends Annotation> pathEffect = effStack.peek().currentPathEffect();
@@ -300,7 +308,12 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
       }
       if (genericEffect.residual(pathEffect, methodEffect) == null) {
         checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
-        errorOnCurrentPath = true;
+        if (genericEffect.isCommutative()) {
+          // For commutative systems, we *don't* set the current path error flag, but do reset the accumulator so future residual checks *also* yield errors (we know they should since sequencing is commutative)
+          effStack.peek().rewriteLastEffectToCommutativeUnit();
+        } else {
+          errorOnCurrentPath = true;
+        }
       }
     }
   }

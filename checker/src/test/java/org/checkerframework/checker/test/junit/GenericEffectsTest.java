@@ -12,8 +12,8 @@ public class GenericEffectsTest extends CheckerFrameworkPerDirectoryTest {
         testFiles,
         org.checkerframework.checker.genericeffects.GenericEffectChecker.class,
         "genericeffects",
-        "-Anomsgtext");
-    // , "-Alint=debugSpew");
+        "-Anomsgtext"//);
+       , "-Alint=debugSpew");
   }
 
   @Parameters

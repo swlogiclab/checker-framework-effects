@@ -176,6 +176,32 @@ public class ContextEffect<X> {
     return rep.peekFirst().getKey();
   }
 
+  public void rewriteLastEffectToCommutativeUnit() {
+    assert (lat.isCommutative());
+    Map.Entry<X,Tree> oldfirst = rep.removeFirst();
+    rep.addFirst(new AbstractMap.SimpleEntry<X,Tree>(lat.unit(), oldfirst.getValue()));
+    // Now need to recompute context and contextSinceLastMark
+    // Start by popping and re-pushing, since there's no direct access
+    if (snapshots.size() == 0) {
+      // replay the whole thing
+      contextSinceLastMark = lat.unit();
+      context = lat.unit();
+    } else {
+      // replay from last snapshot
+      contextSinceLastMark = snapshots.removeFirst();
+      context = snapshots.removeFirst();
+      snapshots.addFirst(context);
+      snapshots.addFirst(contextSinceLastMark);
+    }
+    for (Map.Entry<X,Tree> nd : rep) {
+      if (nd == null) {
+        break;
+      }
+      contextSinceLastMark = lat.seq(contextSinceLastMark, nd.getKey());
+      context = lat.seq(context, nd.getKey());
+    }
+  }
+
   public X squashMark(Tree t) {
     X squashed = contextSinceLastMark;
     while (rep.peekFirst() != null) {
