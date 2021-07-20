@@ -10,22 +10,22 @@ import org.checkerframework.framework.source.SupportedOptions;
 @SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
 public class GenericEffectChecker extends BaseTypeChecker {
 
-    @Override
-    protected BaseTypeVisitor<?> createSourceVisitor() {
-        return new GenericEffectVisitor(this, new CastingEffectsExtension(this.getEffectLattice()));
-    }
+  @Override
+  protected BaseTypeVisitor<?> createSourceVisitor() {
+    return new GenericEffectVisitor(this, new CastingEffectsExtension(this.getEffectLattice()));
+  }
 
-    protected EffectQuantale<Class<? extends Annotation>> lattice;
+  protected EffectQuantale<Class<? extends Annotation>> lattice;
 
-    /**
-     * Method to get the lattice of the checker.
-     *
-     * @return A EffectQuantale object that represents the lattice of the checker.
-     */
-    public EffectQuantale<Class<? extends Annotation>> getEffectLattice() {
-        if (lattice == null) {
-            lattice = new CastingEffects();
-        }
-        return lattice;
+  /**
+   * Method to get the lattice of the checker.
+   *
+   * @return A EffectQuantale object that represents the lattice of the checker.
+   */
+  public EffectQuantale<Class<? extends Annotation>> getEffectLattice() {
+    if (lattice == null) {
+      lattice = new CastingEffects();
     }
+    return lattice;
+  }
 }

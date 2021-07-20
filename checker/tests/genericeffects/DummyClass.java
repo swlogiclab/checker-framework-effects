@@ -4,12 +4,12 @@ import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
 
 public class DummyClass {
 
-    @IntegerOverflow
-    public DummyClass() {}
+  @IntegerOverflow
+  public DummyClass() {}
 
-    @IntegerPrecisionLoss
-    public void integerPrecisionLoss() {}
+  @IntegerPrecisionLoss
+  public void integerPrecisionLoss() {}
 
-    @DecimalPrecisionLoss
-    public void decimalPrecisionLoss() {}
+  @DecimalPrecisionLoss
+  public void decimalPrecisionLoss() {}
 }
