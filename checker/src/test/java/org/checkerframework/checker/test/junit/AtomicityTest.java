@@ -15,7 +15,7 @@ public class AtomicityTest extends CheckerFrameworkPerDirectoryTest {
     public AtomicityTest(List<File> testFiles) {
         super(
                 testFiles,
-                org.checkerframework.checker.guieffect.GuiEffectChecker.class,
+                org.checkerframework.checker.atomicity.AtomicityChecker.class,
                 "atomicity",
                 "-Anomsgtext");
         // , "-Alint=debugSpew");
@@ -23,6 +23,6 @@ public class AtomicityTest extends CheckerFrameworkPerDirectoryTest {
 
     @Parameters
     public static String[] getTestDirs() {
-        return new String[] {"atomicity", "all-systems"};
+        return new String[] {"atomicity" /*, "all-systems"*/};
     }
 }

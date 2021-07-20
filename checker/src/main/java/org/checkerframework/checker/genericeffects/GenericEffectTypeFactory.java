@@ -4,6 +4,8 @@ import com.sun.source.tree.Tree;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -38,6 +40,11 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
         debugSpew = spew;
         this.postInit();
+    }
+
+    @Override
+    protected Set<Class<? extends Annotation>> createSupportedTypeQualifiers() {
+        return new HashSet<>(genericEffect.getValidEffects());
     }
 
     /**
