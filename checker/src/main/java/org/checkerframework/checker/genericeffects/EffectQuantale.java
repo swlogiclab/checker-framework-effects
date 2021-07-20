@@ -22,4 +22,6 @@ public abstract class EffectQuantale<X> {
   public abstract X iter(X x);
 
   public abstract X residual(X sofar, X target);
+
+  public boolean isCommutative() { return false; }
 }

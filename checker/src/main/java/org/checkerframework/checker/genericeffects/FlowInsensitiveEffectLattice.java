@@ -24,4 +24,7 @@ public abstract class FlowInsensitiveEffectLattice<X> extends EffectQuantale<X> 
     // For joins, residual is just partial max function
     return (LE(sofar, target) ? target : null);
   }
+
+  @Override
+  public boolean isCommutative() { return true; }
 }
