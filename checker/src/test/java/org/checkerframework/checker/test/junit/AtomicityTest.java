@@ -18,7 +18,7 @@ public class AtomicityTest extends CheckerFrameworkPerDirectoryTest {
         org.checkerframework.checker.atomicity.AtomicityChecker.class,
         "atomicity",
         "-Anomsgtext"); // Disable full error message printing
-        //"-Alint=debugSpew");
+    // "-Alint=debugSpew");
   }
 
   @Parameters

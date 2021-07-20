@@ -58,10 +58,9 @@ import org.checkerframework.javacutil.TreeUtils;
  * GenericEffectVisitor is a base class for effect systems, including sequential effect systems.
  *
  * <p>The general idea is for checking the effect of a method to proceed by initializing an
- * accumulator to the unit effect for the particular system (from {@link
- * EffectQuantale.getUnitEffect()}), then recursively traverse the AST to accumulate the overall
- * effect of various subtrees. Each visit method should leave the accumulator holding the effect of
- * (only) the AST node visited.
+ * accumulator to the specific system's unit effect ({@link EffectQuantale.getUnitEffect()}), then
+ * recursively traverse the AST to accumulate the overall effect of various subtrees. Each visit
+ * method should leave the accumulator holding the effect of (only) the AST node visited.
  *
  * <p>Because methods can actually nest (if a method includes an anonymous inner class with a method
  * definition), we actually keep a <emph>stack</emph> of accumulators. The top element of the stack
@@ -222,8 +221,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     // Completion Check
     // We skip this if every path to the end of the method already reported a type (effect) error
-    // TODO: This isn't *quite* what we want for *commutative* effect systems, for which we'd like to report *all* errors...
-    // TODO: Maybe an extra flag on the lattice, so we handle non-comm differently from comm systems?
+    // TODO: This isn't *quite* what we want for *commutative* effect systems, for which we'd like
+    // to report *all* errors...
+    // TODO: Maybe an extra flag on the lattice, so we handle non-comm differently from comm
+    // systems?
     if (!errorOnCurrentPath) {
       Class<? extends Annotation> targetEffect = effStack.peek().currentPathEffect();
       Class<? extends Annotation> callerEffect = atypeFactory.getDeclaredEffect(methElt);
@@ -295,11 +296,11 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
       Class<? extends Annotation> methodEffect =
           atypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()));
       if (debugSpew) {
-          System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
+        System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
       }
       if (genericEffect.residual(pathEffect, methodEffect) == null) {
-          checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
-          errorOnCurrentPath = true;
+        checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
+        errorOnCurrentPath = true;
       }
     }
   }
@@ -678,7 +679,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         } else {
           checker.reportError(node, "undefined.join", thenEff, elseEff);
         }
-	errorOnCurrentPath = true;
+        errorOnCurrentPath = true;
       }
 
       // This seq will always succeed (with valid EQs) since the seqs worked per-branch, and we have
