@@ -123,6 +123,11 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         ignoringErrors = checker.getOption("ignoreErrors") != null;
 
         genericEffect = ((GenericEffectChecker) checker).getEffectLattice();
+
+	if (debugSpew) {
+            System.err.println("Loading generic effect visitor with effect quantale: "+genericEffect.getClass().toString());
+            System.err.println("Loading generic effect visitor with type factory: "+atypeFactory.getClass().toString());
+	}
     }
 
     /**
@@ -132,7 +137,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
      */
     @Override
     protected GenericEffectTypeFactory createTypeFactory() {
-        return new GenericEffectTypeFactory(checker, debugSpew);
+        return new GenericEffectTypeFactory(checker, checker.getLintOption("debugSpew", false));
     }
 
     /**
@@ -197,11 +202,12 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
         Void ret = super.visitMethod(node, p);
       
+	// Completion Check
         Class<? extends Annotation> targetEffect = effStack.peek().currentPathEffect();
         Class<? extends Annotation> callerEffect = atypeFactory.getDeclaredEffect(methElt);
-        if (isInvalid(targetEffect, callerEffect))
-            checkError(node, targetEffect, callerEffect, extension.reportError(node));
-        else if (extension.reportWarning(node) != null)
+        if (!effStack.peek().currentlyImpossible() && isInvalid(targetEffect, callerEffect))
+            checkError(node, targetEffect, callerEffect, "subeffect.invalid.methodbody");
+        else if (!effStack.peek().currentlyImpossible() && extension.reportWarning(node) != null)
             checkWarning(node, targetEffect, callerEffect, extension.reportWarning(node));
         
         currentMethods.removeFirst();
@@ -258,16 +264,19 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
             checker.reportError(node, failureMsg, targetEffect, callerEffect);
     }
 
-    private void checkResidual(
-            Tree node) {
+    private void checkResidual(Tree node) {
         if (!ignoringErrors) {
             Class<? extends Annotation> pathEffect = effStack.peek().currentPathEffect();
             if (pathEffect == Impossible.class) {
                 return; // In an enclosing context of a path that always throws/returns
             }
             Class<? extends Annotation> methodEffect = atypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()));
+	    if (debugSpew) {
+                System.err.println("Checking residual "+pathEffect+" \\ "+methodEffect);
+	    }
             if (genericEffect.residual(pathEffect, methodEffect) == null) {
                 checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
+		effStack.peek().markImpossible(node);
             }
         }
     }
@@ -335,7 +344,19 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         for(Tree args : node.getArguments()){
             scan(args, p);
         }
+	ExecutableElement methodElt = TreeUtils.elementFromUse(node);
+	Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
+	if (debugSpew) {
+		System.err.println("Pushing latent effect "+targetEffect+" for "+node);
+	}
+	effStack.peek().pushEffect(targetEffect, node);
+	if (debugSpew) {
+		System.err.println("Path effect after "+node+" BEFORE squash is "+effStack.peek().currentPathEffect());
+	}
         effStack.peek().squashMark(node);
+	if (debugSpew) {
+		System.err.println("Path effect after "+node+" AFTER squash is "+effStack.peek().currentPathEffect());
+	}
         checkResidual(node);
         return p;
     }

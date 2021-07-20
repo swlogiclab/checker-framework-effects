@@ -46,6 +46,8 @@ public class ContextEffect<X> {
         rep.addFirst(null);
         snapshots.addFirst(context);
         snapshots.addFirst(contextSinceLastMark);
+	// Context since last mark needs to now be unit
+	contextSinceLastMark = lat.unit();
     }
 
     /**
@@ -160,6 +162,7 @@ public class ContextEffect<X> {
     }
     public X squashMark(Tree t) {
         X squashed = contextSinceLastMark;
+	System.err.println("saved contextSinceLastMark: "+squashed);
         while (rep.peekFirst() != null) {
             rep.removeFirst();
         }

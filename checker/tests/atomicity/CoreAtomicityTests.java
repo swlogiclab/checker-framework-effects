@@ -85,7 +85,7 @@ public class CoreAtomicityTests {
         // :: error: (undefined.residual)
         h.DoStuff();
     }
-    @Left
+    @Right
     public void failedRight1(AtomicityTestHelper h) {
         // :: error: (undefined.residual)
         h.Unlock();

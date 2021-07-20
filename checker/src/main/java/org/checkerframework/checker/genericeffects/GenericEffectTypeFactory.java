@@ -19,6 +19,7 @@ import javax.lang.model.util.Types;
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
+import org.checkerframework.checker.genericeffects.qual.Placeholder;
 
 public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
@@ -44,7 +45,9 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
     @Override
     protected Set<Class<? extends Annotation>> createSupportedTypeQualifiers() {
-        return new HashSet<>(genericEffect.getValidEffects());
+        HashSet<Class<? extends Annotation>> hs = new HashSet<>();
+	hs.add(Placeholder.class);
+	return hs;
     }
 
     /**
@@ -166,6 +169,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
      *     bottomMostEffectInLattice : otherwise, bottom most effect of lattice
      */
     public Class<? extends Annotation> getDeclaredEffect(ExecutableElement methodElt) {
+        if (debugSpew) { System.err.println("> Retrieving declared effect of: "+methodElt); }
         ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
         AnnotationMirror annotatedEffect = null;
 
@@ -173,13 +177,14 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
             annotatedEffect = getDeclAnnotation(methodElt, OkEffect);
             if (annotatedEffect != null) {
                 if (debugSpew) {
-                    System.err.println("Method marked @" + annotatedEffect);
+                    System.err.println("< Method marked @" + annotatedEffect);
                 }
                 return OkEffect;
             }
         }
 
         Element clsElt = getInnermostAnnotatedClass(methodElt);
+        if (debugSpew) { System.err.println("< By default found: "+getClassType(clsElt)); }
         return getClassType(clsElt);
     }
 
