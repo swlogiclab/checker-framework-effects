@@ -307,13 +307,15 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
         System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
       }
       if (genericEffect.residual(pathEffect, methodEffect) == null) {
-        checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
         if (genericEffect.isCommutative()) {
+          // For commutative systems, we clean up the error message by peeking at the last addition
+          checker.reportError(node, "operation.invalid", effStack.peek().latestEffect(), methodEffect);
           // For commutative systems, we *don't* set the current path error flag, but do reset the
           // accumulator so future residual checks *also* yield errors (we know they should since
           // sequencing is commutative)
           effStack.peek().rewriteLastEffectToCommutativeUnit();
         } else {
+          checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
           errorOnCurrentPath = true;
         }
       }
@@ -419,6 +421,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     for (Tree args : node.getArguments()) {
       scan(args, p);
     }
+    ExecutableElement methodElt = TreeUtils.elementFromUse(node);
+    Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
+    effStack.peek().pushEffect(targetEffect, node);
     effStack.peek().squashMark(node);
     checkResidual(node);
     return p;
@@ -866,9 +871,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
   @Override
   public Void visitTypeCast(TypeCastTree node, Void p) {
-    // TODO extension
     effStack.peek().mark();
     scan(node.getExpression(), p);
+    effStack.peek().pushEffect(extension.checkTypeCast(node), node);
     effStack.peek().squashMark(node);
     checkResidual(node);
     return p;
