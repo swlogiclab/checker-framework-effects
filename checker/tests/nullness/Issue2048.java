@@ -4,20 +4,27 @@
 // There are two versions:
 // framework/tests/all-systems
 // checker/tests/nullness
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-class Issue2048 {
-    interface Foo {}
+public class Issue2048 {
+  interface Foo {}
 
-    interface Fooer<R extends Foo> {}
+  static class Fooer<R extends Foo> {}
 
-    class UseNbl<T> {
-        // T by default is @Nullable and therefore doesn't
-        // fulfill the bound of R.
-        // :: error: (type.argument.type.incompatible)
-        void foo(Fooer<? extends T> fooer) {}
-    }
+  class UseNbl<T> {
+    void foo(Fooer<? extends T> fooer) {}
+  }
+  // :: error: (type.argument)
+  Fooer<@Nullable Foo> nblFooer = new Fooer<>();
+  Fooer<@NonNull Foo> nnFooer = new Fooer<>();
 
-    class UseNN<T extends Object> {
-        void foo(Fooer<? extends T> fooer) {}
-    }
+  void use(UseNbl<@Nullable Foo> useNbl) {
+    useNbl.foo(nblFooer);
+    useNbl.foo(nnFooer);
+  }
+
+  class UseNN<T extends Object> {
+    void foo(Fooer<? extends T> fooer) {}
+  }
 }

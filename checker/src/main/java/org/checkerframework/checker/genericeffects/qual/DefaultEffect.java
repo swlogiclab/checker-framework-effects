@@ -10,5 +10,5 @@ import java.lang.annotation.*;
  * default to.
  */
 public @interface DefaultEffect {
-    Class<? extends Annotation> value() default SafeCast.class;
+  Class<? extends Annotation> value() default SafeCast.class;
 }

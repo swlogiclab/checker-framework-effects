@@ -4,16 +4,16 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeCast;
 
 public class OverrideEffect extends DummyClass {
 
-    @IntegerOverflow
-    public OverrideEffect() {}
+  @IntegerOverflow
+  public OverrideEffect() {}
 
-    @Override
-    @SafeCast
-    // okay
-    public void integerPrecisionLoss() {}
+  @Override
+  @SafeCast
+  // okay
+  public void integerPrecisionLoss() {}
 
-    @Override
-    @UnsafeCast
-    // :: error: (override.effect.invalid)
-    public void decimalPrecisionLoss() {}
+  @Override
+  @UnsafeCast
+  // :: error: (override.effect.invalid)
+  public void decimalPrecisionLoss() {}
 }

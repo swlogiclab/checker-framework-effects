@@ -7,17 +7,17 @@ import org.junit.runners.Parameterized.Parameters;
 
 public class GenericEffectsTest extends CheckerFrameworkPerDirectoryTest {
 
-    public GenericEffectsTest(List<File> testFiles) {
-        super(
-                testFiles,
-                org.checkerframework.checker.genericeffects.GenericEffectChecker.class,
-                "genericeffects",
-                "-Anomsgtext");
-        // , "-Alint=debugSpew");
-    }
+  public GenericEffectsTest(List<File> testFiles) {
+    super(
+        testFiles,
+        org.checkerframework.checker.genericeffects.GenericEffectChecker.class,
+        "genericeffects",
+        "-Anomsgtext"//);
+       , "-Alint=debugSpew");
+  }
 
-    @Parameters
-    public static String[] getTestDirs() {
-        return new String[] {"genericeffects"}; // TODO: re-enable, "all-systems"};
-    }
+  @Parameters
+  public static String[] getTestDirs() {
+    return new String[] {"genericeffects"}; // TODO: re-enable, "all-systems"};
+  }
 }
