@@ -173,7 +173,7 @@ public final class CastingEffects
     }
     assert (!overflow && !precisionloss)
         : "No specific numeric categories possible, so no specific errors should be possible"
-              + " either";
+            + " either";
     return SafeCast.class;
   }
 

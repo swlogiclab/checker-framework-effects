@@ -15,6 +15,6 @@ public class FieldEffect {
 
   public FieldEffect() {
     // :: error: (operation.invalid)
-    d = (short) (c+a);
+    d = (short) (c + a);
   }
 }

@@ -7,7 +7,7 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeDecimalCast;
 public class StaticInitEffect {
 
   static int bar = 4234234;
-  static byte foo = (byte)bar;
+  static byte foo = (byte) bar;
 
   static {
     int a = 1234;
