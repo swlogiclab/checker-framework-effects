@@ -6,12 +6,12 @@ public class ConstructorEffect {
   public ConstructorEffect() {
     // okay
     byte a = (byte) 1234;
-    // :: error: (cast.invalid)
+    // :: error: (operation.invalid)
     byte b = (byte) 1234f;
   }
 
   public void safeCast() {
-    // :: error: (constructor.call.invalid)
+    // :: error: (operation.invalid)
     new ConstructorEffect();
   }
 

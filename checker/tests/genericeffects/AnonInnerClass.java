@@ -10,7 +10,7 @@ public class AnonInnerClass {
       public void test() {
         // okay
         byte a = (byte) 1234;
-        // :: error: (cast.invalid)
+        // :: error: (operation.invalid)
         byte b = (byte) 1234f;
       }
     };

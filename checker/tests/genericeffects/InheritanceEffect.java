@@ -1,12 +1,12 @@
 import org.checkerframework.checker.genericeffects.qual.DecimalOverflow;
 import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
 
-// :: error: (call.invalid.effect)
+// :: error: (operation.invalid)
 public class InheritanceEffect extends DummyClass {
 
   @DecimalOverflow
   public void decimalOverflow() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerPrecisionLoss();
   }
 

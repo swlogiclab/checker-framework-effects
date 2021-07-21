@@ -9,6 +9,6 @@ public class FieldEffect {
   byte b = (byte) a;
 
   public double c = 123456;
-  // :: error: (cast.invalid)
+  // :: error: (operation.invalid)
   short d = (short) c;
 }

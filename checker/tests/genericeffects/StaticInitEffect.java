@@ -6,14 +6,14 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeDecimalCast;
 public class StaticInitEffect {
   static {
     int a = 1234;
-    // :: error: (cast.invalid)
+    // :: error: (operation.invalid)
     byte b = (byte) a;
 
     double c = 123456;
     // okay
     short d = (short) c;
 
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerOverflow();
   }
 

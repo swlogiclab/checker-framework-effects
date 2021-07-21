@@ -37,23 +37,23 @@ public class CallEffect {
 
   @NumberOverflow
   public void numberOverflowEffect() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
     // okay
     numberOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeIntegerCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeDecimalCast();
     // okay
     integerOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerPrecisionLossEffect();
     // okay
     decimalOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalPrecisionLossEffect();
     // okay
     safeCastEffect();
@@ -61,21 +61,21 @@ public class CallEffect {
 
   @NumberPrecisionLoss
   public void numberPrecisionLossEffect() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberOverflowEffect();
     // okay
     numberPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeIntegerCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeDecimalCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerOverflowEffect();
     // okay
     integerPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalOverflowEffect();
     // okay
     decimalPrecisionLossEffect();
@@ -85,23 +85,23 @@ public class CallEffect {
 
   @UnsafeIntegerCast
   public void unsafeIntegerCast() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberPrecisionLossEffect();
     // okay
     unsafeIntegerCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeDecimalCast();
     // okay
     integerOverflowEffect();
     // okay
     integerPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalPrecisionLossEffect();
     // okay
     safeCastEffect();
@@ -109,19 +109,19 @@ public class CallEffect {
 
   @UnsafeDecimalCast
   public void unsafeDecimalCast() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeIntegerCast();
     // okay
     unsafeDecimalCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerPrecisionLossEffect();
     // okay
     decimalOverflowEffect();
@@ -133,23 +133,23 @@ public class CallEffect {
 
   @IntegerOverflow
   public void integerOverflowEffect() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeIntegerCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeDecimalCast();
     // okay
     integerOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalPrecisionLossEffect();
     // okay
     safeCastEffect();
@@ -157,23 +157,23 @@ public class CallEffect {
 
   @IntegerPrecisionLoss
   public void integerPrecisionLossEffect() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeIntegerCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeDecimalCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerOverflowEffect();
     // okay
     integerPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalPrecisionLossEffect();
     // okay
     safeCastEffect();
@@ -181,23 +181,23 @@ public class CallEffect {
 
   @DecimalOverflow
   public void decimalOverflowEffect() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeIntegerCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeDecimalCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerPrecisionLossEffect();
     // okay
     decimalOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalPrecisionLossEffect();
     // okay
     safeCastEffect();
@@ -205,21 +205,21 @@ public class CallEffect {
 
   @DecimalPrecisionLoss
   public void decimalPrecisionLossEffect() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeIntegerCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeDecimalCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalOverflowEffect();
     // okay
     decimalPrecisionLossEffect();
@@ -229,23 +229,23 @@ public class CallEffect {
 
   @SafeCast
   public void safeCastEffect() {
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     numberPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeIntegerCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     unsafeDecimalCast();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     integerPrecisionLossEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalOverflowEffect();
-    // :: error: (call.invalid.effect)
+    // :: error: (operation.invalid)
     decimalPrecisionLossEffect();
     // okay
     safeCastEffect();

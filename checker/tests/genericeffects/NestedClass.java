@@ -12,9 +12,9 @@ public class NestedClass {
       public void nest2Test() {
         // okay
         byte a = (byte) 1234;
-        // :: error: (cast.invalid)
+        // :: error: (operation.invalid)
         byte b = (byte) 1234f;
-        // :: error: (call.invalid.effect)
+        // :: error: (operation.invalid)
         nest1Test();
       }
     }
