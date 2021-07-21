@@ -37,6 +37,7 @@ import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.UnionTypeTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.tree.WildcardTree;
+import com.sun.source.util.TreePath;
 import java.lang.annotation.Annotation;
 import java.util.Deque;
 import java.util.HashMap;
@@ -175,7 +176,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
    */
   @Override
   public Void visitMethod(MethodTree node, Void p) {
-    // TODO: need to keep a stack if we're thinking about nested method scopes
+    // Save and restore errorOnCurrentPath, so methods of anonymous inner classes
+    // don't inherit contextual errors from their allocating contexts
+    boolean contextualErrorOnCurrentPath = errorOnCurrentPath;
     errorOnCurrentPath = false;
 
     ExecutableElement methElt = TreeUtils.elementFromDeclaration(node);
@@ -240,6 +243,9 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     if (debugSpew) {
       System.err.println("Finished visiting method " + methElt + "\n");
     }
+
+    errorOnCurrentPath = contextualErrorOnCurrentPath;
+
     return ret;
   }
 
@@ -305,6 +311,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
           atypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()));
       if (debugSpew) {
         System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
+        System.err.println("In location "+visitorState.getPath());
       }
       if (genericEffect.residual(pathEffect, methodEffect) == null) {
         if (genericEffect.isCommutative()) {
@@ -399,6 +406,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     if (debugSpew) {
       System.err.println(
           "Path effect after " + node + " AFTER squash is " + effStack.peek().currentPathEffect());
+      System.err.println("In location "+TreePathUtil.toString(visitorState.getPath()));
+      System.err.println("Static scope? "+TreePathUtil.isTreeInStaticScope(visitorState.getPath()));
     }
     checkResidual(node);
     return p;
@@ -418,9 +427,11 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     // TODO extension checks
     // Set marker for scoping current
     effStack.peek().mark();
-    for (Tree args : node.getArguments()) {
-      scan(args, p);
-    }
+    //for (Tree args : node.getArguments()) {
+    //  scan(args, p);
+    //}
+    // Visit arguments, and if anonymous inner class, the inner class body
+    super.visitNewClass(node, p);
     ExecutableElement methodElt = TreeUtils.elementFromUse(node);
     Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
     effStack.peek().pushEffect(targetEffect, node);
@@ -876,6 +887,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     effStack.peek().pushEffect(extension.checkTypeCast(node), node);
     effStack.peek().squashMark(node);
     checkResidual(node);
+    String warning = extension.reportWarning(node);
+    if (warning != null) {
+      checker.reportWarning(node, warning);
+    }
     return p;
   }
 
