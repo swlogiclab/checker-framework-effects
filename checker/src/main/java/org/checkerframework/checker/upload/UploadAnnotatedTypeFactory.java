@@ -2,7 +2,7 @@ package org.checkerframework.checker.upload;
 
 // import org.checkerframework.checker.upload.qual.Noop;
 // import org.checkerframework.checker.upload.qual.DoWorkOnDisk;
-import org.checkerframework.checker.genericeffects.*;
+import org.checkerframework.checker.genericeffects.GenericEffectTypeFactory;
 // import org.checkerframework.framework.source.Result;
 // import org.checherframework.checker.upload.Upload
 import org.checkerframework.common.basetype.BaseTypeChecker;
