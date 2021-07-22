@@ -50,36 +50,36 @@ public final class CastingEffects
   public boolean LE(Class<? extends Annotation> left, Class<? extends Annotation> right) {
     assert (left != null && right != null);
 
-    if (right.equals(UnsafeCast.class)) return true;
-    else if (right.equals(NumberPrecisionLoss.class))
-      return left.equals(IntegerPrecisionLoss.class)
-          || left.equals(DecimalPrecisionLoss.class)
-          || left.equals(SafeCast.class)
-          || left.equals(NumberPrecisionLoss.class);
-    else if (right.equals(UnsafeIntegerCast.class))
-      return left.equals(IntegerPrecisionLoss.class)
-          || left.equals(IntegerOverflow.class)
-          || left.equals(SafeCast.class)
-          || left.equals(UnsafeIntegerCast.class);
-    else if (right.equals(UnsafeDecimalCast.class))
-      return left.equals(DecimalPrecisionLoss.class)
-          || left.equals(DecimalOverflow.class)
-          || left.equals(SafeCast.class)
-          || left.equals(UnsafeDecimalCast.class);
-    else if (right.equals(NumberOverflow.class))
-      return left.equals(IntegerOverflow.class)
-          || left.equals(DecimalOverflow.class)
-          || left.equals(SafeCast.class)
-          || left.equals(NumberOverflow.class);
-    else if (right.equals(IntegerPrecisionLoss.class))
-      return left.equals(SafeCast.class) || left.equals(IntegerPrecisionLoss.class);
-    else if (right.equals(DecimalPrecisionLoss.class))
-      return left.equals(SafeCast.class) || left.equals(DecimalPrecisionLoss.class);
-    else if (right.equals(IntegerOverflow.class))
-      return left.equals(SafeCast.class) || left.equals(IntegerOverflow.class);
-    else if (right.equals(DecimalOverflow.class))
-      return left.equals(SafeCast.class) || left.equals(DecimalOverflow.class);
-    else if (right.equals(SafeCast.class)) return left.equals(SafeCast.class);
+    if (right == UnsafeCast.class) return true;
+    else if (right == NumberPrecisionLoss.class)
+      return left == IntegerPrecisionLoss.class
+          || left == DecimalPrecisionLoss.class
+          || left == SafeCast.class
+          || left == NumberPrecisionLoss.class;
+    else if (right == UnsafeIntegerCast.class)
+      return left == IntegerPrecisionLoss.class
+          || left == IntegerOverflow.class
+          || left == SafeCast.class
+          || left == UnsafeIntegerCast.class;
+    else if (right == UnsafeDecimalCast.class)
+      return left == DecimalPrecisionLoss.class
+          || left == DecimalOverflow.class
+          || left == SafeCast.class
+          || left == UnsafeDecimalCast.class;
+    else if (right == NumberOverflow.class)
+      return left == IntegerOverflow.class
+          || left == DecimalOverflow.class
+          || left == SafeCast.class
+          || left == NumberOverflow.class;
+    else if (right == IntegerPrecisionLoss.class)
+      return left == SafeCast.class || left == IntegerPrecisionLoss.class;
+    else if (right == DecimalPrecisionLoss.class)
+      return left == SafeCast.class || left == DecimalPrecisionLoss.class;
+    else if (right == IntegerOverflow.class)
+      return left == SafeCast.class || left == IntegerOverflow.class;
+    else if (right == DecimalOverflow.class)
+      return left == SafeCast.class || left == DecimalOverflow.class;
+    else if (right == SafeCast.class) return left == SafeCast.class;
 
     return false;
   }
@@ -95,43 +95,43 @@ public final class CastingEffects
     boolean precisionloss = false;
 
     // Shortcut
-    if (left.equals(UnsafeCast.class) || right.equals(UnsafeCast.class)) {
+    if (left == UnsafeCast.class || right == UnsafeCast.class) {
       return UnsafeCast.class;
     }
 
-    if (left.equals(NumberOverflow.class) || right.equals(NumberOverflow.class)) {
+    if (left == NumberOverflow.class || right == NumberOverflow.class) {
       integer = true;
       decimal = true;
       overflow = true;
     }
-    if (left.equals(UnsafeIntegerCast.class) || right.equals(UnsafeIntegerCast.class)) {
+    if (left == UnsafeIntegerCast.class || right == UnsafeIntegerCast.class) {
       integer = true;
       overflow = true;
       precisionloss = true;
     }
-    if (left.equals(UnsafeDecimalCast.class) || right.equals(UnsafeDecimalCast.class)) {
+    if (left == UnsafeDecimalCast.class || right == UnsafeDecimalCast.class) {
       decimal = true;
       overflow = true;
       precisionloss = true;
     }
-    if (left.equals(NumberPrecisionLoss.class) || right.equals(NumberPrecisionLoss.class)) {
+    if (left == NumberPrecisionLoss.class || right == NumberPrecisionLoss.class) {
       integer = true;
       decimal = true;
       precisionloss = true;
     }
-    if (left.equals(IntegerPrecisionLoss.class) || right.equals(IntegerPrecisionLoss.class)) {
+    if (left == IntegerPrecisionLoss.class || right == IntegerPrecisionLoss.class) {
       integer = true;
       precisionloss = true;
     }
-    if (left.equals(DecimalPrecisionLoss.class) || right.equals(DecimalPrecisionLoss.class)) {
+    if (left == DecimalPrecisionLoss.class || right == DecimalPrecisionLoss.class) {
       decimal = true;
       precisionloss = true;
     }
-    if (left.equals(IntegerOverflow.class) || right.equals(IntegerOverflow.class)) {
+    if (left == IntegerOverflow.class || right == IntegerOverflow.class) {
       integer = true;
       overflow = true;
     }
-    if (left.equals(DecimalOverflow.class) || right.equals(DecimalOverflow.class)) {
+    if (left == DecimalOverflow.class || right == DecimalOverflow.class) {
       decimal = true;
       overflow = true;
     }

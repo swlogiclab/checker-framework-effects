@@ -49,12 +49,12 @@ public final class AndroidThreadEffects
       Class<? extends Annotation> left, Class<? extends Annotation> right) {
     assert (left != null && right != null);
 
-    if (left.equals(AnyThread)) {
+    if (left == AnyThread) {
       return right;
-    } else if (right.equals(AnyThread)) {
+    } else if (right == AnyThread) {
       return left;
     }
-    return left.equals(right) ? left : null;
+    return left == right ? left : null;
   }
 
   /** Get the collection of valid effects. */

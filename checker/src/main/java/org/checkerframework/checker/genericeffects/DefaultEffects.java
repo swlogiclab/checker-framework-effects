@@ -28,7 +28,7 @@ public final class DefaultEffects
       Class<? extends Annotation> left, Class<? extends Annotation> right) {
     assert (left != null && right != null);
 
-    if (left.equals(IOEffect.class) || right.equals(IOEffect.class)) {
+    if (left == IOEffect.class || right == IOEffect.class) {
       return IOEffect.class;
     } else {
       return NoIOEffect.class;

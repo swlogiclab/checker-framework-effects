@@ -39,9 +39,8 @@ public final class UploadEffects extends EffectQuantale<Class<? extends Annotati
   public boolean LE(Class<? extends Annotation> left, Class<? extends Annotation> right) {
     assert (left != null && right != null);
 
-    if (right.equals(WriteOnDisk.class))
-      return left.equals(WriteOnDisk.class) || left.equals(Noop.class);
-    else if (right.equals(Noop.class)) return left.equals(Noop.class);
+    if (right == WriteOnDisk.class) return left == WriteOnDisk.class || left == Noop.class;
+    else if (right == Noop.class) return left == Noop.class;
 
     return false;
   }
