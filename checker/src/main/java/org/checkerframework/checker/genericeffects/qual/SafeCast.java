@@ -6,8 +6,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/** This annotation is usually used as the default effect to signify there is no unsafe cast. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
-/** This annotation is usually used as the default effect to signify there is no unsafe cast. */
 public @interface SafeCast {}

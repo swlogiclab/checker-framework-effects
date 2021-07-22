@@ -13,6 +13,7 @@ import org.checkerframework.checker.genericeffects.qual.IntegerPrecisionLoss;
 import org.checkerframework.checker.genericeffects.qual.SafeCast;
 import org.checkerframework.javacutil.TreeUtils;
 
+/** An effect plugin to flag {@link TypeCastTree} instances with an appropriate casting effect. */
 public class CastingEffectsExtension extends GenericEffectExtension {
 
   /**

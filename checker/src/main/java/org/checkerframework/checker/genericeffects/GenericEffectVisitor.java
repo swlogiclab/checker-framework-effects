@@ -82,20 +82,32 @@ import org.checkerframework.javacutil.TreeUtils;
  */
 public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFactory> {
 
+  /** Debug flag, set via the "debugSpew" lint option */
   protected final boolean debugSpew;
+  /** Reference to the effect quantale being checked. */
   private EffectQuantale<Class<? extends Annotation>> genericEffect;
+  /** Reference to a plugin for determining the effects of basic Java language features. */
   private GenericEffectExtension extension;
 
-  // effStack and currentMethods should always be the same size.
+  /**
+   * A stack of effect contexts, one for each level of nested methods (to support anonymous inner
+   * classes).
+   */
   protected final Deque<ContextEffect<Class<? extends Annotation>>> effStack;
+  /**
+   * A stack of references to the methods being processed, including null for field initialization
+   * and static initializer blocks.
+   */
   protected final Deque<MethodTree> currentMethods;
 
-  // fields for compiler arguments
+  /** Flag to disable effect checking */
   boolean ignoringEffects;
+  /** Flag to disable warnings */
   boolean ignoringWarnings;
+  /** Flag to disable errors */
   boolean ignoringErrors;
 
-  // Flag indicating whether the current path has already reported a type error
+  /** Flag indicating whether the current path has already reported a type error. */
   boolean errorOnCurrentPath;
 
   /**

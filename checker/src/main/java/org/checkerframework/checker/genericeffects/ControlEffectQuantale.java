@@ -7,9 +7,19 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * An implementation of Gordon's control effect transformation for effect quantales. For full
+ * details, see Gordon's ECOOP 2020 paper "Lifting Sequential Effects to Control Operators." This
+ * class implements the specialization of that to just tracking different classes of "aborting"
+ * computation: throws, breaks, and continue statements. Some tracking is annotated with AST nodes
+ * for better error reporting.
+ *
+ * @param <X> The representation type of the underlying effect quantale.
+ */
 public class ControlEffectQuantale<X>
     extends EffectQuantale<ControlEffectQuantale.ControlEffect<X>> {
 
+  /** A representation type for a control effect. */
   public static class ControlEffect<X> {
 
     public final X base;

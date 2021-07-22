@@ -21,6 +21,7 @@ import org.checkerframework.checker.genericeffects.qual.UnsafeIntegerCast;
 public final class CastingEffects
     extends FlowInsensitiveEffectLattice<Class<? extends Annotation>> {
 
+  /** Cached list of supported effects */
   ArrayList<Class<? extends Annotation>> listOfEffects = new ArrayList<>();
 
   /** Constructor that will add the defined list of effects to an ArrayList */

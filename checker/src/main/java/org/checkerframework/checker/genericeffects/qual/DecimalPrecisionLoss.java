@@ -6,8 +6,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/** This annotation is used for situations where there is a double that is being cast to a float. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
-/** This annotation is used for situations where there is a double that is being cast to a float. */
 public @interface DecimalPrecisionLoss {}

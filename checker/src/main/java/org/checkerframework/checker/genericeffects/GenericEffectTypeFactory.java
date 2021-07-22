@@ -21,9 +21,18 @@ import org.checkerframework.checker.genericeffects.qual.Placeholder;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 
+/**
+ * A base type factory for effect systems.
+ *
+ * <p>Provides a range of utilities for looking up and manipulating effects, including support for
+ * automatically interpreting {@link DefaultEffect} annotations when determining method effects.
+ */
 public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
 
+  /** Whether to emit all debugging information. */
   protected final boolean debugSpew;
+
+  /** Reference to the effect quantale being checked. */
   private EffectQuantale<Class<? extends Annotation>> genericEffect;
 
   /**

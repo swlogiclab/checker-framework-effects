@@ -7,13 +7,18 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Documented
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
 /**
  * This annotation is meant to be used by classes so the developer may specify which effect to
  * default to.
  */
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
 public @interface DefaultEffect {
+  /**
+   * The default effect for the annotated scope
+   *
+   * @return An annotation
+   */
   Class<? extends Annotation> value() default SafeCast.class;
 }

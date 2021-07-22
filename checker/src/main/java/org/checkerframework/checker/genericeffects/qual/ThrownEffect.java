@@ -7,15 +7,22 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/** Annotation to specify the effect of a method when a specific exception is thrown. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-/**
- * This annotation is meant to be used by classes so the developer may specify which effect to
- * default to.
- */
 public @interface ThrownEffect {
+  /**
+   * The exception whose pre-throw effect is being specified.
+   *
+   * @return The annotated exception
+   */
   Class<? extends Exception> exception();
 
+  /**
+   * The annotation indicating the effect of the method when the indicated exception is thrown.
+   *
+   * @return An annotation
+   */
   Class<? extends Annotation> behavior();
 }

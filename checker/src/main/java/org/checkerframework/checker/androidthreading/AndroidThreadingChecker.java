@@ -9,6 +9,14 @@ import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
 import org.checkerframework.framework.source.SupportedOptions;
 
+/**
+ * Checker for enforcing the Android threading annotations as a sound effect system.
+ *
+ * <p>See documentation on Thread annotations:
+ * https://developer.android.com/studio/write/annotations.html#thread-annotations and on adding
+ * these annotations to the class path for a project:
+ * https://developer.android.com/studio/write/annotations.html#adding-library
+ */
 @SupportedLintOptions({"debugSpew"})
 @SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
 public class AndroidThreadingChecker extends GenericEffectChecker {
@@ -27,7 +35,7 @@ public class AndroidThreadingChecker extends GenericEffectChecker {
   public EffectQuantale<Class<? extends Annotation>> getEffectLattice() {
     if (lattice == null) {
       try {
-        lattice = AndroidThreadEffects.getAndroidThreadEffects();
+        lattice = new AndroidThreadEffects();
       } catch (ClassNotFoundException e) {
         throw new IllegalArgumentException(
             "Failed to load Android annotations from android.support.annotation; is the class file"

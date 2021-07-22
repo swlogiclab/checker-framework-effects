@@ -6,6 +6,10 @@ import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
 import org.checkerframework.framework.source.SupportedOptions;
 
+/**
+ * Base class providing reusable infrastructure for implementing effect systems in the Checker
+ * Framework.
+ */
 @SupportedLintOptions({"debugSpew"})
 @SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
 public class GenericEffectChecker extends BaseTypeChecker {
@@ -15,6 +19,7 @@ public class GenericEffectChecker extends BaseTypeChecker {
     return new GenericEffectVisitor(this, new CastingEffectsExtension(this.getEffectLattice()));
   }
 
+  /** Reference to the implemented effect quantale */
   protected EffectQuantale<Class<? extends Annotation>> lattice;
 
   /**

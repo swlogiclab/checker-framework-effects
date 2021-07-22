@@ -35,8 +35,17 @@ import com.sun.source.tree.WildcardTree;
 import java.lang.annotation.Annotation;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 
+/**
+ * Base class for effect system plugins, allowing a lightweight way for developers to indicate that
+ * specific AST node should raise a certain custom effect. This makes it possible to ascribe effects
+ * to the use of Java language features.
+ *
+ * <p>To ascribe effects to select instances of a particular tree type, override the <code>
+ * doesXCheck()</code> and <code>checkX()</code> methods for each appropriate X.
+ */
 public class GenericEffectExtension {
 
+  /** Reference to the effect quantale */
   protected EffectQuantale<Class<? extends Annotation>> genericEffects;
 
   /**
@@ -59,122 +68,273 @@ public class GenericEffectExtension {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on array types.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesArrayTypeCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on assertions.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesAssertCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on assignments.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesAssignmentCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on binary operations.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesBinaryCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on break statements.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesBreakCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on a case.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesCaseCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on catch blocks.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesCatchCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on compound assignments.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesCompoundAssignmentCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on conditional (ternary)
+   * expressions.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesConditionalExpressionCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on continue statements.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesContinueCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on do-while loops.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesDoWhileLoopCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on enhanced for loops.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesEnhancedForLoopCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on standard for loops.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesForLoopCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on conditional statements.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesIfCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on uses of <code>instanceof</code>.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesInstanceOfCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on uses of intersection types.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesIntersectionTypeCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on labeled statements.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesLabeledStatementCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on literals.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesLiteralCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on array allocations.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesNewArrayCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on primitive types.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesPrimitiveTypeCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on return statements.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesReturnCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on switch statements.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesSwitchCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on synchronized blocks.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesSynchronizedCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on throw statements.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesThrowCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on try blocks.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesTryCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on type casts.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesTypeCastCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on unary operations.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesUnaryCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on uses of union types.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesUnionTypeCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on while loops.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesWhileLoopCheck() {
     return false;
   }
 
+  /**
+   * Indicates whether this extension performs additional checks on uses of wildcard types.
+   *
+   * @return Whether this AST node is checked by this extension.
+   */
   public boolean doesWildcardCheck() {
     return false;
   }
@@ -192,122 +352,302 @@ public class GenericEffectExtension {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkArrayType(ArrayTypeTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkAssert(AssertTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkAssignment(AssignmentTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkBinary(BinaryTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkBreak(BreakTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkCase(CaseTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkCatch(CatchTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkCompoundAssignment(CompoundAssignmentTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkConditionalExpression(ConditionalExpressionTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkContinue(ContinueTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkDoWhileLoop(DoWhileLoopTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkEnhancedForLoop(EnhancedForLoopTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkForLoop(ForLoopTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkIf(IfTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkInstanceOf(InstanceOfTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkIntersectionType(IntersectionTypeTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkLabeledStatement(LabeledStatementTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkLiteral(LiteralTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkNewArray(NewArrayTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkPrimitiveType(PrimitiveTypeTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkReturn(ReturnTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkSwitch(SwitchTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkSynchronized(SynchronizedTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkThrow(ThrowTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkTry(TryTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkTypeCast(TypeCastTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkUnary(UnaryTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkUnionType(UnionTypeTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkWhileLoop(WhileLoopTree node) {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Performs extra checks (if appropriate) on this AST node.
+   *
+   * @param node Node to check
+   * @return Representation of the effect this node should have, if other than unit.
+   */
   public Class<? extends Annotation> checkWildcard(WildcardTree node) {
     throw new UnsupportedOperationException();
   }
