@@ -3,6 +3,7 @@ package org.checkerframework.checker.androidthreading;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import org.checkerframework.checker.genericeffects.FlowInsensitiveEffectLattice;
+import org.checkerframework.checker.signature.qual.ClassGetName;
 
 /*
  * See documentation on Thread annotations:
@@ -25,7 +26,8 @@ public final class AndroidThreadEffects
   }
 
   @SuppressWarnings("unchecked")
-  private Class<? extends Annotation> getAnnotation(String s) throws ClassNotFoundException {
+  private Class<? extends Annotation> getAnnotation(@ClassGetName String s)
+      throws ClassNotFoundException {
     return (Class<? extends Annotation>) Class.forName(s);
   }
 

@@ -58,15 +58,13 @@ import org.checkerframework.javacutil.TreeUtils;
  * GenericEffectVisitor is a base class for effect systems, including sequential effect systems.
  *
  * <p>The general idea is for checking the effect of a method to proceed by initializing an
- * accumulator to the specific system's unit effect ({@link EffectQuantale.getUnitEffect()}), then
+ * accumulator to the specific system's unit effect ({@link EffectQuantale#unit()}), then
  * recursively traverse the AST to accumulate the overall effect of various subtrees. Each visit
  * method should leave the accumulator holding the effect of (only) the AST node visited.
  *
  * <p>Because methods can actually nest (if a method includes an anonymous inner class with a method
- * definition), we actually keep a <emph>stack</emph> of accumulators. The top element of the stack
- * is the accumulator for the current context.
- *
- * <p>
+ * definition), we actually keep a <i>stack</i> of accumulators. The top element of the stack is the
+ * accumulator for the current context.
  *
  * <p>The stack depth changes whenever a new AST node is visited. Upon entry to any visit method,
  * the top-most element of the stack should contain the effect of the method so far (i.e., the
@@ -80,7 +78,7 @@ import org.checkerframework.javacutil.TreeUtils;
  * individual subexpressions. So maybe we need a stack of stacks, error reporting from accumulating
  * across top-most stack :-p TODO: Add methods to the GenericEffectChecker to configure default
  * upper bounds on static and instance field initializers (static runs anywhere, field runs with
- * <emph>every</emph> ctor).
+ * <i>every</i> ctor).
  */
 public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFactory> {
 

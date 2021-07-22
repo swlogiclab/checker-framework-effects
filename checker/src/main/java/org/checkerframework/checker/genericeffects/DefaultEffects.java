@@ -17,7 +17,7 @@ public final class DefaultEffects
    * Method to check Less than equal to Effect
    *
    * @param left : Left Effect
-   * @param right: Right Effect
+   * @param right : Right Effect
    * @return boolean true : if bottom effect is left effect and is equal to NoIOEffect OR if top
    *     effect is right effect and is equal to IOEffect OR if left effect and right effect are the
    *     same

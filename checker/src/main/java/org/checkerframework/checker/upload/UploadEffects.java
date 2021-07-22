@@ -30,7 +30,7 @@ public final class UploadEffects extends EffectQuantale<Class<? extends Annotati
    * Method to check Less than equal to Effect
    *
    * @param left : Left Effect
-   * @param right: Right Effect
+   * @param right : Right Effect
    * @return boolean true : if bottom effect is on the left and the top effect is on the right, or
    *     if effects are equal
    *     <p>false : otherwise
