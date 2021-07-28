@@ -1,0 +1,231 @@
+\htmlhr
+\chapterAndLabel{Generic Effect Checker}{genericeffect-checker}
+
+The Generic Effect Checker is, similar to the Subtyping Checker (Chapter~\ref{subtyping-checker}), a parameterized checker for rapidly building other checkers with common needs.
+
+The Generic Effect Checker, as the name suggests, builds \emph{effect systems}. 
+Most checkers in the Checker Framework use type qualifiers to reason about properties of data, and restrict where various sorts of data may flow in a program. This offers a basis to restrict the program's behaviors involving those sorts, e.g., by preventing a possibly-unencrypted password from being sent in plaintext over the internet (Chapter~\ref{encrypted-example}).
+Effect systems also restrict what a program can do, but focus directly on the behavior itself as the primary source of restriction: effect systems track the \emph{effect} of executing each method in the program, including how the local actions and calls to other methods combine to create the overall effect of each method.  
+
+Put differently, while Java's regular type system and the qualifier-based checkers focus on the shape and properties of inputs and outputs of a method, effect systems focus on what might happen \emph{as code is running}. These extra things that might happen when a method runs (beyond returning a result) are called the \emph{effect} of a method, and describe some program behavior over time in some domain of interest.
+
+If you're writing Java code, you have already used one effect system: Java's built-in checked exceptions support is an effect system that tracks what exceptions code might throw.  The \code{throws} clause on a method describes an upper bound on the set of exceptions the method might throw.  Other effect systems are similar: methods are tagged with some upper bound on the behavior of interest to that particular effect system, and the effect system ensures that the actual run-time behavior of the method's code does no more than what its annotation says.
+
+The Checker Framework already has several effect systems:
+\begin{itemize}
+    \item the GUI Effect Checker (Chapter \ref{guieffect-checker})
+    \item the Android Threading Checker (Chapter !!!)
+    \item the Atomicity Checker (Chapter !!!)
+    \item the Casting Checker (Chapter \ref{castingeffect-checker})
+    \item !!!
+\end{itemize}
+All of these are built on the Generic Effect Checker, with the exception of the GUI Effect Checker (for historical reasons).
+
+\sectionAndLabel{Basic Effect Systems}{genericeffect-basic}
+Generally, an effect corresponds to some set of things that are specifically permitted to happen during the execution of a method, and an effect system considers it an error if code causes anything to happen that is not allowed by its effect.
+As a basic example, consider the possibility of an effect system with two effects for tracking where IO might occur in a program (e.g., to limit the corresponding performance concerns to specific parts of a program). This could be represented with two method (or constructor) annotations, \<@IOEffect> for code that is allowed (but not required) to perform IO (\<System.out.println> calls, etc.), and \<@NoIOEffect> for code that is not permitted to perform IO.
+
+When analyzing code, an effect system ensures that any behavior in a method, whether direct or as a result of calling another method, is permitted according to its effect.  So running this hypothetical effect system on the following example program:
+
+\begin{Verbatim}
+public abstract class IOExample {
+    @IOEffect public void okayToPrint() {
+        System.out.println("hello");
+    }
+    @NoIOEffect public void notOkayToPrint() {
+        System.out.println("hello");
+    }
+    @IOEffect public void okayToCall() {
+        mayPerformIO();
+    }
+    @NoIOEffect public void notOkayToCall() {
+        mayPerformIO();
+    }
+    @IOEffect public abstract void mayPerformIO();
+}
+\end{Verbatim}
+\begin{itemize}
+    \item \<okayToPrint> is accepted because its effect says it is permitted to perform IO actions
+    \item \<notOkayToPrint> will have an error reported where it calls \<System.out.println> because its effect says it is \emph{not} permitted to perform IO actions, yet would do so if run
+    \item \<okayToCall> is accepted because its effect says it is permitted to perform IO actions, which it may do indirectly by calling another method marked \<@IOEffect>
+    \item \<notOkayToCall> will have an error reported where it calls \<okayToPrint> because its effect says it is \emph{not} permitted to perform IO actions, yet may do so if run, because it calls a method whose effect indicates possible IO.
+\end{itemize}
+
+Each effect system focuses only on a particular kind of behavior of interest, and by default anything not related to the kind of behavior the effect system tracks is permitted.  For example, most effect systems do not care if a program adds two integers: this is a program behavior, but our hypothetical effect system tracking where input-output occurs has no reason to restrict this and would ignore it.
+
+Most effect systems have a very similar structure to the qualifier systems described elsewhere in the manual:
+\begin{itemize}
+    \item There are a set of annotations on methods, called effect annotations, which correspond to the behaviors we wish to model. (Similar to type qualifier annotations.)
+    \item Some effects are considered \emph{subeffects} of others, in that they correspond to strictly smaller ranges of behavior. (Similar to the subtyping relationship among qualifiers.)
+\end{itemize}
+In the hypothetical effect system above, \<@IOEffect> and \<@NoIOEffect> are the effect annotations, and \<@NoIOEffect> is considered a subeffect of \<@IOEffect> (since any code that performs no IO can always be called in places where IO is permitted).
+
+
+\subsectionAndLabel{Implementing Basic Effect Systems}{genericeffect-basicimpl}
+
+Currently the Generic Effect Checker does not support the same kind of shorthands as the Subtyping Checker (Chapter \ref{subtyping-checker}), so use of the Generic Effect Checker always requires writing at least a small amount of code to indicate which annotations are used for effects, and what their subeffecting relationship is.
+
+The directory layout of a basic effect system is:
+%
+\begin{Verbatim}
+myPackage/
+  | qual/                               type and effect qualifiers
+  | MyEffectChecker.java                interface to the compiler
+  | MyEffectLattice.java                code implementing effect comparisons
+\end{Verbatim}
+%
+\<MyEffectChecker.java> is mostly formulaic, and essentially just contains code for indicating the appropriate effect annotations (which should live in the \<qual> subpackage) and initializing the generic infrastructure with the appropriate lattice (\<MyEffectLattice.java>).
+
+We will demonstrate the basic structure by examining the source code for a simple effect system that tracks the presence or absence of IO behaviors.
+
+In the \<qual> subpackage, we start with two annotations:
+
+\begin{Verbatim}
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/** An effect for code which may perform IO. */
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+public @interface IOEffect {}
+\end{Verbatim}
+
+\begin{Verbatim}
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/** An effect for code which definitely does not perform IO. */
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.CONSTRUCTOR, ElementType.METHOD})
+public @interface NoIOEffect {}
+\end{Verbatim}
+
+These two annotations, \<@IOEffect> and \<@NoIOEffect>, respectively indicate that an annotated method or constructor either may (\<@IOEffect>) or definitely does not (\<@NoIOEffect>) perform IO, assuming appropriate annotations on various JDK methods which might perform IO (e.g., assuming \<System.out.println> is annotated \<@IOEffect>).
+Because code that definitely does not perform IO is safe to call in a context that otherwise may, we will consider \<@NoIOEffect> a subeffect of \<IOEffect>.
+
+To indicate this, we must write some code to model this and put it in \<IOEffectLattice.java>:
+\begin{Verbatim}
+import java.lang.annotation.Annotation;
+import java.util.ArrayList;
+import ....qual.IOEffect;
+import ....qual.NoIOEffect;
+
+public final class IOEffectLattice
+    extends FlowInsensitiveEffectLattice<Class<? extends Annotation>> {
+
+  ArrayList<Class<? extends Annotation>> listOfEffects = new ArrayList<>();
+
+  public IOEffectLattice() {
+    listOfEffects.add(NoIOEffect.class);
+    listOfEffects.add(IOEffect.class);
+  }
+
+  @Override
+  public Class<? extends Annotation> LUB(
+      Class<? extends Annotation> left, Class<? extends Annotation> right) {
+    assert (left != null && right != null);
+
+    if (left == IOEffect.class || right == IOEffect.class) {
+      return IOEffect.class;
+    } else {
+      return NoIOEffect.class;
+    }
+  }
+
+  @Override
+  public ArrayList<Class<? extends Annotation>> getValidEffects() {
+    return listOfEffects;
+  }
+
+  @Override
+  public Class<? extends Annotation> bottomEffect() {
+    return NoIOEffect.class;
+  }
+}
+\end{Verbatim}
+
+This class is an instance of the basic template for effect ordering, \refclass{checker/genericeffects}{FlowInsensitiveEffectLattice}, which is parameterized by a representation of behaviors (almost always \<Class<? extends Annotation>>, which represents the effect annotation types).
+
+There are 3 key pieces to this class:
+\begin{itemize}
+    \item The \refmethodterse{checker/genericeffets}{FlowInsensitiveEffectLattice}{bottomEffect}{()} method returns the effect which is a subeffect of all others.  Basic effect systems are \emph{required} to have such an effect.
+    \item The \refmethodterse{checker/genericeffets}{FlowInsensitiveEffectLattice}{getValidEffects}{()} method is used by the generic infrastructure to know which annotations to look for on methods and constructors, that model behavior. This list is populated once in the constructor to contain \<NoIOEffect.class> and \<IOEffect.class>, and returned for every invocation because the generic infrastructure may call this method many times, but will never modify the returned list. The order of elements in this list is irrelevant.
+    \item The \refmethodterse{checker/genericeffets}{FlowInsensitiveEffectLattice}{LUB}{(X,X)} method returns the least upper bound of two effects, if it exists.  In some systems there may be some pairs of effects with no sensible common upper bound, in which case the method should return null. In this case, we have only two effects, and one is a subeffect of the other, so this code simply returns \<IOEffect> (the supereffect) if either input is \<IOEffect>, and otherwise returns \<NoIOEffect>.  This method will never be called with an annotation other than one in the list returned from \refmethodterse{checker/genericeffets}{FlowInsensitiveEffectLattice}{getValidEffects}{()}.
+\end{itemize}
+
+Together, \<IOEffectLattice> tells the framework which annotations are effects, and which are subeffects of others.
+
+Finally, we must tie this together by implementing a dedicated checker class:
+\begin{Verbatim}
+import java.lang.annotation.Annotation;
+import org.checkerframework.checker.genericeffects.EffectQuantale;
+import org.checkerframework.checker.genericeffects.GenericEffectChecker;
+import org.checkerframework.checker.genericeffects.GenericEffectExtension;
+import org.checkerframework.checker.genericeffects.GenericEffectVisitor;
+import org.checkerframework.framework.source.SupportedLintOptions;
+import org.checkerframework.framework.source.SupportedOptions;
+
+@SupportedLintOptions({"debugSpew"})
+@SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
+public class IOEffectChecker extends GenericEffectChecker {
+
+  @Override
+  protected BaseTypeVisitor<?> createSourceVisitor() {
+    return new GenericEffectVisitor(this, new GenericEffectExtension(this.getEffectLattice()));
+  }
+
+  protected EffectQuantale<Class<? extends Annotation>> lattice;
+
+  public EffectQuantale<Class<? extends Annotation>> getEffectLattice() {
+    if (lattice == null) {
+      lattice = new IOEffectLattice();
+    }
+    return lattice;
+  }
+}
+\end{Verbatim}
+
+This class has four important pieces:
+\begin{itemize}
+    \item Like other checker implementations, the name ends with \<Checker>.
+    \item The class extends \refclass{checker/genericeffects}{GenericEffectChecker}, which transitively extends the base class of all checkers.
+    \item The \refmethodterse{checker/genericeffets}{GenericEffectChecker}{createSourceVisitor}{()} method returns a \refclass{checker/genericeffects}{GenericEffectVisitor} constructed with the current checker and a \refclass{checker/genericeffects}{GenericEffectExtension} (see Section \ref{genericeffect-extensions}) parameterized by the appropriate ordering information.
+    \item The \refmethodterse{checker/genericeffets}{GenericEffectChecker}{getEffectLattice}{()} method returns an instance of the \<IOEffectLattice> discussed earlier.  The return type mentions \<EffectQuantale>, a supertype of \refclass{checker/genericeffects}{FlowInsensitiveEffectLattice} used only for certain highly-specialized effect systems.  This method may be called frequently, so for good practice we memoize its creation.
+\end{itemize}
+
+TODO: Effect memoization for supported effects, and lattice memoization for the lattice, could be internalized into the framework. The \<createSourceVisitor> above should actually be the default implementation, saving effort there, and then overrides could be explained in \ref{genericeffect-extensions}.
+
+
+
+\subsectionAndLabel{Default Effects}{genericeffect-defaults}
+
+It would be onerous to manually mark every individual method in a program with an effect.  In practice, in well-designed software, most methods of a class tend to have the same effect because they are performing related work. For this reason the framework includes the \refqualclass{checker/genericeffects/qual}{DefaultEffect} annotation, which takes another annotation as an argument, and sets the effect on any method not marked otherwise to the specified effect.  For example:
+
+\begin{Verbatim}
+@DefaultEffect(IOEffect.class)
+public class IOUtilities {
+    ....
+    @NoIOEffect public void compareFilePaths(FilePath a, FilePath b) { ... }
+}
+\end{Verbatim}
+This use of \refqualclass{checker/genericeffects/qual}{DefaultEffect} will effectively mark every method of \<IOUtilities> as \<@IOEffect>, except for those marked otherwise, such as the shown \<compareFilePaths> method, where the local annotation of \<@NoIOEffect> will take precedence during checking of its method body and of callers.
+
+\refqualclass{checker/genericeffects/qual}{DefaultEffect} may also be applied to packages, which is equivalent to marking every type in a package with the default effect.
+
+\subsectionAndLabel{Effect Extensions}{genericeffect-extensions}
+
+Much of the time, the behaviors an effect system tracks correspond to sets of specific method calls: this is the case with our hypothetical IO effect system, where in some sense the notion of what counts as IO is derived from marking every library call that performs IO as \<@IOEffect> --- since the actual IO itself is really implemented outside Java.
+
+However, sometimes an effect system needs to reason about specific usage of Java language features. This is true for examples like the Casting Effect Checker (\ref{castingeffect-checker}). For a more self-contained example, ... JavaCard lacking float? (Too contrived, compiler just bans use of unsupported types)
+
+\subsectionAndLabel{Integrating Qualifiers}{genericeffect-quals}
+
+\sectionAndLabel{Flow-Sensitive Effect Systems}{genericeffect-flowsensitive}
