@@ -1,3 +1,27 @@
+Version 3.17.0 (August 3, 2021)
+-------------------------------
+
+**User-visible changes:**
+
+**Implementation details:**
+
+Method renamings in `GenericAnnotatedTypeFactory`:
+ * `getPreconditionAnnotation` => `getPreconditionAnnotations`
+ * `getPostconditionAnnotation` => `getPostconditionAnnotations`
+ * `getPreOrPostconditionAnnotation` => `getPreOrPostconditionAnnotations`
+
+Method renamings:
+ * `CFAbstractAnalysis.getFieldValues` => `getFieldInitialValues`
+
+The following methods no longer take a `fieldValues` parameter:
+ * `GenericAnnotatedTypeFactory#createFlowAnalysis`
+ * `CFAnalysis` construtor
+ * `CFAbstractAnalysis#performAnalysis`
+ * `CFAbstractAnalysis` constructors
+
+**Closed issues:**
+
+
 Version 3.16.0 (July 13, 2021)
 ------------------------------
 
