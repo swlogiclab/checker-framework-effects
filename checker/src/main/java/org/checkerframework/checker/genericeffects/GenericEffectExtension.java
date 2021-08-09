@@ -32,7 +32,6 @@ import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.UnionTypeTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.tree.WildcardTree;
-import java.lang.annotation.Annotation;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 
 /**
@@ -43,17 +42,17 @@ import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
  * <p>To ascribe effects to select instances of a particular tree type, override the <code>
  * doesXCheck()</code> and <code>checkX()</code> methods for each appropriate X.
  */
-public class GenericEffectExtension {
+public class GenericEffectExtension<X> {
 
   /** Reference to the effect quantale */
-  protected EffectQuantale<Class<? extends Annotation>> genericEffects;
+  protected EffectQuantale<X> genericEffects;
 
   /**
    * Constructor to set the lattice.
    *
    * @param lattice The lattice of the checker.
    */
-  public GenericEffectExtension(EffectQuantale<Class<? extends Annotation>> lattice) {
+  public GenericEffectExtension(EffectQuantale<X> lattice) {
     genericEffects = lattice;
   }
 
@@ -348,7 +347,7 @@ public class GenericEffectExtension {
    * @return The effect of the specific tree node or throws an UnsupportedOperationException if not
    *     overridden.
    */
-  public Class<? extends Annotation> checkArrayAccess(ArrayAccessTree node) {
+  public X checkArrayAccess(ArrayAccessTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -358,7 +357,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkArrayType(ArrayTypeTree node) {
+  public X checkArrayType(ArrayTypeTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -368,7 +367,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkAssert(AssertTree node) {
+  public X checkAssert(AssertTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -378,7 +377,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkAssignment(AssignmentTree node) {
+  public X checkAssignment(AssignmentTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -388,7 +387,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkBinary(BinaryTree node) {
+  public X checkBinary(BinaryTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -398,7 +397,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkBreak(BreakTree node) {
+  public X checkBreak(BreakTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -408,7 +407,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkCase(CaseTree node) {
+  public X checkCase(CaseTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -418,7 +417,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkCatch(CatchTree node) {
+  public X checkCatch(CatchTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -428,7 +427,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkCompoundAssignment(CompoundAssignmentTree node) {
+  public X checkCompoundAssignment(CompoundAssignmentTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -438,7 +437,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkConditionalExpression(ConditionalExpressionTree node) {
+  public X checkConditionalExpression(ConditionalExpressionTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -448,7 +447,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkContinue(ContinueTree node) {
+  public X checkContinue(ContinueTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -458,7 +457,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkDoWhileLoop(DoWhileLoopTree node) {
+  public X checkDoWhileLoop(DoWhileLoopTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -468,7 +467,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkEnhancedForLoop(EnhancedForLoopTree node) {
+  public X checkEnhancedForLoop(EnhancedForLoopTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -478,7 +477,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkForLoop(ForLoopTree node) {
+  public X checkForLoop(ForLoopTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -488,7 +487,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkIf(IfTree node) {
+  public X checkIf(IfTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -498,7 +497,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkInstanceOf(InstanceOfTree node) {
+  public X checkInstanceOf(InstanceOfTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -508,7 +507,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkIntersectionType(IntersectionTypeTree node) {
+  public X checkIntersectionType(IntersectionTypeTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -518,7 +517,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkLabeledStatement(LabeledStatementTree node) {
+  public X checkLabeledStatement(LabeledStatementTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -528,7 +527,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkLiteral(LiteralTree node) {
+  public X checkLiteral(LiteralTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -538,7 +537,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkNewArray(NewArrayTree node) {
+  public X checkNewArray(NewArrayTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -548,7 +547,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkPrimitiveType(PrimitiveTypeTree node) {
+  public X checkPrimitiveType(PrimitiveTypeTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -558,7 +557,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkReturn(ReturnTree node) {
+  public X checkReturn(ReturnTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -568,7 +567,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkSwitch(SwitchTree node) {
+  public X checkSwitch(SwitchTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -578,7 +577,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkSynchronized(SynchronizedTree node) {
+  public X checkSynchronized(SynchronizedTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -588,7 +587,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkThrow(ThrowTree node) {
+  public X checkThrow(ThrowTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -598,7 +597,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkTry(TryTree node) {
+  public X checkTry(TryTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -608,7 +607,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkTypeCast(TypeCastTree node) {
+  public X checkTypeCast(TypeCastTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -618,7 +617,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkUnary(UnaryTree node) {
+  public X checkUnary(UnaryTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -628,7 +627,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkUnionType(UnionTypeTree node) {
+  public X checkUnionType(UnionTypeTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -638,7 +637,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkWhileLoop(WhileLoopTree node) {
+  public X checkWhileLoop(WhileLoopTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -648,7 +647,7 @@ public class GenericEffectExtension {
    * @param node Node to check
    * @return Representation of the effect this node should have, if other than unit.
    */
-  public Class<? extends Annotation> checkWildcard(WildcardTree node) {
+  public X checkWildcard(WildcardTree node) {
     throw new UnsupportedOperationException();
   }
 
@@ -672,23 +671,6 @@ public class GenericEffectExtension {
    */
   public @CompilerMessageKey String reportWarning(Tree node) {
     return null;
-  }
-
-  /**
-   * This method should not be overridden unless compiler arguments need to be parsed differently.
-   *
-   * @param compilerArgs Arguments that were taken from the compiler.
-   * @param anno Effect that needs to be checked to see if it is in the compiler arguments.
-   * @return The bottom most effect in the lattice if the effect was in the compiler arguments or
-   *     else the original effect is returned.
-   */
-  public Class<? extends Annotation> checkIgnoredEffects(
-      String compilerArgs, Class<? extends Annotation> anno) {
-    String[] parsedArgs = compilerArgs.split(",");
-    for (String args : parsedArgs) {
-      if (args.equals(anno.getSimpleName())) return genericEffects.unit();
-    }
-    return anno;
   }
 
   /**

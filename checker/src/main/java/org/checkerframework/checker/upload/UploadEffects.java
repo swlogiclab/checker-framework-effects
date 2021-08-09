@@ -14,11 +14,7 @@ public final class UploadEffects extends EffectQuantale<Class<? extends Annotati
   // public final Class<? extends Annotation> WriteOnDisk;
   // public final Class<? extends Annotation> Noop;
 
-  public static UploadEffects getUploadEffects() throws ClassNotFoundException {
-    return new UploadEffects();
-  }
-
-  private UploadEffects() {
+  public UploadEffects() {
     // WriteOnDisk = getAnnotation("upload.support.annotation.WriteOnDisk");
     effects.add(WriteOnDisk.class);
     effects.add(Noop.class);

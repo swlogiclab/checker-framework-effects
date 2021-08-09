@@ -1,5 +1,6 @@
 package org.checkerframework.checker.genericeffects;
 
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 
 /**
@@ -61,11 +62,11 @@ public abstract class EffectQuantale<X> {
   public abstract X seq(X l, X r);
 
   /**
-   * Get the collection of supported effects.
+   * Get the collection of supported effect annotations.
    *
-   * @return A list of effects supported by the checker
+   * @return A list of annotations for effects supported by the checker
    */
-  public abstract ArrayList<X> getValidEffects();
+  public abstract ArrayList<Class<? extends Annotation>> getValidEffects();
 
   /**
    * The unit element of the effect quantale, such that: <code>seq(x,unit()) == x == seq(unit(),x)

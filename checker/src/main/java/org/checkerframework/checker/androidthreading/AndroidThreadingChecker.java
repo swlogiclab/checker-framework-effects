@@ -3,9 +3,6 @@ package org.checkerframework.checker.androidthreading;
 import java.lang.annotation.Annotation;
 import org.checkerframework.checker.genericeffects.EffectQuantale;
 import org.checkerframework.checker.genericeffects.GenericEffectChecker;
-import org.checkerframework.checker.genericeffects.GenericEffectExtension;
-import org.checkerframework.checker.genericeffects.GenericEffectVisitor;
-import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.source.SupportedLintOptions;
 import org.checkerframework.framework.source.SupportedOptions;
 
@@ -19,12 +16,7 @@ import org.checkerframework.framework.source.SupportedOptions;
  */
 @SupportedLintOptions({"debugSpew"})
 @SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
-public class AndroidThreadingChecker extends GenericEffectChecker {
-
-  @Override
-  protected BaseTypeVisitor<?> createSourceVisitor() {
-    return new GenericEffectVisitor(this, new GenericEffectExtension(getEffectLattice()));
-  }
+public class AndroidThreadingChecker extends GenericEffectChecker<Class<? extends Annotation>> {
 
   /**
    * Method to get the lattice of the checker.
@@ -46,5 +38,10 @@ public class AndroidThreadingChecker extends GenericEffectChecker {
       }
     }
     return lattice;
+  }
+
+  @Override
+  public Class<? extends Annotation> fromAnnotation(Class<? extends Annotation> anno) {
+    return anno;
   }
 }

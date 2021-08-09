@@ -12,25 +12,26 @@ import org.checkerframework.framework.source.SupportedOptions;
  */
 @SupportedLintOptions({"debugSpew"})
 @SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
-public class GenericEffectChecker extends BaseTypeChecker {
+public abstract class GenericEffectChecker<X> extends BaseTypeChecker {
 
   @Override
   protected BaseTypeVisitor<?> createSourceVisitor() {
-    return new GenericEffectVisitor(this, new CastingEffectsExtension(this.getEffectLattice()));
+    return new GenericEffectVisitor<X>(this, getExtension(), this::fromAnnotation);
   }
 
   /** Reference to the implemented effect quantale */
-  protected EffectQuantale<Class<? extends Annotation>> lattice;
+  protected EffectQuantale<X> lattice;
 
   /**
    * Method to get the lattice of the checker.
    *
    * @return A EffectQuantale object that represents the lattice of the checker.
    */
-  public EffectQuantale<Class<? extends Annotation>> getEffectLattice() {
-    if (lattice == null) {
-      lattice = new CastingEffects();
-    }
-    return lattice;
+  public abstract EffectQuantale<X> getEffectLattice();
+
+  public GenericEffectExtension<X> getExtension() {
+    return new GenericEffectExtension<X>(this.getEffectLattice());
   }
+
+  public abstract X fromAnnotation(Class<? extends Annotation> anno);
 }

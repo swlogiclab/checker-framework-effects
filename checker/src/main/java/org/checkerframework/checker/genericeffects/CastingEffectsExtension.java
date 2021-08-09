@@ -14,7 +14,7 @@ import org.checkerframework.checker.genericeffects.qual.SafeCast;
 import org.checkerframework.javacutil.TreeUtils;
 
 /** An effect plugin to flag {@link TypeCastTree} instances with an appropriate casting effect. */
-public class CastingEffectsExtension extends GenericEffectExtension {
+public class CastingEffectsExtension extends GenericEffectExtension<Class<? extends Annotation>> {
 
   /**
    * Constructor that takes the lattice in as a parameter and passes it to the constructor of the

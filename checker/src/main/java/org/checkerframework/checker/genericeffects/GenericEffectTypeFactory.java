@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -19,7 +20,6 @@ import javax.lang.model.util.Types;
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.Placeholder;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
-import org.checkerframework.common.basetype.BaseTypeChecker;
 
 /**
  * A base type factory for effect systems.
@@ -27,13 +27,13 @@ import org.checkerframework.common.basetype.BaseTypeChecker;
  * <p>Provides a range of utilities for looking up and manipulating effects, including support for
  * automatically interpreting {@link DefaultEffect} annotations when determining method effects.
  */
-public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
+public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
 
   /** Whether to emit all debugging information. */
   protected final boolean debugSpew;
 
   /** Reference to the effect quantale being checked. */
-  private EffectQuantale<Class<? extends Annotation>> genericEffect;
+  private EffectQuantale<X> genericEffect;
 
   /**
    * Constructor for the checker's type factory.
@@ -42,14 +42,19 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
    *     checker.
    * @param spew Boolean used for debugging.
    */
-  public GenericEffectTypeFactory(BaseTypeChecker checker, boolean spew) {
+  public GenericEffectTypeFactory(GenericEffectChecker<X> checker, boolean spew) {
     // use true to enable flow inference, false to disable it
     super(checker, false);
 
-    genericEffect = ((GenericEffectChecker) checker).getEffectLattice();
+    genericEffect = checker.getEffectLattice();
 
     debugSpew = spew;
     this.postInit();
+  }
+
+  public void setConversion(Function<Class<? extends Annotation>, X> fromAnno) {
+    assert (fromAnno != null);
+    fromAnnotation = fromAnno;
   }
 
   @Override
@@ -124,6 +129,8 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
     */
   }
 
+  private Function<Class<? extends Annotation>, X> fromAnnotation;
+
   /**
    * This method is used to get the default effect of a class that is annotated with DefaultEffect.
    * The way this method works is by attempting to call the value() method of DefaultEffect which
@@ -136,7 +143,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
    * @param clsElt An element representing a class.
    * @return The default effect of the class element that was passed as a parameter.
    */
-  private Class<? extends Annotation> getClassType(Element clsElt) {
+  private X getClassType(Element clsElt) {
     // TODO: There may be a better approach to getting the information that is needed than
     // raising an exception
     TypeMirror clsAnno = null;
@@ -153,7 +160,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
     TypeElement typeElt = (TypeElement) TypeUtils.asElement(clsAnno);
     String name = typeElt.getSimpleName().toString();
     for (Class<? extends Annotation> validEffect : genericEffect.getValidEffects()) {
-      if (name.equals(validEffect.getSimpleName())) return validEffect;
+      if (name.equals(validEffect.getSimpleName())) return this.fromAnnotation.apply(validEffect);
     }
     return genericEffect.unit();
   }
@@ -164,7 +171,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
    * @param elt Element for which the default effect will be retrieved.
    * @return Default effect of the element.
    */
-  public Class<? extends Annotation> getDefaultEffect(Element elt) {
+  public X getDefaultEffect(Element elt) {
     Element clsElt = getInnermostAnnotatedClass(elt);
     return getClassType(clsElt);
   }
@@ -176,7 +183,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
    * @return declared effect : if methodElt is annotated with a valid effect
    *     bottomMostEffectInLattice : otherwise, bottom most effect of lattice
    */
-  public Class<? extends Annotation> getDeclaredEffect(ExecutableElement methodElt) {
+  public X getDeclaredEffect(ExecutableElement methodElt) {
     if (debugSpew) {
       System.err.println("> Retrieving declared effect of: " + methodElt);
     }
@@ -189,7 +196,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
         if (debugSpew) {
           System.err.println("< Method marked @" + annotatedEffect);
         }
-        return OkEffect;
+        return fromAnnotation.apply(OkEffect);
       }
     }
 
@@ -223,14 +230,14 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
       Tree errorNode) {
     assert (declaringType != null);
 
-    Class<? extends Annotation> overridingEffect = getDeclaredEffect(overridingMethod);
+    X overridingEffect = getDeclaredEffect(overridingMethod);
 
     // Chain of parent classes
     TypeMirror superclass = declaringType.getSuperclass();
     while (superclass != null && superclass.getKind() != TypeKind.NONE) {
       ExecutableElement overrides = findJavaOverride(overridingMethod, superclass);
       if (overrides != null) {
-        Class<? extends Annotation> superClassEffect = getDeclaredEffect(overrides);
+        X superClassEffect = getDeclaredEffect(overrides);
         if (!genericEffect.LE(overridingEffect, superClassEffect)) {
           checker.reportError(
               errorNode,
@@ -253,7 +260,7 @@ public class GenericEffectTypeFactory extends BaseAnnotatedTypeFactory {
         if (implementedInterface.getKind() != TypeKind.NONE) {
           ExecutableElement overrides = findJavaOverride(overridingMethod, implementedInterface);
           if (overrides != null) {
-            Class<? extends Annotation> interfaceEffect = getDeclaredEffect(overrides);
+            X interfaceEffect = getDeclaredEffect(overrides);
             if (!genericEffect.LE(overridingEffect, interfaceEffect) && issueConflictWarning) {
               checker.reportError(
                   errorNode,

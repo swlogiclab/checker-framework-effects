@@ -42,6 +42,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.function.Function;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -49,7 +50,6 @@ import javax.lang.model.element.TypeElement;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.checker.genericeffects.qual.Impossible;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
-import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.javacutil.TreePathUtil;
 import org.checkerframework.javacutil.TreeUtils;
@@ -80,20 +80,20 @@ import org.checkerframework.javacutil.TreeUtils;
  * upper bounds on static and instance field initializers (static runs anywhere, field runs with
  * <i>every</i> ctor).
  */
-public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFactory> {
+public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFactory<X>> {
 
   /** Debug flag, set via the "debugSpew" lint option */
   protected final boolean debugSpew;
   /** Reference to the effect quantale being checked. */
-  private EffectQuantale<Class<? extends Annotation>> genericEffect;
+  private EffectQuantale<X> genericEffect;
   /** Reference to a plugin for determining the effects of basic Java language features. */
-  private GenericEffectExtension extension;
+  private GenericEffectExtension<X> extension;
 
   /**
    * A stack of effect contexts, one for each level of nested methods (to support anonymous inner
    * classes).
    */
-  protected final Deque<ContextEffect<Class<? extends Annotation>>> effStack;
+  protected final Deque<ContextEffect<X>> effStack;
   /**
    * A stack of references to the methods being processed, including null for field initialization
    * and static initializer blocks.
@@ -110,6 +110,13 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
   /** Flag indicating whether the current path has already reported a type error. */
   boolean errorOnCurrentPath;
 
+  /** Specialized reference to type factory that knows the representation type of effects. */
+  GenericEffectTypeFactory<X> xtypeFactory;
+
+  GenericEffectChecker<X> xchecker;
+
+  private Function<Class<? extends Annotation>, X> fromAnnotation;
+
   /**
    * Constructor that takes passes the checker to the superclass and takes in a
    * GenericEffectExtension object. The effect stack for methods and variables are set up in the
@@ -120,14 +127,20 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
    *     dealing with specific tree nodes.
    */
   @SuppressWarnings("JdkObsolete")
-  public GenericEffectVisitor(BaseTypeChecker checker, GenericEffectExtension ext) {
+  public GenericEffectVisitor(
+      GenericEffectChecker<X> checker,
+      GenericEffectExtension<X> ext,
+      Function<Class<? extends Annotation>, X> fromAnno) {
     super(checker);
-    assert (checker instanceof GenericEffectChecker);
+    xchecker = checker;
     debugSpew = checker.getLintOption("debugSpew", false);
+
+    fromAnnotation = fromAnno;
+    xtypeFactory.setConversion(fromAnno);
 
     /* ErrorProne JdkObsolete warnings are suppressed here because we must use a deque/stack implementation that permits null.
      * Without supressing this warning, ErrorProne complains we should be using ArrayDeque, which rejects null elements. */
-    effStack = new LinkedList<ContextEffect<Class<? extends Annotation>>>();
+    effStack = new LinkedList<ContextEffect<X>>();
     currentMethods = new LinkedList<MethodTree>();
 
     extension = ext;
@@ -137,7 +150,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     ignoringErrors = checker.getOption("ignoreErrors") != null;
     errorOnCurrentPath = false;
 
-    genericEffect = ((GenericEffectChecker) checker).getEffectLattice();
+    genericEffect = checker.getEffectLattice();
 
     if (debugSpew) {
       System.err.println(
@@ -145,7 +158,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
               + genericEffect.getClass().toString());
       System.err.println(
           "Loading generic effect visitor with type factory: "
-              + atypeFactory.getClass().toString());
+              + xtypeFactory.getClass().toString());
     }
   }
 
@@ -154,9 +167,18 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
    *
    * @return The type factory of the checker.
    */
+  @SuppressWarnings("unchecked")
   @Override
-  protected GenericEffectTypeFactory createTypeFactory() {
-    return new GenericEffectTypeFactory(checker, checker.getLintOption("debugSpew", false));
+  protected GenericEffectTypeFactory<X> createTypeFactory() {
+    // This unchecked case is present because this method is invoked from the supertype's
+    // constructor, so only checker (as BaseTypeChecker) is set. But since it's set from a ctor
+    // argument that must be a GenericEffectChecker with appropriate effect representation, this is
+    // always correct.
+    // This is called from the super constructor, so xchecker is not yet set
+    xtypeFactory =
+        new GenericEffectTypeFactory<X>(
+            (GenericEffectChecker<X>) checker, checker.getLintOption("debugSpew", false));
+    return xtypeFactory;
   }
 
   /**
@@ -169,7 +191,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
   public void processClassTree(ClassTree node) {
     // Fix up context for static initializers of new class
     currentMethods.addFirst(null);
-    effStack.addFirst(new ContextEffect<Class<? extends Annotation>>(genericEffect));
+    effStack.addFirst(new ContextEffect<X>(genericEffect));
     super.processClassTree(node);
     currentMethods.removeFirst();
     effStack.removeFirst();
@@ -198,17 +220,17 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     assert (methElt != null);
 
     // Override check
-    atypeFactory.checkEffectOverride(
+    xtypeFactory.checkEffectOverride(
         (TypeElement) methElt.getEnclosingElement(), methElt, true, node);
 
-    Map<Class<? extends Exception>, Class<? extends Annotation>> excBehaviors = new HashMap<>();
+    Map<Class<? extends Exception>, X> excBehaviors = new HashMap<>();
     // Check that any @ThrownEffect uses are valid
-    for (AnnotationMirror thrown : atypeFactory.getDeclAnnotations(methElt)) {
-      if (atypeFactory.areSameByClass(thrown, ThrownEffect.class)) {
+    for (AnnotationMirror thrown : xtypeFactory.getDeclAnnotations(methElt)) {
+      if (xtypeFactory.areSameByClass(thrown, ThrownEffect.class)) {
         ThrownEffect thrownEff = (ThrownEffect) thrown;
         // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
-        Class<? extends Annotation> prev =
-            excBehaviors.put(thrownEff.exception(), thrownEff.behavior());
+        X prev =
+            excBehaviors.put(thrownEff.exception(), fromAnnotation.apply(thrownEff.behavior()));
         if (prev != null) {
           checker.reportError(
               node,
@@ -222,7 +244,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     // Initialize method stack
     currentMethods.addFirst(node);
-    effStack.addFirst(new ContextEffect<Class<? extends Annotation>>(genericEffect));
+    effStack.addFirst(new ContextEffect<X>(genericEffect));
 
     if (debugSpew) {
       System.err.println(
@@ -239,8 +261,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     // systems?
     // TODO: Work out laws for residuals w/ comm: e.g., x\(y\z) def <-> y\(x\z) def?
     if (!errorOnCurrentPath) {
-      Class<? extends Annotation> targetEffect = effStack.peek().currentPathEffect();
-      Class<? extends Annotation> callerEffect = atypeFactory.getDeclaredEffect(methElt);
+      X targetEffect = effStack.peek().currentPathEffect();
+      X callerEffect = xtypeFactory.getDeclaredEffect(methElt);
       if (!effStack.peek().currentlyImpossible() && isInvalid(targetEffect, callerEffect))
         checkError(node, targetEffect, callerEffect, "subeffect.invalid.methodbody");
       else if (!effStack.peek().currentlyImpossible() && extension.reportWarning(node) != null)
@@ -277,11 +299,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
    * @param callerEffect Caller effect of node.
    * @return Boolean value representing whether the effects are invalid (true) or not (false)
    */
-  private boolean isInvalid(
-      Class<? extends Annotation> targetEffect, Class<? extends Annotation> callerEffect) {
-    if (ignoringEffects)
-      targetEffect =
-          extension.checkIgnoredEffects(checker.getOption("ignoreEffects"), targetEffect);
+  private boolean isInvalid(X targetEffect, X callerEffect) {
     if (!genericEffect.LE(targetEffect, callerEffect)) return true;
     return false;
   }
@@ -296,10 +314,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
    * @param failureMsg Error message to be reported.
    */
   private void checkError(
-      Tree node,
-      Class<? extends Annotation> targetEffect,
-      Class<? extends Annotation> callerEffect,
-      @CompilerMessageKey String failureMsg) {
+      Tree node, X targetEffect, X callerEffect, @CompilerMessageKey String failureMsg) {
     if (!ignoringErrors) checker.reportError(node, failureMsg, targetEffect, callerEffect);
     else if (ignoringErrors && !extension.isIgnored(checker.getOption("ignoreErrors"), failureMsg))
       checker.reportError(node, failureMsg, targetEffect, callerEffect);
@@ -312,12 +327,12 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     }
     // Skip the check if we've already reported an error on this path.
     if (!ignoringErrors && !errorOnCurrentPath) {
-      Class<? extends Annotation> pathEffect = effStack.peek().currentPathEffect();
+      X pathEffect = effStack.peek().currentPathEffect();
       if (pathEffect == Impossible.class) {
         return; // In an enclosing context of a path that always throws/returns
       }
-      Class<? extends Annotation> methodEffect =
-          atypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()));
+      X methodEffect =
+          xtypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()));
       if (debugSpew) {
         System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
         System.err.println("In location " + visitorState.getPath());
@@ -349,10 +364,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
    * @param warningMsg Warning message to be reported.
    */
   private void checkWarning(
-      Tree node,
-      Class<? extends Annotation> targetEffect,
-      Class<? extends Annotation> callerEffect,
-      @CompilerMessageKey String warningMsg) {
+      Tree node, X targetEffect, X callerEffect, @CompilerMessageKey String warningMsg) {
     if (!ignoringWarnings) checker.reportWarning(node, warningMsg, targetEffect, callerEffect);
     else if (ignoringWarnings
         && !extension.isIgnored(checker.getOption("ignoreWarnings"), warningMsg))
@@ -364,10 +376,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
    *
    * @return Effect of a method that a node is within.
    */
-  private Class<? extends Annotation> getMethodCallerEffect() {
+  private X getMethodCallerEffect() {
     MethodTree callerTree = TreePathUtil.enclosingMethod(getCurrentPath());
     ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
-    return atypeFactory.getDeclaredEffect(callerElt);
+    return xtypeFactory.getDeclaredEffect(callerElt);
   }
 
   /**
@@ -379,10 +391,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
    * @return The default effect of a class that a node is within.
    */
   @SuppressWarnings("UnusedMethod")
-  private Class<? extends Annotation> getDefaultClassEffect() {
+  private X getDefaultClassEffect() {
     ClassTree clsTree = TreePathUtil.enclosingClass(getCurrentPath());
     Element clsElt = TreeUtils.elementFromDeclaration(clsTree);
-    return atypeFactory.getDefaultEffect(clsElt);
+    return xtypeFactory.getDefaultEffect(clsElt);
   }
 
   /**
@@ -403,7 +415,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
       scan(args, p);
     }
     ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-    Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
+    X targetEffect = xtypeFactory.getDeclaredEffect(methodElt);
     if (debugSpew) {
       System.err.println("Pushing latent effect " + targetEffect + " for " + node);
     }
@@ -444,7 +456,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     // Visit arguments, and if anonymous inner class, the inner class body
     super.visitNewClass(node, p);
     ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-    Class<? extends Annotation> targetEffect = atypeFactory.getDeclaredEffect(methodElt);
+    X targetEffect = xtypeFactory.getDeclaredEffect(methodElt);
     effStack.peek().pushEffect(targetEffect, node);
     effStack.peek().squashMark(node);
     checkResidual(node);
@@ -492,8 +504,8 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     // Assertions may or may not execute, so ensure either possibility is acceptable
     effStack.peek().mark();
     scan(node.getCondition(), p);
-    Class<? extends Annotation> condEff = effStack.peek().squashMark(node);
-    Class<? extends Annotation> joinWithUnit = genericEffect.LUB(genericEffect.unit(), condEff);
+    X condEff = effStack.peek().squashMark(node);
+    X joinWithUnit = genericEffect.LUB(genericEffect.unit(), condEff);
     if (joinWithUnit == null) {
       checker.reportError(node, "undefined.join.assertion", condEff);
     }
@@ -587,16 +599,16 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     effStack.peek().mark();
 
     scan(node.getStatement(), p);
-    Class<? extends Annotation> bodyEff = effStack.peek().latestEffect();
+    X bodyEff = effStack.peek().latestEffect();
     scan(node.getCondition(), p);
-    Class<? extends Annotation> condEff = effStack.peek().latestEffect();
+    X condEff = effStack.peek().latestEffect();
 
     // Here we DO NOT simply squash, because we must invoke iteration
-    LinkedList<Class<? extends Annotation>> pieces = effStack.peek().rewindToMark();
+    LinkedList<X> pieces = effStack.peek().rewindToMark();
     assert (pieces.get(0) == bodyEff);
     assert (pieces.get(1) == condEff);
 
-    Class<? extends Annotation> repeff = genericEffect.iter(genericEffect.seq(bodyEff, condEff));
+    X repeff = genericEffect.iter(genericEffect.seq(bodyEff, condEff));
     if (repeff == null) {
       checker.reportError(node, "undefined.repetition.twopart", bodyEff, condEff);
       // Pretend we ran the loop and condition once each
@@ -604,7 +616,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
       assert success; // TODO fix
     } else {
       // Valid iteration
-      Class<? extends Annotation> eff = genericEffect.seq(condEff, repeff);
+      X eff = genericEffect.seq(condEff, repeff);
       boolean success = effStack.peek().pushEffect(eff, node);
       assert success; // TODO fix
     }
@@ -626,28 +638,28 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
 
     // Scan the initializer statements (implicitly, in order)
     scan(node.getInitializer(), p);
-    Class<? extends Annotation> initEff = effStack.peek().latestEffect();
+    X initEff = effStack.peek().latestEffect();
     scan(node.getCondition(), p);
-    Class<? extends Annotation> condEff = effStack.peek().latestEffect();
+    X condEff = effStack.peek().latestEffect();
     scan(node.getStatement(), p);
-    Class<? extends Annotation> bodyEff = effStack.peek().latestEffect();
+    X bodyEff = effStack.peek().latestEffect();
     // mark for updates, since there may be multiple
     effStack.peek().mark();
     scan(node.getUpdate(), p);
-    Class<? extends Annotation> updateEff = effStack.peek().squashMark(null);
+    X updateEff = effStack.peek().squashMark(null);
 
     // If we're reached here, it's possible to run the initializers, cond, body, update in that
     // order
     // We care about iterating body-update-cond, though
 
     // Here we DO NOT simply squash, because we must invoke iteration
-    LinkedList<Class<? extends Annotation>> pieces = effStack.peek().rewindToMark();
+    LinkedList<X> pieces = effStack.peek().rewindToMark();
     assert (pieces.get(0) == initEff);
     assert (pieces.get(1) == condEff);
     assert (pieces.get(2) == bodyEff);
     assert (pieces.get(3) == updateEff);
 
-    Class<? extends Annotation> repeff =
+    X repeff =
         genericEffect.iter(genericEffect.seq(genericEffect.seq(bodyEff, updateEff), condEff));
     if (repeff == null) {
       checker.reportError(node, "undefined.repetition.threepart", bodyEff, updateEff, condEff);
@@ -657,8 +669,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
           .pushEffect(genericEffect.seq(condEff, genericEffect.seq(bodyEff, condEff)), node);
     } else {
       // Valid iteration
-      Class<? extends Annotation> eff =
-          genericEffect.seq(genericEffect.seq(initEff, condEff), repeff);
+      X eff = genericEffect.seq(genericEffect.seq(initEff, condEff), repeff);
       effStack.peek().pushEffect(eff, node);
     }
     checkResidual(node);
@@ -681,10 +692,10 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     effStack.peek().mark();
     scan(thenTree, p);
     boolean thenError = errorOnCurrentPath;
-    LinkedList<Class<? extends Annotation>> thenEffs = effStack.peek().rewindToMark();
+    LinkedList<X> thenEffs = effStack.peek().rewindToMark();
     assert (thenEffs.size() == 1);
-    Class<? extends Annotation> thenEff = thenEffs.get(0);
-    Class<? extends Annotation> elseEff = genericEffect.unit();
+    X thenEff = thenEffs.get(0);
+    X elseEff = genericEffect.unit();
     // If there's no else, there's no else error
     boolean elseError = false;
     // If there was an error on the then-path, there may still be no issue on the else path
@@ -693,14 +704,14 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
       effStack.peek().mark();
       scan(elseTree, p);
       elseError = errorOnCurrentPath;
-      LinkedList<Class<? extends Annotation>> elseEffs = effStack.peek().rewindToMark();
+      LinkedList<X> elseEffs = effStack.peek().rewindToMark();
       assert (elseEffs.size() == 1);
       elseEff = elseEffs.get(0);
     }
     // stack still has the condition effect on it, but no branch effects
-    LinkedList<Class<? extends Annotation>> condEffs = effStack.peek().rewindToMark();
+    LinkedList<X> condEffs = effStack.peek().rewindToMark();
     assert (condEffs.size() == 1);
-    Class<? extends Annotation> condEff = condEffs.get(0);
+    X condEff = condEffs.get(0);
 
     errorOnCurrentPath = condError || (thenError && elseError);
 
@@ -714,7 +725,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
       effStack.peek().pushEffect(genericEffect.seq(condEff, thenEff), node);
     } else {
       // Both branches possible: the common case
-      Class<? extends Annotation> lub = genericEffect.LUB(thenEff, elseEff);
+      X lub = genericEffect.LUB(thenEff, elseEff);
       if (lub == null) {
         if (elseTree == null) {
           checker.reportError(node, "undefined.join.unaryif", thenEff, elseEff);
@@ -823,7 +834,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     // value that can be inspected e.g. in conditional cases, which already save&restore?
     // TODO: Maybe the "set of behaviors" collection is the right way to handle exceptions, as long
     // as I track which exception leads to what... but then I need to handle methods that return
-    // effects.... so I need a meta-annotation @ThrowsEffect(Class<?>, Class<? extends Annotation>)!
+    // effects.... so I need a meta-annotation @ThrowsEffect(Class<?>, X)!
     effStack.peek().markImpossible(node);
     return p;
   }
@@ -930,16 +941,16 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
     effStack.peek().mark();
 
     scan(node.getCondition(), p);
-    Class<? extends Annotation> condEff = effStack.peek().latestEffect();
+    X condEff = effStack.peek().latestEffect();
     scan(node.getStatement(), p);
-    Class<? extends Annotation> bodyEff = effStack.peek().latestEffect();
+    X bodyEff = effStack.peek().latestEffect();
 
     // Here we DO NOT simply squash, because we must invoke iteration
-    LinkedList<Class<? extends Annotation>> pieces = effStack.peek().rewindToMark();
+    LinkedList<X> pieces = effStack.peek().rewindToMark();
     assert (pieces.get(0) == condEff);
     assert (pieces.get(1) == bodyEff);
 
-    Class<? extends Annotation> repeff = genericEffect.iter(genericEffect.seq(bodyEff, condEff));
+    X repeff = genericEffect.iter(genericEffect.seq(bodyEff, condEff));
     if (repeff == null) {
       checker.reportError(node, "undefined.repetition.twopart", bodyEff, condEff);
       // Pretend we ran the condition, loop, and condition again
@@ -948,7 +959,7 @@ public class GenericEffectVisitor extends BaseTypeVisitor<GenericEffectTypeFacto
           .pushEffect(genericEffect.seq(condEff, genericEffect.seq(bodyEff, condEff)), node);
     } else {
       // Valid iteration
-      Class<? extends Annotation> eff = genericEffect.seq(condEff, repeff);
+      X eff = genericEffect.seq(condEff, repeff);
       effStack.peek().pushEffect(eff, node);
     }
     checkResidual(node);
