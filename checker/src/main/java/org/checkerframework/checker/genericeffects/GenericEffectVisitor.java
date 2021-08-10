@@ -337,7 +337,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
           xtypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()));
       if (debugSpew) {
         System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
-        System.err.println("In location " + visitorState.getPath());
+        System.err.println("In location " + TreePathUtil.toString(visitorState.getPath()));
       }
       if (genericEffect.residual(pathEffect, methodEffect) == null) {
         if (genericEffect.isCommutative()) {
@@ -350,6 +350,9 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
           effStack.peek().rewriteLastEffectToCommutativeUnit();
         } else {
           checker.reportError(node, "undefined.residual", pathEffect, methodEffect);
+          if (debugSpew) {
+            System.err.println("Residual "+pathEffect+"\\"+methodEffect+" was undefined!!!");
+          }
           errorOnCurrentPath = true;
         }
       }
@@ -409,6 +412,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    */
   @Override
   public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
+    int contextSize = effStack.peek().size();
     // TODO extension checks
     // Set marker for scoping current
     effStack.peek().mark();
@@ -435,6 +439,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
           "Static scope? " + TreePathUtil.isTreeInStaticScope(visitorState.getPath()));
     }
     checkResidual(node);
+    assert (effStack.peek().size() == 1 + contextSize);
     return p;
   }
 
@@ -699,6 +704,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   protected Void checkConditional(
       Tree node, ExpressionTree condTree, Tree thenTree, Tree elseTree, Void p) {
 
+    int contextSize = effStack.peek().size();
+
     // One mark for the whole node, nested mark for each branch.
     effStack.peek().mark();
     scan(condTree, p);
@@ -729,10 +736,14 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     errorOnCurrentPath = condError || (thenError && elseError);
 
-    if ((thenEff == Impossible.class && elseEff == Impossible.class) || errorOnCurrentPath) {
+    if ((thenEff == Impossible.class && elseEff == Impossible.class)) {
       // Both branches return and/or throw, so regular paths through this term
       // do not return normally
       effStack.peek().markImpossible(node);
+    } else if (condError) {
+      // push a dummy effect
+      // TODO: Really there should be a global approach to short-circuiting the visitor in this case unless we can backtrack to an alternative worth exploring
+      effStack.peek().pushEffect(genericEffect.unit(), node);
     } else if (thenEff == Impossible.class || thenError) {
       effStack.peek().pushEffect(genericEffect.seq(condEff, elseEff), node);
     } else if (elseEff == Impossible.class || elseError) {
@@ -758,6 +769,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       // sequential EQs
       checkResidual(node);
     }
+    assert (effStack.peek().size() == 1 + contextSize);
     return p;
   }
 
@@ -803,6 +815,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   public Void visitLiteral(LiteralTree node, Void p) {
     // TODO extension
     // This has effect unit, shouldn't cause an error unless the extension is in use
+    effStack.peek().pushEffect(genericEffect.unit(), node);
+    // No need to check anything, we just pushed unit
     return p;
   }
 
@@ -953,7 +967,12 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   public Void visitBlock(BlockTree node, Void p) {
     effStack.peek().mark();
     super.visitBlock(node,p);
-    effStack.peek().squashMark(node);
+    if (effStack.peek().currentlyImpossible()) {
+      effStack.peek().rewindToMark();
+      effStack.peek().markImpossible(node);
+    } else {
+      effStack.peek().squashMark(node);
+    }
     return p;
   }
 

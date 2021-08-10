@@ -226,4 +226,38 @@ public class CoreAtomicityTests {
       h.Unlock();
     }
   }
+
+  @Atomic
+  public void badloop0(AtomicityTestHelper h) {
+    // This is subtlely type-incorrect
+    // The repeated portion is body|>update|>cond, since the condition may fail.
+    // In this case, that result is non-atomic
+    // :: error: (undefined.residual)
+    for (int i = (h.DoNothingBool() ? 0 : 1); i < (h.LockBool() ? 10 : 10); i += (h.UnlockBool() ? 1 : 2)) {
+      h.Lock();
+      h.WellSync();
+      h.Unlock();
+    }
+  }
+
+  @Atomic
+  public void badloop2(AtomicityTestHelper h) {
+    // non-atomic because unlock then lock
+    // :: error: (undefined.residual)
+    for (int i = h.UnlockBool() ? 0 : 1; i < (h.LockBool() ? 10 : 10); i += (h.UnlockBool() ? 1 : 2)) {
+      h.Lock();
+      h.WellSync();
+      h.Unlock();
+    }
+  }
+  @Atomic
+  public void badloop3(AtomicityTestHelper h) {
+    // non-atomic because unlock then lock
+    for (int i = h.DoNothingBool() ? 0 : 1; i < (h.LockBool() ? 10 : 10); i += (h.UnlockBool() ? 1 : 2)) {
+      h.Lock();
+      // :: error: (undefined.residual)
+      h.DoStuff();
+      h.Unlock();
+    }
+  }
 }
