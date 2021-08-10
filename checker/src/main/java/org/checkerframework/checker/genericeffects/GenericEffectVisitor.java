@@ -5,6 +5,7 @@ import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.BreakTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CatchTree;
@@ -16,6 +17,7 @@ import com.sun.source.tree.DoWhileLoopTree;
 import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.ForLoopTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.IfTree;
 import com.sun.source.tree.InstanceOfTree;
 import com.sun.source.tree.IntersectionTypeTree;
@@ -437,6 +439,18 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   }
 
   /**
+   * Method to compute the effect of a variable access.
+   * 
+   * This might seem unnecessary, but many parts of this visitor assume visiting any tree pushes some kind of effect onto the stack.
+   */
+  @Override
+  public Void visitIdentifier(IdentifierTree node, Void p) {
+    effStack.peek().pushEffect(genericEffect.unit(), node);
+    // No need to check anything, we just pushed unit
+    return p;
+  }
+
+  /**
    * Method to check if the constructor call is made from a valid context.
    *
    * <p>TODO: Fix for static vs. instance initializers
@@ -715,16 +729,16 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     errorOnCurrentPath = condError || (thenError && elseError);
 
-    if (thenEff == Impossible.class && elseEff == Impossible.class) {
+    if ((thenEff == Impossible.class && elseEff == Impossible.class) || errorOnCurrentPath) {
       // Both branches return and/or throw, so regular paths through this term
       // do not return normally
       effStack.peek().markImpossible(node);
-    } else if (thenEff == Impossible.class) {
+    } else if (thenEff == Impossible.class || thenError) {
       effStack.peek().pushEffect(genericEffect.seq(condEff, elseEff), node);
-    } else if (elseEff == Impossible.class) {
+    } else if (elseEff == Impossible.class || elseError) {
       effStack.peek().pushEffect(genericEffect.seq(condEff, thenEff), node);
     } else {
-      // Both branches possible: the common case
+      // Both branches possible and error-free: the common case
       X lub = genericEffect.LUB(thenEff, elseEff);
       if (lub == null) {
         if (elseTree == null) {
@@ -936,10 +950,17 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   }
 
   @Override
+  public Void visitBlock(BlockTree node, Void p) {
+    effStack.peek().mark();
+    super.visitBlock(node,p);
+    effStack.peek().squashMark(node);
+    return p;
+  }
+
+  @Override
   public Void visitWhileLoop(WhileLoopTree node, Void p) {
     // Set mark for full expression
     effStack.peek().mark();
-
     scan(node.getCondition(), p);
     X condEff = effStack.peek().latestEffect();
     scan(node.getStatement(), p);
@@ -974,4 +995,5 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
     return p;
   }
+
 }

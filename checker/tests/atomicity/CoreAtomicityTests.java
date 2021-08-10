@@ -16,6 +16,21 @@ public class CoreAtomicityTests {
 
     @NonAtomic
     public void DoStuff();
+
+    @Right
+    public boolean LockBool();
+
+    @Left
+    public boolean UnlockBool();
+
+    @Atomic
+    public boolean WellSyncBool();
+
+    @Both
+    public boolean DoNothingBool();
+
+    @NonAtomic
+    public boolean DoStuffBool();
   }
 
   public static class BasicSubEffectTests {
@@ -137,5 +152,78 @@ public class CoreAtomicityTests {
   public void failedRight3(AtomicityTestHelper h) {
     // :: error: (undefined.residual)
     h.DoStuff();
+  }
+
+  @NonAtomic
+  public void goodLUB1(boolean b, AtomicityTestHelper h) {
+    if (b) {
+      h.Lock();
+    } else {
+      h.Unlock();
+    }
+  }
+
+  @Atomic
+  public void goodLUB2(boolean b, AtomicityTestHelper h) {
+    if (b) {
+      h.WellSync();
+    } else {
+      h.DoNothing();
+    }
+  }
+
+  @Right
+  public void badLUB1(boolean b, AtomicityTestHelper h) {
+    // the branch logic should see the other branch marked impossible, and "ignore" it when computing the overall conditional effect, so there should be only one error reported in this method.
+    if (b) {
+      h.Lock();
+    } else {
+      // Should only see an error here
+      // :: error: (undefined.residual)
+      h.Unlock();
+    }
+  }
+
+  @Right
+  public void badLUB2(boolean b, AtomicityTestHelper h) {
+    // the branch logic should see the other branch marked impossible, and "ignore" it when computing the overall conditional effect, so there should be only one error reported in this method.
+    if (b) {
+      // Should only see an error here
+      // :: error: (undefined.residual)
+      h.Unlock();
+    } else {
+      h.Lock();
+    }
+  }
+
+  @Right
+  public void badLUB3(boolean b, AtomicityTestHelper h) {
+    // the branch logic should report errors in both branches, rather than for the overall conditional.
+    if (b) {
+      // :: error: (undefined.residual)
+      h.Unlock();
+    } else {
+      // :: error: (undefined.residual)
+      h.Unlock();
+    }
+  }
+
+  @NonAtomic
+  public void goodloop1(AtomicityTestHelper h) {
+    while (h.DoNothingBool()) {
+      h.Lock();
+      h.WellSync();
+      h.Unlock();
+    }
+  }
+  @Atomic
+  public void badloop1(AtomicityTestHelper h) {
+    // Iterating this atomic loop is not atomic
+    // :: error: (undefined.residual)
+    while (h.DoNothingBool()) {
+      h.Lock();
+      h.WellSync();
+      h.Unlock();
+    }
   }
 }

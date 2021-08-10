@@ -45,7 +45,17 @@ public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation
   @Override
   public Class<? extends Annotation> LUB(
       Class<? extends Annotation> left, Class<? extends Annotation> right) {
-    return null;
+    if (left == B || left == right) {
+      return right;
+    } else if (right == B) {
+      return left;
+    } else if (left == N || right == N) {
+      return N;
+    } else {
+      // At this point we know this is not an idempotent join, and neither is top or bottom. So both are L, R, or A, and they are distinct.
+      // Any join of two of those three will be A
+      return A;
+    }
   }
 
   @Override

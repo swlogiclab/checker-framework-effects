@@ -19,6 +19,18 @@ public class ContextEffect<X> {
   private X contextSinceLastMark;
   private EffectQuantale<X> lat;
 
+  public void debugDump(String prefix) {
+    System.err.print(prefix);
+    for (Map.Entry<X,Tree> entr : rep) {
+      if (entr == null) {
+        System.err.print("<null> | ");
+      } else {
+        System.err.print(entr.getKey()+" | ");
+      }
+    }
+    System.err.println();
+  }
+
   // private Map<Class<? extends Exception>, Set<Map.Entry<X,Tree>>> excMap;
 
   // Suppress ErrorProne complaints about access speed; we need a stack impl that supports null.
