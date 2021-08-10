@@ -28,6 +28,8 @@ public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation
 
   @Override
   public boolean LE(Class<? extends Annotation> left, Class<? extends Annotation> right) {
+    assert (left != null);
+    assert (right != null);
     // We *could* implement this by returning (LUB(left,right)==right), but this will be
     // (marginally) faster
     return (right == N)
@@ -45,6 +47,8 @@ public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation
   @Override
   public Class<? extends Annotation> LUB(
       Class<? extends Annotation> left, Class<? extends Annotation> right) {
+    assert (left != null);
+    assert (right != null);
     if (left == B || left == right) {
       return right;
     } else if (right == B) {
@@ -61,6 +65,8 @@ public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation
   @Override
   public Class<? extends Annotation> seq(
       Class<? extends Annotation> left, Class<? extends Annotation> right) {
+    assert (left != null);
+    assert (right != null);
     if (left == N || right == N) {
       return N;
     } else if (left == B) {
@@ -74,21 +80,21 @@ public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation
         if (right == R) return R;
         if (right == A) return A;
         if (right == L) return A;
-        assert (false);
+        assert (false) : "Invalid seq("+left+","+right+")";
         return null;
       } else if (left == L) {
         // Sequencing after a right-mover, cases for N or B other already handled
         if (right == R) return N;
         if (right == L) return L;
         if (right == A) return N;
-        assert (false);
+        assert (false) : "Invalid seq("+left+","+right+")";
         return null;
       } else if (left == A) {
         // Sequencing after an atomic, N and B already handled
         if (right == R) return N;
         if (right == L) return A;
         if (right == A) return N;
-        assert (false);
+        assert (false) : "Invalid seq("+left+","+right+")";
         return null;
       }
     }
