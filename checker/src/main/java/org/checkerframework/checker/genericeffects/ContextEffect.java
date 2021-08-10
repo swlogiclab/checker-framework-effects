@@ -19,13 +19,26 @@ public class ContextEffect<X> {
   private X contextSinceLastMark;
   private EffectQuantale<X> lat;
 
+  public int size() {
+    return rep.size();
+  }
+
   public void debugDump(String prefix) {
+    debugDump(prefix, false);
+  }
+  public void debugDump(String prefix, boolean full) {
     System.err.print(prefix);
     for (Map.Entry<X,Tree> entr : rep) {
       if (entr == null) {
-        System.err.print("<null> | ");
+        System.err.print("<mark> | ");
       } else {
-        System.err.print(entr.getKey()+" | ");
+        if (entr.getKey() == null) {
+          System.err.print("<impossible:"+entr.getValue()+"> | ");
+        } else if (full) {
+          System.err.print("<"+entr.getKey()+"@"+entr.getValue()+"> | ");
+        } else {
+          System.err.print(entr.getKey()+" | ");
+        }
       }
     }
     System.err.println();
@@ -78,6 +91,7 @@ public class ContextEffect<X> {
    * @return True when sequencing was valid, false when sequencing was undefined
    */
   public boolean pushEffect(X eff, Tree t) {
+    assert (eff != null);
     rep.addFirst(new AbstractMap.SimpleEntry<X, Tree>(eff, t));
     // TODO: do legwork to verify this assertion is true (i.e., enforced by Java's compiler)
     assert context != null
@@ -216,6 +230,7 @@ public class ContextEffect<X> {
 
   public X squashMark(Tree t) {
     X squashed = contextSinceLastMark;
+    assert (squashed != null) : "Error paths should not be squashed";
     while (rep.peekFirst() != null) {
       rep.removeFirst();
     }
