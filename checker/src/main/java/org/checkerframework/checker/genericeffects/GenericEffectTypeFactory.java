@@ -3,8 +3,11 @@ package org.checkerframework.checker.genericeffects;
 import com.sun.source.tree.Tree;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import javax.lang.model.element.AnnotationMirror;
@@ -17,9 +20,14 @@ import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
+import javax.naming.ldap.Control;
+
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.Placeholder;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
+import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.ControlEffect;
+import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.LocatedEffect;
+import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
 
 /**
  * A base type factory for effect systems.
@@ -33,7 +41,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
   protected final boolean debugSpew;
 
   /** Reference to the effect quantale being checked. */
-  private EffectQuantale<X> genericEffect;
+  private ControlEffectQuantale<X> genericEffect;
 
   /**
    * Constructor for the checker's type factory.
@@ -46,7 +54,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
     // use true to enable flow inference, false to disable it
     super(checker, false);
 
-    genericEffect = checker.getEffectLattice();
+    genericEffect = new ControlEffectQuantale<>(checker.getEffectLattice());
 
     debugSpew = spew;
     this.postInit();
@@ -150,7 +158,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
     try {
       clsElt.getAnnotation(DefaultEffect.class).value();
     } catch (NullPointerException e) {
-      return genericEffect.unit();
+      return genericEffect.underlyingUnit();
     } catch (MirroredTypeException e) {
       clsAnno = e.getTypeMirror();
     }
@@ -162,7 +170,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
     for (Class<? extends Annotation> validEffect : genericEffect.getValidEffects()) {
       if (name.equals(validEffect.getSimpleName())) return this.fromAnnotation.apply(validEffect);
     }
-    return genericEffect.unit();
+    return genericEffect.underlyingUnit();
   }
 
   /**
@@ -180,15 +188,17 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
    * Returns the Declared Effect on the passed method as parameter
    *
    * @param methodElt : Method for which declared effect is to be returned
+   * @param use : The tree where this element is being invoked
    * @return declared effect : if methodElt is annotated with a valid effect
    *     bottomMostEffectInLattice : otherwise, bottom most effect of lattice
    */
-  public X getDeclaredEffect(ExecutableElement methodElt) {
+  public ControlEffect<X> getDeclaredEffect(ExecutableElement methodElt, Tree use) {
     if (debugSpew) {
       System.err.println("> Retrieving declared effect of: " + methodElt);
     }
     ArrayList<Class<? extends Annotation>> validEffects = genericEffect.getValidEffects();
     AnnotationMirror annotatedEffect = null;
+    X baseEffect = null;
 
     for (Class<? extends Annotation> OkEffect : validEffects) {
       annotatedEffect = getDeclAnnotation(methodElt, OkEffect);
@@ -196,15 +206,31 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
         if (debugSpew) {
           System.err.println("< Method marked @" + annotatedEffect);
         }
-        return fromAnnotation.apply(OkEffect);
+        baseEffect = fromAnnotation.apply(OkEffect);
       }
     }
 
-    Element clsElt = getInnermostAnnotatedClass(methodElt);
-    if (debugSpew) {
-      System.err.println("< By default found: " + getClassType(clsElt));
+    if (baseEffect == null) {
+      Element clsElt = getInnermostAnnotatedClass(methodElt);
+      if (debugSpew) {
+        System.err.println("< By default found: " + getClassType(clsElt));
+      }
+      baseEffect = getClassType(clsElt);
     }
-    return getClassType(clsElt);
+
+    // We have a base effect, now check for @Throws annotations
+    Map<Class<?>, Set<LocatedEffect<X>>> excBehaviors = new HashMap<>();
+    // Check that any @ThrownEffect uses are valid
+    for (AnnotationMirror thrown : getDeclAnnotations(methodElt)) {
+      if (areSameByClass(thrown, ThrownEffect.class)) {
+        ThrownEffect thrownEff = (ThrownEffect) thrown;
+        // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
+        excBehaviors.put(thrownEff.exception(), 
+                             Collections.singleton(new LocatedEffect<X>(fromAnnotation.apply(thrownEff.behavior()), use)));
+      }
+    }
+
+    return new ControlEffectQuantale.ControlEffect<X>(baseEffect, excBehaviors.size() > 0 ? excBehaviors : null, null);
   }
 
   /**
@@ -230,14 +256,14 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
       Tree errorNode) {
     assert (declaringType != null);
 
-    X overridingEffect = getDeclaredEffect(overridingMethod);
+    ControlEffect<X> overridingEffect = getDeclaredEffect(overridingMethod, errorNode);
 
     // Chain of parent classes
     TypeMirror superclass = declaringType.getSuperclass();
     while (superclass != null && superclass.getKind() != TypeKind.NONE) {
       ExecutableElement overrides = findJavaOverride(overridingMethod, superclass);
       if (overrides != null) {
-        X superClassEffect = getDeclaredEffect(overrides);
+        ControlEffect<X> superClassEffect = getDeclaredEffect(overrides, errorNode);
         if (!genericEffect.LE(overridingEffect, superClassEffect)) {
           checker.reportError(
               errorNode,
@@ -260,7 +286,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
         if (implementedInterface.getKind() != TypeKind.NONE) {
           ExecutableElement overrides = findJavaOverride(overridingMethod, implementedInterface);
           if (overrides != null) {
-            X interfaceEffect = getDeclaredEffect(overrides);
+            ControlEffect<X> interfaceEffect = getDeclaredEffect(overrides, errorNode);
             if (!genericEffect.LE(overridingEffect, interfaceEffect) && issueConflictWarning) {
               checker.reportError(
                   errorNode,

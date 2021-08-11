@@ -54,13 +54,51 @@ public class ControlEffectQuantale<X>
 
     ControlEffect(
         X base, Map<Class<?>, Set<LocatedEffect<X>>> excMap, Set<LocatedEffect<X>> breakset) {
+      assert (excMap == null || excMap.size() > 0);
+      assert (breakset == null || breakset.size() > 0);
       this.base = base;
       this.excMap = excMap;
       this.breakset = breakset;
     }
 
+    @Override
+    public String toString() {
+      return "["+base+"|"+excMap+"|"+breakset+"]";
+    }
+    @SuppressWarnings("unchecked")
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (null == o || !(o instanceof ControlEffect<?>)) return false;
+      ControlEffect<X> other = (ControlEffect<X>)o;
+      boolean baseOK = this.base == other.base || (this.base != null && this.base.equals(other.base));
+      boolean excOK = this.excMap == other.excMap || (this.excMap != null && this.excMap.equals(other.excMap));
+      boolean brkOK = this.breakset == other.breakset || (this.breakset != null && this.breakset.equals(other.breakset));
+      return baseOK && excOK && brkOK;
+    }
+
+    @Override
+    public int hashCode() {
+      return base.hashCode() + excMap.hashCode() + breakset.hashCode();
+    }
+
     public static <X> ControlEffect<X> unit(EffectQuantale<X> u) {
       return new ControlEffect<>(u.unit(), null, null);
+    }
+    public static <X> ControlEffect<X> basic(X x) {
+      return new ControlEffect<>(x, null, null);
+    }
+    public static <X> ControlEffect<X> raise(X prefix, Class<?> exc, Tree node) {
+      Map<Class<?>,Set<LocatedEffect<X>>> throwmap = new HashMap<>();
+      Set<LocatedEffect<X>> tset = new HashSet<>();
+      tset.add(new LocatedEffect<X>(prefix, node));
+      throwmap.put(exc, tset);
+      return new ControlEffect<>(null, throwmap, null);
+    }
+    public static <X> ControlEffect<X> breakout(X prefix, Tree node) {
+      Set<LocatedEffect<X>> bset = new HashSet<>();
+      bset.add(new LocatedEffect<X>(prefix, node));
+      return new ControlEffect<>(null, null, bset);
     }
   }
 
@@ -86,7 +124,7 @@ public class ControlEffectQuantale<X>
    * of origin (source of the throw or break) in lieu of a label, since these can be checked for
    * subtree relationships with prompt boundaries.
    */
-  private static class LocatedEffect<X> {
+  public static class LocatedEffect<X> {
     public final X effect;
     public final Tree loc;
 
@@ -245,43 +283,53 @@ public class ControlEffectQuantale<X>
     }
 
     Set<LocatedEffect<X>> sndInCtxt = new HashSet<>();
-    for (LocatedEffect<X> x : r.breakset) {
-      X tmp = underlying.seq(l.base, x.effect);
-      if (tmp == null) {
-        addSequencingError(l.base, x.effect, x.loc);
-      } else {
-        sndInCtxt.add(new LocatedEffect<>(tmp, x.loc));
+    if (r.breakset != null) {
+      for (LocatedEffect<X> x : r.breakset) {
+        X tmp = underlying.seq(l.base, x.effect);
+        if (tmp == null) {
+          addSequencingError(l.base, x.effect, x.loc);
+        } else {
+          sndInCtxt.add(new LocatedEffect<>(tmp, x.loc));
+        }
       }
     }
+    if (sndInCtxt.size() == 0)
+      sndInCtxt = null;
     bset = unionPossiblyNull(l.breakset, sndInCtxt);
 
     // sequence exception maps
 
     // Need to join where common
     emap = new HashMap<>();
-    for (Class<?> exc : l.excMap.keySet()) {
-      // will be non-null by assumption
-      Set<LocatedEffect<X>> left = l.excMap.get(exc);
-      emap.put(exc, new HashSet<>(left));
+    if (l.excMap != null) {
+      for (Class<?> exc : l.excMap.keySet()) {
+        // will be non-null by assumption
+        Set<LocatedEffect<X>> left = l.excMap.get(exc);
+        emap.put(exc, new HashSet<>(left));
+      }
     }
-    for (Class<?> exc : r.excMap.keySet()) {
-      Set<LocatedEffect<X>> lpartial = l.excMap.get(exc);
-      Set<LocatedEffect<X>> s = new HashSet<>();
-      for (LocatedEffect<X> leff : r.excMap.get(exc)) {
-        X tmp = underlying.seq(l.base, leff.effect);
-        if (tmp == null) {
-          addSequencingError(l.base, leff.effect, leff.loc);
+    if (r.excMap != null) {
+      for (Class<?> exc : r.excMap.keySet()) {
+        Set<LocatedEffect<X>> lpartial = l.excMap.get(exc);
+        Set<LocatedEffect<X>> s = new HashSet<>();
+        for (LocatedEffect<X> leff : r.excMap.get(exc)) {
+          X tmp = underlying.seq(l.base, leff.effect);
+          if (tmp == null) {
+            addSequencingError(l.base, leff.effect, leff.loc);
+          } else {
+            s.add(new LocatedEffect<>(tmp, leff.loc));
+          }
+        }
+        if (lpartial == null) {
+          emap.put(exc, s);
         } else {
-          s.add(new LocatedEffect<>(tmp, leff.loc));
+          // already some stuff for this exception, update in place
+          lpartial.addAll(s);
         }
       }
-      if (lpartial == null) {
-        emap.put(exc, s);
-      } else {
-        // already some stuff for this exception, update in place
-        lpartial.addAll(s);
-      }
     }
+    if (emap.size() == 0)
+      emap = null;
     // Error-free if lastErrors is still null
     if (lastErrors == null) {
       return new ControlEffect<X>(base, emap, bset);
@@ -293,12 +341,24 @@ public class ControlEffectQuantale<X>
   @Override
   public ArrayList<Class<? extends Annotation>> getValidEffects() {
     // TODO Auto-generated method stub
-    return null;
+    return underlying.getValidEffects();
   }
 
+  public X underlyingUnit() {
+    return underlying.unit();
+  }
   @Override
   public ControlEffect<X> unit() {
     return ControlEffect.unit(underlying);
+  }
+  public ControlEffect<X> breakout(Tree node) {
+    return ControlEffect.breakout(underlying.unit(), node);
+  }
+  public ControlEffect<X> raise(Class<?> exc, Tree node) {
+    return ControlEffect.raise(underlying.unit(), exc, node);
+  }
+  public ControlEffect<X> lift(X x) {
+    return new ControlEffect<X>(x, null, null);
   }
 
   @Override
@@ -391,7 +451,15 @@ public class ControlEffectQuantale<X>
   @Override
   public ControlEffect<X> residual(ControlEffect<X> sofar, ControlEffect<X> target) {
     // TODO Auto-generated method stub
-    return null;
+    // Optimize common case
+    if (sofar.breakset == null && sofar.excMap == null && target.base != null && target.breakset == null && target.excMap == null) {
+      X baseResid = underlying.residual(sofar.base, target.base);
+      if (baseResid == null) {
+        return null;
+      }
+      return lift(baseResid);
+    }
+    throw new UnsupportedOperationException("Control effect residuals for meaningful control effects are not yet implemented");
   }
 
   @Override
