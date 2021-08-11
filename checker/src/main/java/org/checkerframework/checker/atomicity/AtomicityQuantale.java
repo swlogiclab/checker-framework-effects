@@ -80,21 +80,21 @@ public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation
         if (right == R) return R;
         if (right == A) return A;
         if (right == L) return A;
-        assert (false) : "Invalid seq("+left+","+right+")";
+        assert (false) : "Unhandled seq("+left+","+right+")";
         return null;
       } else if (left == L) {
         // Sequencing after a right-mover, cases for N or B other already handled
         if (right == R) return N;
         if (right == L) return L;
         if (right == A) return N;
-        assert (false) : "Invalid seq("+left+","+right+")";
+        assert (false) : "Unhandled seq("+left+","+right+")";
         return null;
       } else if (left == A) {
         // Sequencing after an atomic, N and B already handled
         if (right == R) return N;
         if (right == L) return A;
         if (right == A) return N;
-        assert (false) : "Invalid seq("+left+","+right+")";
+        assert (false) : "Unhandled seq("+left+","+right+")";
         return null;
       }
     }
