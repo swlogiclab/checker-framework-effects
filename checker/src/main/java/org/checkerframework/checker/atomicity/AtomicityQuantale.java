@@ -8,6 +8,7 @@ import org.checkerframework.checker.atomicity.qual.Left;
 import org.checkerframework.checker.atomicity.qual.NonAtomic;
 import org.checkerframework.checker.atomicity.qual.Right;
 import org.checkerframework.checker.genericeffects.EffectQuantale;
+import org.checkerframework.javacutil.BugInCF;
 
 public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation>> {
 
@@ -148,7 +149,9 @@ public class AtomicityQuantale extends EffectQuantale<Class<? extends Annotation
       // The only X such that X\R=R are B (handled above) and R
       return (sofar == R ? R : null);
     }
-    assert (false);
-    return null;
+    if (target == B) {
+      return B;
+    }
+    throw new BugInCF("Unhandled residual "+sofar+" \\ "+target);
   }
 }
