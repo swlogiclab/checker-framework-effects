@@ -1,6 +1,9 @@
 package org.checkerframework.checker.genericeffects;
 
 import com.sun.source.tree.Tree;
+
+import org.w3c.dom.events.EventTarget;
+
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -8,6 +11,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.javacutil.TreePathUtil;
+import org.checkerframework.javacutil.BugInCF;
 
 /**
  * An implementation of Gordon's control effect transformation for effect quantales. For full
@@ -56,6 +63,8 @@ public class ControlEffectQuantale<X>
         X base, Map<Class<?>, Set<LocatedEffect<X>>> excMap, Set<LocatedEffect<X>> breakset) {
       assert (excMap == null || excMap.size() > 0);
       assert (breakset == null || breakset.size() > 0);
+      assert (base != null || excMap != null || breakset != null);
+      assert (excMap == null || !excMap.containsKey(Object.class));
       this.base = base;
       this.excMap = excMap;
       this.breakset = breakset;
@@ -103,13 +112,50 @@ public class ControlEffectQuantale<X>
   }
 
   // Some helper methods for functional set ops
-  private <T> Set<T> union(Set<T> a, Set<T> b) {
-    Set<T> uset = new HashSet<>(a);
-    uset.addAll(b);
+  private <T> Set<LocatedEffect<T>> union(Set<LocatedEffect<T>> a, Set<LocatedEffect<T>> b) {
+    /*
+    TODO: Okay, so the difficulty here is resolving when some effect should dominate another due to targeting the same node the same way
+
+    The ContextEffectQuantale code always separates breaks, 
+    */
+    assert (a != null);
+    assert (b != null);
+    // TODO: Find a more efficient way to do this
+    Map<T,Tree> effset = new HashMap<>();
+    for (LocatedEffect<T> eff : a) {
+      effset.put(eff.effect, eff.loc);
+    }
+    for (LocatedEffect<T> eff : b) {
+      Tree existing = effset.get(eff.effect);
+      if (existing == null) {
+        effset.put(eff.effect,eff.loc);
+      } else {
+        // TODO: We'd really like a way to check the ancestry relationship between trees but there's no way to do this directly.
+        // Instead we approximate. The only tree kinds that will appear in located effects are calls (method or ctor), decls (method/ctor), try blocks, throws, breaks, or switch blocks. Each source-target should be dominated by the target node kind
+        if (eff.loc.getKind() == Tree.Kind.METHOD ||
+            eff.loc.getKind() == Tree.Kind.SWITCH ||
+            eff.loc.getKind() == Tree.Kind.SWITCH ||
+            eff.loc.getKind() == Tree.Kind.WHILE_LOOP ||
+            eff.loc.getKind() == Tree.Kind.DO_WHILE_LOOP ||
+            eff.loc.getKind() == Tree.Kind.FOR_LOOP ||
+            eff.loc.getKind() == Tree.Kind.ENHANCED_FOR_LOOP ||
+            eff.loc.getKind() == Tree.Kind.TRY
+        ) {
+          // This location dominates the one in the map
+          effset.put(eff.effect, eff.loc);
+        }
+        // TODO: If there are multiple *peer* locations, this will actually drop one, in a left-biased way. Need to upgrade to a set with no dominating pairs...
+      }
+    }
+
+    Set<LocatedEffect<T>> uset = new HashSet<>(a);
+    for (Map.Entry<T,Tree> e : effset.entrySet()) {
+      uset.add(new LocatedEffect<>(e.getKey(), e.getValue()));
+    }
     return uset;
   }
 
-  private <T> Set<T> unionPossiblyNull(Set<T> a, Set<T> b) {
+  private <T> Set<LocatedEffect<T>> unionPossiblyNull(Set<LocatedEffect<T>> a, Set<LocatedEffect<T>> b) {
     if (null == a) {
       return b;
     } else if (null == b) {
@@ -153,6 +199,11 @@ public class ControlEffectQuantale<X>
       // checked
       ControlEffectQuantale.LocatedEffect o = (ControlEffectQuantale.LocatedEffect) other;
       return effect.equals(o.effect) && loc.equals(o.loc);
+    }
+
+    @Override
+    public String toString() {
+      return effect.toString()+"@"+loc.toString();
     }
   }
 
@@ -274,7 +325,7 @@ public class ControlEffectQuantale<X>
 
     base = null;
     if (r.base == null) {
-      base = l.base;
+      base = null;
     } else {
       base = underlying.seq(l.base, r.base);
       if (base == null) {
@@ -310,7 +361,7 @@ public class ControlEffectQuantale<X>
     }
     if (r.excMap != null) {
       for (Class<?> exc : r.excMap.keySet()) {
-        Set<LocatedEffect<X>> lpartial = l.excMap.get(exc);
+        Set<LocatedEffect<X>> lpartial = l.excMap == null ? null : l.excMap.get(exc);
         Set<LocatedEffect<X>> s = new HashSet<>();
         for (LocatedEffect<X> leff : r.excMap.get(exc)) {
           X tmp = underlying.seq(l.base, leff.effect);
@@ -450,7 +501,8 @@ public class ControlEffectQuantale<X>
    */
   @Override
   public ControlEffect<X> residual(ControlEffect<X> sofar, ControlEffect<X> target) {
-    // TODO Auto-generated method stub
+    // TODO: Fix for exception inheritance
+    assert (sofar.base != null) : "Compiler should reject any code that is after only break/throw behaviors";
     // Optimize common case
     if (sofar.breakset == null && sofar.excMap == null && target.base != null && target.breakset == null && target.excMap == null) {
       X baseResid = underlying.residual(sofar.base, target.base);
@@ -458,8 +510,118 @@ public class ControlEffectQuantale<X>
         return null;
       }
       return lift(baseResid);
+    } else {
+      // Base residual 
+      X baseResid = sofar.base == null || target.base == null ? null : underlying.residual(sofar.base, target.base);
+      if (baseResid == null && sofar.base != null && target.base != null) {
+        // Underlying residual is undefined/invalid
+        throw new BugInCF("WIP: undefined underlying residual");//return null;
+      }
+
+      // Control effects do not extend on the right, so any control effect in sofar must be over-approximated by a control effect in target.  Moreover, every control effect in target must have the sofar behavior as its "prefix", and so must have its residual with that underlying prefix defined.
+      // Actually, refine that: if there is a control effect in target whose residual with the sofar.base is undefined, then that control effect *must* have been triggered in sofar, and cannot be triggered by further composition on the right. If we cannot find such an already-triggered control effect, then it's an error and there is no residual.
+
+      Set<LocatedEffect<X>> breakset = new HashSet<>();
+      if (sofar.breakset != null && target.breakset == null) {
+        // Target has no breaks, so no residual can be defined
+        throw new BugInCF("WIP: target has no breaks but sofar does");//return null;
+        // TODO: But wait, *as this is currently used* this will reject all breaks, since the residual is always checked w.r.t. method annotation.
+        // TODO: This is still the correct definition of residual! But it suggests that the target should change inside valid domains of breaks (loops/switches). Suggests maybe some more theory work to do...
+      }
+      Set<X> overApprox = new HashSet<>();
+      if (sofar.breakset != null) {
+        for (LocatedEffect<X> bsofar : sofar.breakset) {
+          boolean matched = false;
+          for (LocatedEffect<X> btarget : target.breakset) {
+            if (underlying.LE(bsofar.effect, btarget.effect)) {
+              overApprox.add(btarget.effect);
+              matched = true;
+              break;
+            }
+          }
+          if (!matched) {
+            // This effect isn't over-approximated
+            // TODO: extend lastErrors to handle these
+            throw new BugInCF("WIP: break effect "+bsofar.effect+" in sofar has no over-approx in"+target.breakset);//return null;
+          }
+        }
+      }
+      // Okay, every existing break in sofar is matched to something in target
+      // Now we need to check for every target behavior that it's either a suffix of sofar.base or over-approximates something in sofar (maybe we should build this mapping from target break to sofar break above to avoid more loops)
+      if (target.breakset != null) {
+        for (LocatedEffect<X> btarget : target.breakset) {
+          X underlyingResid = underlying.residual(sofar.base, btarget.effect);
+          if (underlyingResid == null) {
+            // Ok if this was over-approx of something so far, otherwise an error
+            if (!overApprox.contains(btarget.effect)) {
+              throw new BugInCF("WIP: target has break of "+btarget.effect+" but this has no residual with "+sofar.base+" and doesn't over-approximate anything in "+sofar.breakset);//return null;
+            }
+          } else {
+            // This can still be raised later
+            breakset.add(new LocatedEffect<>(underlyingResid, btarget.loc));
+          }
+        }
+      }
+      if (breakset.size() == 0) breakset = null;
+
+      // exceptions are the same as breaksets, but per-exception, and sofar shouldn't throw exceptions the target doesn't
+      // TODO: Again, suggests the base for the residual check should be adjusted at try/catch/finally boundaries
+      Map<Class<?>,Set<LocatedEffect<X>>> excMap = new HashMap<>();
+      Map<Class<?>,Set<X>> overApproxExc = new HashMap<>();
+      if (sofar.excMap != null) {
+        for (Map.Entry<Class<?>,Set<LocatedEffect<X>>> exc : sofar.excMap.entrySet()) {
+          overApproxExc.put(exc.getKey(), new HashSet<>());
+          if (!target.excMap.containsKey(exc.getKey())) {
+            // Sofar throws something the target doesn't allow at all
+            throw new BugInCF("WIP: sofar throws "+exc.getKey()+" but target doesn't");//return null;
+          } else {
+            // This exception type is thrown by both, handle similarly to breaksets
+            Set<LocatedEffect<X>> targetset = target.excMap.get(exc.getKey());
+            for (LocatedEffect<X> esofar : exc.getValue()) {
+              boolean matched = false;
+              for (LocatedEffect<X> etarget : targetset) {
+                if (underlying.LE(esofar.effect, etarget.effect)) {
+                  overApproxExc.get(exc.getKey()).add(etarget.effect);
+                  matched = true;
+                  break;
+                } 
+              }
+              if (!matched) {
+                // not over-approximated for this exception
+                throw new BugInCF("WIP: sofar throws "+exc.getKey()+" after "+esofar.effect+" but this is not bounded by"+targetset);//return null;
+              }
+            }
+          }
+        }
+      }
+      // Now we've concluded all exceptional behaviors in sofar are valid, and we now need to check all the exceptional behaviors in target are completeable after base
+      if (target.excMap != null) {
+        for (Map.Entry<Class<?>,Set<LocatedEffect<X>>> exc : target.excMap.entrySet()) {
+          Set<LocatedEffect<X>> residThrows = null;
+          for (LocatedEffect<X> etarget : exc.getValue()) {
+            X underlyingResid = underlying.residual(sofar.base, etarget.effect);
+            if (underlyingResid == null) {
+              // ok only if over-approximating
+              //Set<X> overApproxThisEffect = overApproxExc.get(exc.getKey());
+              //if (overApproxThisEffect == null || !overApproxThisEffect.contains(etarget.effect)) {
+              //  throw new BugInCF("WIP: target throws "+exc.getKey()+" after "+etarget.effect+" but this has no residual with sofar.base="+sofar.base+" and bounds nothing in "+sofar);//return null;
+              //}
+              // ACTUALLY okay regardless, because if we just drop this behavior, sequencing sofar with the result will still be less than target (i.e., the thinking above reflected aiming to be equal to it, which isn't the right goal)
+            } else {
+              // can still be thrown later
+              if (residThrows == null) {
+                residThrows = new HashSet<>();
+              }
+              residThrows.add(new LocatedEffect<>(underlyingResid, etarget.loc));
+            }
+          }
+          if (residThrows != null) excMap.put(exc.getKey(), residThrows);
+        }
+      }
+      if (excMap.size() == 0) excMap = null;
+
+      return new ControlEffect<X>(baseResid, excMap, breakset);
     }
-    throw new UnsupportedOperationException("Control effect residuals for meaningful control effects are not yet implemented");
   }
 
   @Override

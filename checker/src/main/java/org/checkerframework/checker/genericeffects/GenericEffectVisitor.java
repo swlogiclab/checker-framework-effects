@@ -1,5 +1,6 @@
 package org.checkerframework.checker.genericeffects;
 
+import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssertTree;
@@ -43,6 +44,7 @@ import java.lang.annotation.Annotation;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import javax.lang.model.element.AnnotationMirror;
@@ -121,6 +123,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
   GenericEffectChecker<X> xchecker;
 
+  @SuppressWarnings("UnusedVariable")
   private Function<Class<? extends Annotation>, X> fromAnnotation;
 
   /**
@@ -229,24 +232,25 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     xtypeFactory.checkEffectOverride(
         (TypeElement) methElt.getEnclosingElement(), methElt, true, node);
 
-    Map<Class<? extends Exception>, X> excBehaviors = new HashMap<>();
+    //Map<Class<? extends Exception>, X> excBehaviors = new HashMap<>();
     // Check that any @ThrownEffect uses are valid
-    for (AnnotationMirror thrown : xtypeFactory.getDeclAnnotations(methElt)) {
-      if (xtypeFactory.areSameByClass(thrown, ThrownEffect.class)) {
-        ThrownEffect thrownEff = (ThrownEffect) thrown;
-        // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
-        X prev =
-            excBehaviors.put(thrownEff.exception(), fromAnnotation.apply(thrownEff.behavior()));
-        if (prev != null) {
-          checker.reportError(
-              node,
-              "duplicate.annotation.thrown",
-              thrownEff.exception(),
-              thrownEff.behavior(),
-              prev);
-        }
-      }
-    }
+    // TODO: Requires same reflection fixes as in TypeFactory
+    //for (AnnotationMirror thrown : xtypeFactory.getDeclAnnotations(methElt)) {
+    //  if (xtypeFactory.areSameByClass(thrown, ThrownEffect.class)) {
+    //    ThrownEffect thrownEff = (ThrownEffect) thrown;
+    //    // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
+    //    X prev =
+    //        excBehaviors.put(thrownEff.exception(), fromAnnotation.apply(thrownEff.behavior()));
+    //    if (prev != null) {
+    //      checker.reportError(
+    //          node,
+    //          "duplicate.annotation.thrown",
+    //          thrownEff.exception(),
+    //          thrownEff.behavior(),
+    //          prev);
+    //    }
+    //  }
+    //}
 
     // Initialize method stack
     currentMethods.addFirst(node);
@@ -306,7 +310,13 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    * @return Boolean value representing whether the effects are invalid (true) or not (false)
    */
   private boolean isInvalid(ControlEffect<X> targetEffect, ControlEffect<X> callerEffect) {
-    if (!genericEffect.LE(targetEffect, callerEffect)) return true;
+    if (!genericEffect.LE(targetEffect, callerEffect)) {
+      if (debugSpew) {
+        System.err.println("Found\n\t"+targetEffect+"\n\t</=\n\t"+callerEffect);
+        System.err.println("LUB="+genericEffect.LUB(targetEffect,callerEffect));
+      }
+      return true;
+    }
     return false;
   }
 
@@ -389,6 +399,41 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     MethodTree callerTree = TreePathUtil.enclosingMethod(getCurrentPath());
     ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
     return xtypeFactory.getDeclaredEffect(callerElt, callerTree);
+  }
+
+  /**
+   * Retrieve the tree of the nearest enclosing break scope
+   * @return the tree for the nearest enclosing break scope
+   */
+  private Tree getEnclosingBreakScopeTree() {
+    // Per docs, iterates from leaves to root
+    for (Tree t : getCurrentPath()) {
+      if (t.getKind() == Tree.Kind.SWITCH ||
+        t.getKind() == Tree.Kind.WHILE_LOOP ||
+        t.getKind() == Tree.Kind.DO_WHILE_LOOP ||
+        t.getKind() == Tree.Kind.FOR_LOOP ||
+        t.getKind() == Tree.Kind.ENHANCED_FOR_LOOP) {
+          return t;
+      }
+    }
+    return null;
+  }
+  private Tree getEnclosingThrowScopeTree(ClassType thrown) {
+    // Per docs, iterates from leaves to root
+    for (Tree t : getCurrentPath()) {
+      if (t.getKind() == Tree.Kind.METHOD) {
+        return t;
+      } else if (t.getKind() == Tree.Kind.TRY) {
+        TryTree node = (TryTree)t;
+        List<? extends CatchTree> catches = node.getCatches();
+        for (CatchTree ct : catches) {
+          // TODO: get mirror from 
+          // TreeUtils.elementfFromDeclaration(VariableTree) could apply to ct.getParameter()
+          //if (ct.getParameter().getType())
+        }
+      }
+    }
+    return null;
   }
 
   /**
@@ -736,7 +781,9 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       elseEff = elseEffs.get(0);
     }
     // stack still has the condition effect on it, but no branch effects
+    effStack.peek().debugDump("@@@@@@", true);
     LinkedList<ControlEffect<X>> condEffs = effStack.peek().rewindToMark();
+    effStack.peek().debugDump("&&&&&&", true);
     assert (condEffs.size() == 1);
     ControlEffect<X> condEff = condEffs.get(0);
 
@@ -893,8 +940,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   public Void visitThrow(ThrowTree node, Void p) {
     effStack.peek().mark();
     scan(node.getExpression(), p);
+    // TODO: HIPRI: This fails when the exception type is only in the target project, not in the compiler's classpath. getClassFromType will return Object.class.
     TypeMirror m = TreeUtils.typeOf(node.getExpression());
     effStack.peek().pushEffect(genericEffect.raise(TypesUtils.getClassFromType(m), node), node);
+    effStack.peek().squashMark(node);
     return p;
   }
 

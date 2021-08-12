@@ -1,6 +1,7 @@
 package org.checkerframework.checker.genericeffects;
 
 import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.Type.ClassType;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -28,6 +30,8 @@ import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.ControlEffect;
 import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.LocatedEffect;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
+import org.checkerframework.javacutil.AnnotationUtils;
+import org.checkerframework.javacutil.BugInCF;
 
 /**
  * A base type factory for effect systems.
@@ -192,6 +196,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
    * @return declared effect : if methodElt is annotated with a valid effect
    *     bottomMostEffectInLattice : otherwise, bottom most effect of lattice
    */
+  @SuppressWarnings({"unchecked","deprecation"}) // TODO: fetch annotation values the right way
   public ControlEffect<X> getDeclaredEffect(ExecutableElement methodElt, Tree use) {
     if (debugSpew) {
       System.err.println("> Retrieving declared effect of: " + methodElt);
@@ -222,11 +227,43 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
     Map<Class<?>, Set<LocatedEffect<X>>> excBehaviors = new HashMap<>();
     // Check that any @ThrownEffect uses are valid
     for (AnnotationMirror thrown : getDeclAnnotations(methodElt)) {
+      System.err.println("Found declanno "+thrown);
       if (areSameByClass(thrown, ThrownEffect.class)) {
-        ThrownEffect thrownEff = (ThrownEffect) thrown;
+        System.err.println("Found declanno "+thrown);
+        for (Map.Entry<? extends ExecutableElement,? extends AnnotationValue> e : thrown.getElementValues().entrySet()) {
+          System.err.println(e.getKey()+"->"+e.getValue());
+        }
+        // TODO: this version of getElementValue is deprecated, check the handling of @SubtypeOf to see how main framework does this
+        //Class<? extends Exception> exc = (Class<? extends Exception>)AnnotationUtils.<Class<? extends Exception>>getElementValue(thrown, "exception", (Class<Class<? extends Exception>>)Class<? extends Exception>.class, true);
+        //Class<? extends Exception> exc = (Class<? extends Exception>)AnnotationUtils.<Class<? extends Exception>>getElementValue(thrown, "exception", Class.class, true);
+        
+        // This almost works, but I get a cast exception...
+        //Class<? extends Exception> exc = (Class<? extends Exception>)AnnotationUtils.getElementValue(thrown, "exception", Class.class, true);
+        ClassType exc = AnnotationUtils.getElementValue(thrown, "exception", ClassType.class, true);
+        Object beh = AnnotationUtils.getElementValue(thrown, "behavior", Object.class, true);
+        System.err.println("Retrieved @ThrownEffect(exception="+exc+", behavior="+beh+"@"+beh.getClass()+")");
+        // TODO: There *must* be some kind of proper way to convert ClassType to a Class... or perhaps not: actually, this will only work for exception types on the compiler's classpath, not exception types being compiled! Should probably switch to using ClassType instead of Class<? extends Exception>
+        Class<? extends Exception> excClass = null;
+        try {
+          excClass = (Class<? extends Exception>)Class.forName(exc.toString());
+          System.err.println("Converted exception to: "+excClass);
+        } catch (ClassNotFoundException e) {
+          throw new BugInCF("Unable to get class for "+exc, e);
+        }
+        /* The annotations used for effects are supposed to be already compiled
+           and on the compiler's classpath */
+        Class<? extends Annotation> annoClass = null;
+        try {
+          annoClass = (Class<? extends Annotation>)Class.forName(beh.toString());
+          System.err.println("Converted annotation to: "+annoClass);
+        } catch (ClassNotFoundException e) {
+          System.err.println("Unable to get class for "+beh);
+        }
+
+        //ThrownEffect thrownEff = (ThrownEffect) thrown;
         // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
-        excBehaviors.put(thrownEff.exception(), 
-                             Collections.singleton(new LocatedEffect<X>(fromAnnotation.apply(thrownEff.behavior()), use)));
+        excBehaviors.put(excClass, 
+                             Collections.singleton(new LocatedEffect<X>(fromAnnotation.apply(annoClass), use)));
       }
     }
 

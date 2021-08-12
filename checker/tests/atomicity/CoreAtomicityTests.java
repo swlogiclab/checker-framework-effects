@@ -1,6 +1,10 @@
 import org.checkerframework.checker.atomicity.qual.*;
+import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
+import java.lang.Exception;
 
 public class CoreAtomicityTests {
+  public static class TestException extends Exception {}
+
   public static interface AtomicityTestHelper {
     @Right
     public void Lock();
@@ -260,4 +264,44 @@ public class CoreAtomicityTests {
       h.Unlock();
     }
   }
+
+  // Exception tests
+  @Both
+  @ThrownEffect(exception=Exception.class, behavior=Right.class)
+  public void excTest0(AtomicityTestHelper h) throws Exception {
+    h.Lock();
+    throw new Exception();
+  }
+
+  @Atomic
+  @ThrownEffect(exception=Exception.class, behavior=Right.class)
+  public void excTest1(AtomicityTestHelper h) throws Exception {
+    h.Lock();
+    if (h.DoNothingBool()) {
+      throw new Exception();
+    } else {
+      h.Unlock();
+    }
+  }
+
+  //// Throw an exception not known to the compiler
+  //@Both
+  //@ThrownEffect(exception=TestException.class, behavior=Right.class)
+  //public void excTest2(AtomicityTestHelper h) throws TestException {
+  //  h.Lock();
+  //  throw new TestException();
+  //}
+
+  //@Atomic
+  //@ThrownEffect(exception=TestException.class, behavior=Right.class)
+  //public void excTest3(AtomicityTestHelper h) throws TestException {
+  //  h.Lock();
+  //  if (h.DoNothingBool()) {
+  //    throw new TestException();
+  //  } else {
+  //    h.Unlock();
+  //  }
+  //}
+
+
 }

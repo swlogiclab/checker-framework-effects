@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 /** Annotation to specify the effect of a method when a specific exception is thrown. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
+@Target({ElementType.TYPE, ElementType.METHOD})
 public @interface ThrownEffect {
   /**
    * The exception whose pre-throw effect is being specified.
