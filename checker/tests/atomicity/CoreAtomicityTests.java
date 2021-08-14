@@ -284,24 +284,24 @@ public class CoreAtomicityTests {
     }
   }
 
-  //// Throw an exception not known to the compiler
-  //@Both
-  //@ThrownEffect(exception=TestException.class, behavior=Right.class)
-  //public void excTest2(AtomicityTestHelper h) throws TestException {
-  //  h.Lock();
-  //  throw new TestException();
-  //}
+  // Throw an exception not known to the compiler, which requires the use of ClassType instead of Class<?> internally
+  @Both
+  @ThrownEffect(exception=TestException.class, behavior=Right.class)
+  public void excTest2(AtomicityTestHelper h) throws TestException {
+    h.Lock();
+    throw new TestException();
+  }
 
-  //@Atomic
-  //@ThrownEffect(exception=TestException.class, behavior=Right.class)
-  //public void excTest3(AtomicityTestHelper h) throws TestException {
-  //  h.Lock();
-  //  if (h.DoNothingBool()) {
-  //    throw new TestException();
-  //  } else {
-  //    h.Unlock();
-  //  }
-  //}
+  @Atomic
+  @ThrownEffect(exception=TestException.class, behavior=Right.class)
+  public void excTest3(AtomicityTestHelper h) throws TestException {
+    h.Lock();
+    if (h.DoNothingBool()) {
+      throw new TestException();
+    } else {
+      h.Unlock();
+    }
+  }
 
 
 }

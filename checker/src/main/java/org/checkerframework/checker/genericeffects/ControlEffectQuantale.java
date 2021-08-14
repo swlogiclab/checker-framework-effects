@@ -1,6 +1,7 @@
 package org.checkerframework.checker.genericeffects;
 
 import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.Type.ClassType;
 
 import org.w3c.dom.events.EventTarget;
 
@@ -55,16 +56,15 @@ public class ControlEffectQuantale<X>
      * <p>Empty sets are represented by an empty collection OR null for efficiency of
      * <i>construction</i>. Most control effect instances will not have any exceptions or breaks.
      */
-    public final Map<Class<?>, Set<LocatedEffect<X>>> excMap;
+    public final Map<ClassType, Set<NonlocalEffect<X>>> excMap;
     /** Effects up to points where breaks cause non-local exits from cases and loops */
-    public final Set<LocatedEffect<X>> breakset;
+    public final Set<NonlocalEffect<X>> breakset;
 
     ControlEffect(
-        X base, Map<Class<?>, Set<LocatedEffect<X>>> excMap, Set<LocatedEffect<X>> breakset) {
+        X base, Map<ClassType, Set<NonlocalEffect<X>>> excMap, Set<NonlocalEffect<X>> breakset) {
       assert (excMap == null || excMap.size() > 0);
       assert (breakset == null || breakset.size() > 0);
       assert (base != null || excMap != null || breakset != null);
-      assert (excMap == null || !excMap.containsKey(Object.class));
       this.base = base;
       this.excMap = excMap;
       this.breakset = breakset;
@@ -97,65 +97,46 @@ public class ControlEffectQuantale<X>
     public static <X> ControlEffect<X> basic(X x) {
       return new ControlEffect<>(x, null, null);
     }
-    public static <X> ControlEffect<X> raise(X prefix, Class<?> exc, Tree node) {
-      Map<Class<?>,Set<LocatedEffect<X>>> throwmap = new HashMap<>();
-      Set<LocatedEffect<X>> tset = new HashSet<>();
-      tset.add(new LocatedEffect<X>(prefix, node));
+    public static <X> ControlEffect<X> raise(X prefix, ClassType exc, Tree target, Tree src) {
+      Map<ClassType,Set<NonlocalEffect<X>>> throwmap = new HashMap<>();
+      Set<NonlocalEffect<X>> tset = new HashSet<>();
+      tset.add(new NonlocalEffect<X>(prefix, target, src));
       throwmap.put(exc, tset);
       return new ControlEffect<>(null, throwmap, null);
     }
-    public static <X> ControlEffect<X> breakout(X prefix, Tree node) {
-      Set<LocatedEffect<X>> bset = new HashSet<>();
-      bset.add(new LocatedEffect<X>(prefix, node));
+    public static <X> ControlEffect<X> breakout(X prefix, Tree target, Tree src) {
+      Set<NonlocalEffect<X>> bset = new HashSet<>();
+      bset.add(new NonlocalEffect<X>(prefix, target, src));
       return new ControlEffect<>(null, null, bset);
     }
   }
 
   // Some helper methods for functional set ops
-  private <T> Set<LocatedEffect<T>> union(Set<LocatedEffect<T>> a, Set<LocatedEffect<T>> b) {
+  private Set<NonlocalEffect<X>> union(Set<NonlocalEffect<X>> a, Set<NonlocalEffect<X>> b) {
     /*
     TODO: Okay, so the difficulty here is resolving when some effect should dominate another due to targeting the same node the same way
 
-    The ContextEffectQuantale code always separates breaks, 
+    Hmm. Could actually create the effects with origins *and targets* and then just focus on targets here.... Do all NonlocalEffects exist because they have targets?
     */
     assert (a != null);
     assert (b != null);
-    // TODO: Find a more efficient way to do this
-    Map<T,Tree> effset = new HashMap<>();
-    for (LocatedEffect<T> eff : a) {
-      effset.put(eff.effect, eff.loc);
-    }
-    for (LocatedEffect<T> eff : b) {
-      Tree existing = effset.get(eff.effect);
-      if (existing == null) {
-        effset.put(eff.effect,eff.loc);
-      } else {
-        // TODO: We'd really like a way to check the ancestry relationship between trees but there's no way to do this directly.
-        // Instead we approximate. The only tree kinds that will appear in located effects are calls (method or ctor), decls (method/ctor), try blocks, throws, breaks, or switch blocks. Each source-target should be dominated by the target node kind
-        if (eff.loc.getKind() == Tree.Kind.METHOD ||
-            eff.loc.getKind() == Tree.Kind.SWITCH ||
-            eff.loc.getKind() == Tree.Kind.SWITCH ||
-            eff.loc.getKind() == Tree.Kind.WHILE_LOOP ||
-            eff.loc.getKind() == Tree.Kind.DO_WHILE_LOOP ||
-            eff.loc.getKind() == Tree.Kind.FOR_LOOP ||
-            eff.loc.getKind() == Tree.Kind.ENHANCED_FOR_LOOP ||
-            eff.loc.getKind() == Tree.Kind.TRY
-        ) {
-          // This location dominates the one in the map
-          effset.put(eff.effect, eff.loc);
+    // TODO: perf headache for large effects
+    Set<NonlocalEffect<X>> result = new HashSet<>(a);
+    result.addAll(b);
+    Set<NonlocalEffect<X>> toRemove = new HashSet<>();
+    for (NonlocalEffect<X> x : result) {
+      for (NonlocalEffect<X> y : result) {
+        if (x != y && x.LE(underlying, y)) {
+          // x is over-approximated by y
+          toRemove.add(x);
         }
-        // TODO: If there are multiple *peer* locations, this will actually drop one, in a left-biased way. Need to upgrade to a set with no dominating pairs...
       }
     }
-
-    Set<LocatedEffect<T>> uset = new HashSet<>(a);
-    for (Map.Entry<T,Tree> e : effset.entrySet()) {
-      uset.add(new LocatedEffect<>(e.getKey(), e.getValue()));
-    }
-    return uset;
+    result.removeAll(toRemove);
+    return result;
   }
 
-  private <T> Set<LocatedEffect<T>> unionPossiblyNull(Set<LocatedEffect<T>> a, Set<LocatedEffect<T>> b) {
+  private Set<NonlocalEffect<X>> unionPossiblyNull(Set<NonlocalEffect<X>> a, Set<NonlocalEffect<X>> b) {
     if (null == a) {
       return b;
     } else if (null == b) {
@@ -170,40 +151,54 @@ public class ControlEffectQuantale<X>
    * of origin (source of the throw or break) in lieu of a label, since these can be checked for
    * subtree relationships with prompt boundaries.
    */
-  public static class LocatedEffect<X> {
+  public static class NonlocalEffect<X> {
+    /** The underlying effect */
     public final X effect;
-    public final Tree loc;
+    /** The target node of this non-local effect */
+    public final Tree target;
+    /** The tree that caused this non-local effect (for error-reporting, not semantics) */
+    public final Tree src;
 
-    /** Build a LocatedEffect */
-    public LocatedEffect(X e, Tree l) {
+    /** Build a NonlocalEffect */
+    public NonlocalEffect(X e, Tree target, Tree src) {
       if (null == e)
-        throw new IllegalArgumentException("Cannot construct a LocatedEffect with a null effect");
-      if (null == l)
-        throw new IllegalArgumentException("Cannot construct a LocatedEffect with a null tree");
+        throw new IllegalArgumentException("Cannot construct a NonlocalEffect with a null effect");
+      if (null == src)
+        throw new IllegalArgumentException("Cannot construct a NonlocalEffect with a null src tree");
       effect = e;
-      loc = l;
+      this.target = target;
+      this.src = src;
+    }
+
+    public NonlocalEffect<X> copyWithPrefix(X newPrefix) {
+      return new NonlocalEffect<>(newPrefix, target, src);
     }
 
     @Override
     public int hashCode() {
-      return effect.hashCode() + loc.hashCode();
+      return effect.hashCode() + (target == null ? 3 : target.hashCode()) + src.hashCode();
     }
 
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof ControlEffectQuantale.LocatedEffect)) {
+      if (!(other instanceof ControlEffectQuantale.NonlocalEffect)) {
         return false;
       }
       @SuppressWarnings("rawtypes")
       // Using rawtype here to avoid issue with unchecked cast, since the generic param can't be
       // checked
-      ControlEffectQuantale.LocatedEffect o = (ControlEffectQuantale.LocatedEffect) other;
-      return effect.equals(o.effect) && loc.equals(o.loc);
+      ControlEffectQuantale.NonlocalEffect o = (ControlEffectQuantale.NonlocalEffect) other;
+      // We do not compare source! This results in possibly losing track of multiple sources in unions, which may result in us only reporting one error location when multiple exist.
+      return effect.equals(o.effect) && (target == o.target || (target != null && target.equals(o.target)));
+    }
+
+    public boolean LE(EffectQuantale<X> underlying, NonlocalEffect<X> other) {
+      return (other.target == null || target == other.target || (target != null && target.equals(other.target))) && underlying.LE(effect, other.effect);
     }
 
     @Override
     public String toString() {
-      return effect.toString()+"@"+loc.toString();
+      return effect.toString()+":"+(target == null ? "<null>" : target.hashCode());
     }
   }
 
@@ -218,8 +213,8 @@ public class ControlEffectQuantale<X>
   @Override
   public ControlEffect<X> LUB(ControlEffect<X> l, ControlEffect<X> r) {
     X base;
-    Map<Class<?>, Set<LocatedEffect<X>>> emap;
-    Set<LocatedEffect<X>> bset;
+    Map<ClassType, Set<NonlocalEffect<X>>> emap;
+    Set<NonlocalEffect<X>> bset;
 
     // Join underlying effects
     if (l.base == null) {
@@ -243,16 +238,16 @@ public class ControlEffectQuantale<X>
       emap = l.excMap;
     } else {
       // Need to join where common
-      Map<Class<?>, Set<LocatedEffect<X>>> m = new HashMap<>();
-      for (Class<?> exc : l.excMap.keySet()) {
+      Map<ClassType, Set<NonlocalEffect<X>>> m = new HashMap<>();
+      for (ClassType exc : l.excMap.keySet()) {
         // will be non-null by assumption
-        Set<LocatedEffect<X>> left = l.excMap.get(exc);
+        Set<NonlocalEffect<X>> left = l.excMap.get(exc);
         // might be null
-        Set<LocatedEffect<X>> right = r.excMap.get(exc);
+        Set<NonlocalEffect<X>> right = r.excMap.get(exc);
         m.put(exc, unionPossiblyNull(left, right));
       }
       // Then join in any exceptions thrown in the RHS but not in the left
-      for (Class<?> exc : r.excMap.keySet()) {
+      for (ClassType exc : r.excMap.keySet()) {
         if (l.excMap.get(exc) == null) {
           m.put(exc, r.excMap.get(exc));
         }
@@ -312,8 +307,8 @@ public class ControlEffectQuantale<X>
   @Override
   public ControlEffect<X> seq(ControlEffect<X> l, ControlEffect<X> r) {
     X base;
-    Map<Class<?>, Set<LocatedEffect<X>>> emap;
-    Set<LocatedEffect<X>> bset;
+    Map<ClassType, Set<NonlocalEffect<X>>> emap;
+    Set<NonlocalEffect<X>> bset;
 
     assert (lastErrors == null)
         : "ControlEffect.seq called without retrieving errors of prior call";
@@ -333,14 +328,14 @@ public class ControlEffectQuantale<X>
       }
     }
 
-    Set<LocatedEffect<X>> sndInCtxt = new HashSet<>();
+    Set<NonlocalEffect<X>> sndInCtxt = new HashSet<>();
     if (r.breakset != null) {
-      for (LocatedEffect<X> x : r.breakset) {
+      for (NonlocalEffect<X> x : r.breakset) {
         X tmp = underlying.seq(l.base, x.effect);
         if (tmp == null) {
-          addSequencingError(l.base, x.effect, x.loc);
+          addSequencingError(l.base, x.effect, x.src);
         } else {
-          sndInCtxt.add(new LocatedEffect<>(tmp, x.loc));
+          sndInCtxt.add(x.copyWithPrefix(tmp));
         }
       }
     }
@@ -353,22 +348,22 @@ public class ControlEffectQuantale<X>
     // Need to join where common
     emap = new HashMap<>();
     if (l.excMap != null) {
-      for (Class<?> exc : l.excMap.keySet()) {
+      for (ClassType exc : l.excMap.keySet()) {
         // will be non-null by assumption
-        Set<LocatedEffect<X>> left = l.excMap.get(exc);
+        Set<NonlocalEffect<X>> left = l.excMap.get(exc);
         emap.put(exc, new HashSet<>(left));
       }
     }
     if (r.excMap != null) {
-      for (Class<?> exc : r.excMap.keySet()) {
-        Set<LocatedEffect<X>> lpartial = l.excMap == null ? null : l.excMap.get(exc);
-        Set<LocatedEffect<X>> s = new HashSet<>();
-        for (LocatedEffect<X> leff : r.excMap.get(exc)) {
+      for (ClassType exc : r.excMap.keySet()) {
+        Set<NonlocalEffect<X>> lpartial = l.excMap == null ? null : l.excMap.get(exc);
+        Set<NonlocalEffect<X>> s = new HashSet<>();
+        for (NonlocalEffect<X> leff : r.excMap.get(exc)) {
           X tmp = underlying.seq(l.base, leff.effect);
           if (tmp == null) {
-            addSequencingError(l.base, leff.effect, leff.loc);
+            addSequencingError(l.base, leff.effect, leff.src);
           } else {
-            s.add(new LocatedEffect<>(tmp, leff.loc));
+            s.add(leff.copyWithPrefix(tmp));
           }
         }
         if (lpartial == null) {
@@ -402,11 +397,11 @@ public class ControlEffectQuantale<X>
   public ControlEffect<X> unit() {
     return ControlEffect.unit(underlying);
   }
-  public ControlEffect<X> breakout(Tree node) {
-    return ControlEffect.breakout(underlying.unit(), node);
+  public ControlEffect<X> breakout(Tree target, Tree src) {
+    return ControlEffect.breakout(underlying.unit(), target, src);
   }
-  public ControlEffect<X> raise(Class<?> exc, Tree node) {
-    return ControlEffect.raise(underlying.unit(), exc, node);
+  public ControlEffect<X> raise(ClassType exc, Tree target, Tree src) {
+    return ControlEffect.raise(underlying.unit(), exc, target, src);
   }
   public ControlEffect<X> lift(X x) {
     return new ControlEffect<X>(x, null, null);
@@ -425,17 +420,17 @@ public class ControlEffectQuantale<X>
     // exception or break control effect.
     // Technically this merges slightly early compared to the paper, but this is defined iff the
     // paper's version is defined, and gives more eager error messages
-    Map<Class<?>, Set<LocatedEffect<X>>> exc = x.excMap != null ? new HashMap<>() : null;
-    Set<LocatedEffect<X>> brks = x.breakset != null ? new HashSet<>() : null;
+    Map<ClassType, Set<NonlocalEffect<X>>> exc = x.excMap != null ? new HashMap<>() : null;
+    Set<NonlocalEffect<X>> brks = x.breakset != null ? new HashSet<>() : null;
     if (exc != null) {
-      for (Map.Entry<Class<?>, Set<LocatedEffect<X>>> kv : x.excMap.entrySet()) {
-        Set<LocatedEffect<X>> s = new HashSet<>();
-        for (LocatedEffect<X> ctrleff : kv.getValue()) {
+      for (Map.Entry<ClassType, Set<NonlocalEffect<X>>> kv : x.excMap.entrySet()) {
+        Set<NonlocalEffect<X>> s = new HashSet<>();
+        for (NonlocalEffect<X> ctrleff : kv.getValue()) {
           X tmp = underlying.seq(underlying_iter, ctrleff.effect);
           if (tmp == null) {
-            addSequencingError(underlying_iter, ctrleff.effect, ctrleff.loc);
+            addSequencingError(underlying_iter, ctrleff.effect, ctrleff.src);
           } else {
-            s.add(new LocatedEffect<>(tmp, ctrleff.loc));
+            s.add(ctrleff.copyWithPrefix(tmp));
           }
         }
         exc.put(kv.getKey(), s);
@@ -443,12 +438,12 @@ public class ControlEffectQuantale<X>
     }
 
     if (brks != null) {
-      for (LocatedEffect<X> brkeff : x.breakset) {
+      for (NonlocalEffect<X> brkeff : x.breakset) {
         X tmp = underlying.seq(underlying_iter, brkeff.effect);
         if (tmp == null) {
-          addSequencingError(underlying_iter, brkeff.effect, brkeff.loc);
+          addSequencingError(underlying_iter, brkeff.effect, brkeff.src);
         } else {
-          brks.add(new LocatedEffect<>(tmp, brkeff.loc));
+          brks.add(brkeff.copyWithPrefix(tmp));
         }
       }
     }
@@ -521,7 +516,7 @@ public class ControlEffectQuantale<X>
       // Control effects do not extend on the right, so any control effect in sofar must be over-approximated by a control effect in target.  Moreover, every control effect in target must have the sofar behavior as its "prefix", and so must have its residual with that underlying prefix defined.
       // Actually, refine that: if there is a control effect in target whose residual with the sofar.base is undefined, then that control effect *must* have been triggered in sofar, and cannot be triggered by further composition on the right. If we cannot find such an already-triggered control effect, then it's an error and there is no residual.
 
-      Set<LocatedEffect<X>> breakset = new HashSet<>();
+      Set<NonlocalEffect<X>> breakset = new HashSet<>();
       if (sofar.breakset != null && target.breakset == null) {
         // Target has no breaks, so no residual can be defined
         throw new BugInCF("WIP: target has no breaks but sofar does");//return null;
@@ -530,9 +525,9 @@ public class ControlEffectQuantale<X>
       }
       Set<X> overApprox = new HashSet<>();
       if (sofar.breakset != null) {
-        for (LocatedEffect<X> bsofar : sofar.breakset) {
+        for (NonlocalEffect<X> bsofar : sofar.breakset) {
           boolean matched = false;
-          for (LocatedEffect<X> btarget : target.breakset) {
+          for (NonlocalEffect<X> btarget : target.breakset) {
             if (underlying.LE(bsofar.effect, btarget.effect)) {
               overApprox.add(btarget.effect);
               matched = true;
@@ -549,7 +544,7 @@ public class ControlEffectQuantale<X>
       // Okay, every existing break in sofar is matched to something in target
       // Now we need to check for every target behavior that it's either a suffix of sofar.base or over-approximates something in sofar (maybe we should build this mapping from target break to sofar break above to avoid more loops)
       if (target.breakset != null) {
-        for (LocatedEffect<X> btarget : target.breakset) {
+        for (NonlocalEffect<X> btarget : target.breakset) {
           X underlyingResid = underlying.residual(sofar.base, btarget.effect);
           if (underlyingResid == null) {
             // Ok if this was over-approx of something so far, otherwise an error
@@ -558,7 +553,7 @@ public class ControlEffectQuantale<X>
             }
           } else {
             // This can still be raised later
-            breakset.add(new LocatedEffect<>(underlyingResid, btarget.loc));
+            breakset.add(btarget.copyWithPrefix(underlyingResid));
           }
         }
       }
@@ -566,20 +561,20 @@ public class ControlEffectQuantale<X>
 
       // exceptions are the same as breaksets, but per-exception, and sofar shouldn't throw exceptions the target doesn't
       // TODO: Again, suggests the base for the residual check should be adjusted at try/catch/finally boundaries
-      Map<Class<?>,Set<LocatedEffect<X>>> excMap = new HashMap<>();
-      Map<Class<?>,Set<X>> overApproxExc = new HashMap<>();
+      Map<ClassType,Set<NonlocalEffect<X>>> excMap = new HashMap<>();
+      Map<ClassType,Set<X>> overApproxExc = new HashMap<>();
       if (sofar.excMap != null) {
-        for (Map.Entry<Class<?>,Set<LocatedEffect<X>>> exc : sofar.excMap.entrySet()) {
+        for (Map.Entry<ClassType,Set<NonlocalEffect<X>>> exc : sofar.excMap.entrySet()) {
           overApproxExc.put(exc.getKey(), new HashSet<>());
           if (!target.excMap.containsKey(exc.getKey())) {
             // Sofar throws something the target doesn't allow at all
             throw new BugInCF("WIP: sofar throws "+exc.getKey()+" but target doesn't");//return null;
           } else {
             // This exception type is thrown by both, handle similarly to breaksets
-            Set<LocatedEffect<X>> targetset = target.excMap.get(exc.getKey());
-            for (LocatedEffect<X> esofar : exc.getValue()) {
+            Set<NonlocalEffect<X>> targetset = target.excMap.get(exc.getKey());
+            for (NonlocalEffect<X> esofar : exc.getValue()) {
               boolean matched = false;
-              for (LocatedEffect<X> etarget : targetset) {
+              for (NonlocalEffect<X> etarget : targetset) {
                 if (underlying.LE(esofar.effect, etarget.effect)) {
                   overApproxExc.get(exc.getKey()).add(etarget.effect);
                   matched = true;
@@ -596,9 +591,9 @@ public class ControlEffectQuantale<X>
       }
       // Now we've concluded all exceptional behaviors in sofar are valid, and we now need to check all the exceptional behaviors in target are completeable after base
       if (target.excMap != null) {
-        for (Map.Entry<Class<?>,Set<LocatedEffect<X>>> exc : target.excMap.entrySet()) {
-          Set<LocatedEffect<X>> residThrows = null;
-          for (LocatedEffect<X> etarget : exc.getValue()) {
+        for (Map.Entry<ClassType,Set<NonlocalEffect<X>>> exc : target.excMap.entrySet()) {
+          Set<NonlocalEffect<X>> residThrows = null;
+          for (NonlocalEffect<X> etarget : exc.getValue()) {
             X underlyingResid = underlying.residual(sofar.base, etarget.effect);
             if (underlyingResid == null) {
               // ok only if over-approximating
@@ -612,7 +607,7 @@ public class ControlEffectQuantale<X>
               if (residThrows == null) {
                 residThrows = new HashSet<>();
               }
-              residThrows.add(new LocatedEffect<>(underlyingResid, etarget.loc));
+              residThrows.add(etarget.copyWithPrefix(underlyingResid));
             }
           }
           if (residThrows != null) excMap.put(exc.getKey(), residThrows);

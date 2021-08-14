@@ -43,9 +43,11 @@ import com.sun.source.tree.WildcardTree;
 import java.lang.annotation.Annotation;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -60,7 +62,7 @@ import org.checkerframework.javacutil.TreePathUtil;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypesUtils;
 import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.ControlEffect;
-import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.LocatedEffect;
+import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
 
 /**
  * GenericEffectVisitor is a base class for effect systems, including sequential effect systems.
@@ -405,7 +407,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    * Retrieve the tree of the nearest enclosing break scope
    * @return the tree for the nearest enclosing break scope
    */
-  private Tree getEnclosingBreakScopeTree() {
+  public Tree getEnclosingBreakScopeTree() {
     // Per docs, iterates from leaves to root
     for (Tree t : getCurrentPath()) {
       if (t.getKind() == Tree.Kind.SWITCH ||
@@ -418,7 +420,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
     return null;
   }
-  private Tree getEnclosingThrowScopeTree(ClassType thrown) {
+  public Tree getEnclosingThrowScopeTree(ClassType thrown) {
     // Per docs, iterates from leaves to root
     for (Tree t : getCurrentPath()) {
       if (t.getKind() == Tree.Kind.METHOD) {
@@ -430,6 +432,16 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
           // TODO: get mirror from 
           // TreeUtils.elementfFromDeclaration(VariableTree) could apply to ct.getParameter()
           //if (ct.getParameter().getType())
+          //Element e = TreeUtils.elementFromDeclaration(ct.getParameter());
+          //assert (e != null);
+          ClassType classty = (ClassType)TreeUtils.typeOf(ct.getParameter());
+
+          // TODO: Figure out how to check supertypes for catches
+          //TypeMirror upcast  TypesUtils.asSuper(thrown, classty, ???)
+          if (TypesUtils.areSameDeclaredTypes(thrown, classty)) {
+            return t;
+          }
+
         }
       }
     }
@@ -451,6 +463,22 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     return xtypeFactory.getDefaultEffect(clsElt);
   }
 
+  private ControlEffect<X> contextualize(ControlEffect<X> contextless) {
+    assert (contextless.breakset == null) : "Should never need to contextualize an effect with break behaviors, only method declaration effects";
+    if (contextless.excMap == null) return contextless;
+    X ul = contextless.base;
+    // Rewrite every exception target from null to the nearest exception context
+    Map<ClassType,Set<NonlocalEffect<X>>> m = new HashMap<>();
+    for (Map.Entry<ClassType,Set<NonlocalEffect<X>>> e : contextless.excMap.entrySet()) {
+      Set<NonlocalEffect<X>> retargeted = new HashSet<>();
+      for (NonlocalEffect<X> eff : e.getValue()) {
+        retargeted.add(new NonlocalEffect<>(eff.effect,getEnclosingThrowScopeTree(e.getKey()),eff.src));
+      }
+      m.put(e.getKey(), retargeted);
+    }
+    return new ControlEffect<>(ul, m, null);
+  }
+
   /**
    * Method that visits all the method invocation tree nodes and raises failures/warnings for unsafe
    * method invocations.
@@ -470,7 +498,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       scan(args, p);
     }
     ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-    ControlEffect<X> targetEffect = xtypeFactory.getDeclaredEffect(methodElt, node);
+    ControlEffect<X> targetEffect = contextualize(xtypeFactory.getDeclaredEffect(methodElt, node));
     if (debugSpew) {
       System.err.println("Pushing latent effect " + targetEffect + " for " + node);
     }
@@ -524,7 +552,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Visit arguments, and if anonymous inner class, the inner class body
     super.visitNewClass(node, p);
     ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-    ControlEffect<X> targetEffect = xtypeFactory.getDeclaredEffect(methodElt, node);
+    ControlEffect<X> targetEffect = contextualize(xtypeFactory.getDeclaredEffect(methodElt, node));
     effStack.peek().pushEffect(targetEffect, node);
     effStack.peek().squashMark(node);
     checkResidual(node);
@@ -611,7 +639,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       throw new UnsupportedOperationException("Generic Effect Framework does not yet support labeled breaks");
     }
     effStack.peek().mark();
-    effStack.peek().pushEffect(genericEffect.breakout(node), node);
+    effStack.peek().pushEffect(genericEffect.breakout(getEnclosingBreakScopeTree(), node), node);
     // TODO extension
     checkResidual(node);
     return p;
@@ -942,7 +970,9 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     scan(node.getExpression(), p);
     // TODO: HIPRI: This fails when the exception type is only in the target project, not in the compiler's classpath. getClassFromType will return Object.class.
     TypeMirror m = TreeUtils.typeOf(node.getExpression());
-    effStack.peek().pushEffect(genericEffect.raise(TypesUtils.getClassFromType(m), node), node);
+    assert (TypesUtils.isClassType(m));
+    ClassType exctype = (ClassType)m;
+    effStack.peek().pushEffect(genericEffect.raise(exctype, getEnclosingThrowScopeTree(exctype), node), node);
     effStack.peek().squashMark(node);
     return p;
   }

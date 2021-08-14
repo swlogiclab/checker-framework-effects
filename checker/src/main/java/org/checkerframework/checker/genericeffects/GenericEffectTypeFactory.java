@@ -28,7 +28,7 @@ import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.Placeholder;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.ControlEffect;
-import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.LocatedEffect;
+import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.BugInCF;
@@ -189,7 +189,10 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
   }
 
   /**
-   * Returns the Declared Effect on the passed method as parameter
+   * Returns the Declared Effect on the passed method as parameter.
+   * 
+   * This method returns exceptional control effects with <code>null</code> targets! This is the default indication of "throws as far as it goes", which is used in context-less comparisons (e.g., method override checks).
+   * Contextual uses like at method or constructor invocations need to rewrite the targets in context.
    *
    * @param methodElt : Method for which declared effect is to be returned
    * @param use : The tree where this element is being invoked
@@ -224,7 +227,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
     }
 
     // We have a base effect, now check for @Throws annotations
-    Map<Class<?>, Set<LocatedEffect<X>>> excBehaviors = new HashMap<>();
+    Map<ClassType, Set<NonlocalEffect<X>>> excBehaviors = new HashMap<>();
     // Check that any @ThrownEffect uses are valid
     for (AnnotationMirror thrown : getDeclAnnotations(methodElt)) {
       System.err.println("Found declanno "+thrown);
@@ -243,13 +246,13 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
         Object beh = AnnotationUtils.getElementValue(thrown, "behavior", Object.class, true);
         System.err.println("Retrieved @ThrownEffect(exception="+exc+", behavior="+beh+"@"+beh.getClass()+")");
         // TODO: There *must* be some kind of proper way to convert ClassType to a Class... or perhaps not: actually, this will only work for exception types on the compiler's classpath, not exception types being compiled! Should probably switch to using ClassType instead of Class<? extends Exception>
-        Class<? extends Exception> excClass = null;
-        try {
-          excClass = (Class<? extends Exception>)Class.forName(exc.toString());
-          System.err.println("Converted exception to: "+excClass);
-        } catch (ClassNotFoundException e) {
-          throw new BugInCF("Unable to get class for "+exc, e);
-        }
+        //Class<? extends Exception> excClass = null;
+        //try {
+        //  excClass = (Class<? extends Exception>)Class.forName(exc.toString());
+        //  System.err.println("Converted exception to: "+excClass);
+        //} catch (ClassNotFoundException e) {
+        //  throw new BugInCF("Unable to get class for "+exc, e);
+        //}
         /* The annotations used for effects are supposed to be already compiled
            and on the compiler's classpath */
         Class<? extends Annotation> annoClass = null;
@@ -262,8 +265,9 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
 
         //ThrownEffect thrownEff = (ThrownEffect) thrown;
         // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
-        excBehaviors.put(excClass, 
-                             Collections.singleton(new LocatedEffect<X>(fromAnnotation.apply(annoClass), use)));
+        // TODO: This needs a target for the exceptional behavior: the try-catch or method body enclosing the call, depending on the exception type!
+        excBehaviors.put(exc, 
+                             Collections.singleton(new NonlocalEffect<X>(fromAnnotation.apply(annoClass), null, use)));
       }
     }
 
