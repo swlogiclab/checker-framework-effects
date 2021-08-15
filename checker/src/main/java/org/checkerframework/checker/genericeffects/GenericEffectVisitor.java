@@ -974,6 +974,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     ClassType exctype = (ClassType)m;
     effStack.peek().pushEffect(genericEffect.raise(exctype, getEnclosingThrowScopeTree(exctype), node), node);
     effStack.peek().squashMark(node);
+    checkResidual(node);
     return p;
   }
 

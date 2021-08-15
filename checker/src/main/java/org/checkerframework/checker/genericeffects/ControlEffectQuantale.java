@@ -497,7 +497,16 @@ public class ControlEffectQuantale<X>
   @Override
   public ControlEffect<X> residual(ControlEffect<X> sofar, ControlEffect<X> target) {
     // TODO: Fix for exception inheritance
-    assert (sofar.base != null) : "Compiler should reject any code that is after only break/throw behaviors";
+    if (sofar.base == null) {
+      // anything sequenced after only non-local behaviors has no impact on the overall effect, so really the residual could return anything and stuff would "work" so long as sofar <= target.
+      // TODO: double-check the math to make sure I'm not missing a subtlety here
+      if (LE(sofar, target)) {
+        return target;
+      } else {
+        // sofar isn't less than target, and we can't sequence anything on the right of it to make it so
+        return null;
+      }
+    }
     // Optimize common case
     if (sofar.breakset == null && sofar.excMap == null && target.base != null && target.breakset == null && target.excMap == null) {
       X baseResid = underlying.residual(sofar.base, target.base);
@@ -583,7 +592,8 @@ public class ControlEffectQuantale<X>
               }
               if (!matched) {
                 // not over-approximated for this exception
-                throw new BugInCF("WIP: sofar throws "+exc.getKey()+" after "+esofar.effect+" but this is not bounded by"+targetset);//return null;
+                //throw new BugInCF("WIP: sofar throws "+exc.getKey()+" after "+esofar.effect+" but this is not bounded by"+targetset);
+                return null;
               }
             }
           }

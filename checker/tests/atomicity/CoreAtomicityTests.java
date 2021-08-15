@@ -302,6 +302,20 @@ public class CoreAtomicityTests {
       h.Unlock();
     }
   }
+  @Atomic
+  @ThrownEffect(exception=TestException.class, behavior=Right.class)
+  public void excTest4(AtomicityTestHelper h) throws TestException {
+    // Check that errors from bad throw prefixes are localized to throws
+    h.Lock();
+    if (h.DoNothingBool()) {
+      h.WellSync();
+      // :: error: (undefined.residual)
+      throw new TestException();
+    } else {
+      h.Unlock();
+    }
+  }
+
 
 
 }
