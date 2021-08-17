@@ -302,6 +302,7 @@ public class CoreAtomicityTests {
       h.Unlock();
     }
   }
+
   @Atomic
   @ThrownEffect(exception=TestException.class, behavior=Right.class)
   public void excTest4(AtomicityTestHelper h) throws TestException {
@@ -316,6 +317,42 @@ public class CoreAtomicityTests {
     }
   }
 
+  @Atomic
+  @ThrownEffect(exception=Exception.class, behavior=Right.class)
+  public void excTest5(AtomicityTestHelper h) throws TestException {
+    h.Lock();
+    if (h.DoNothingBool()) {
+      // This is a *subtype* of the declared exception
+      throw new TestException();
+    } else {
+      h.Unlock();
+    }
+  }
 
+  @Atomic
+  public void catchTest0(AtomicityTestHelper h) throws TestException {
+    h.Lock();
+    try {
+      if (h.WellSyncBool()) {
+        throw new TestException();
+      }
+    } catch (TestException e) {
+      h.Unlock();
+    }
+  }
+
+  @Atomic
+  @ThrownEffect(exception=TestException.class, behavior=Atomic.class)
+  public void finallyTest0(AtomicityTestHelper h) throws TestException {
+    h.Lock();
+    try {
+      if (h.WellSyncBool()) {
+        throw new TestException();
+      }
+    } finally {
+      // This actually needs to be *appended* to the behavior, because finally acts as a catch+act+rethrow
+      h.Unlock();
+    }
+  }
 
 }

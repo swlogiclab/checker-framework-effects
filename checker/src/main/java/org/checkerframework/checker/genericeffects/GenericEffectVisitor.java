@@ -49,6 +49,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -438,7 +440,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
           // TODO: Figure out how to check supertypes for catches
           //TypeMirror upcast  TypesUtils.asSuper(thrown, classty, ???)
-          if (TypesUtils.areSameDeclaredTypes(thrown, classty)) {
+          if (atypeFactory.getProcessingEnv().getTypeUtils().isSubtype(thrown,classty)) {
+          //if (TypesUtils.areSameDeclaredTypes(thrown, classty)) {
             return t;
           }
 
@@ -983,6 +986,61 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // TODO extension
     throw new UnsupportedOperationException("not yet implemented");
 
+    // Visit the body
+    // take the body effect, and remove all nonlocal effects targeting this try block
+    // For each catch block:
+    //   Select the prefixes for exceptions subtypes of that caught exception, joining them (could fail and lead to error)
+    //   push that result as fake on the residual queue
+    //   visit the catch block
+    //   join the underlying into the main block's underlying effect (could fail)
+    // Visit finally block
+    //   Append its effect to every unresolved control effect (uncaught exceptions + breaks!)
+    //   append to the tail of resolved exceptions as well
+    // TODO: figure out how to fix residual checking to deal with finally blocks appending on the right!!!
+    // TODO: For that matter, figure out how to deal with fixing the residual checking to allow for the underlying effect of a method to be formed in part by catching a thrown exception
+
+
+    effstack.peek().mark();
+    effstack.peek().mark();
+    scan(node.getBlock(),p);
+    List<ControlEffect<X>> bodyEffs = effstack.peek().rewindToMark();
+    assert (bodyEffs.size() == 1);
+    ControlEffect<X> bodyEff = bodyEffs.get(0);
+
+    Collection<Map.Entry<ClassType,NonlocalEffect<X>>> unhandled = bodyEff.excMap.entrySet();
+    for (CatchTree cblk : node.getCatches()) {
+      // Each catch block runs after the prefixes of that throw
+      var m = unhandled.stream().collect(Collectors.partitioningBy(kv -> atypeFactory.getProcessingEnv().getTypeUtils().isSubtype(kv.getKey(), TreeUtils.typeOf(cblk.getParameter())));
+      List<Map.Entry<com.sun.jdi.ClassType,NonlocalEffect<X>>> resolvedpaths = m.get(true);
+      unhandled = m.get(false);
+      assert (resolvedpaths.size() > 0);
+      NonlocalEffect<X> lastHandled = null;
+      X exclub = null;
+      for (NonlocalEffect<X> eff : resolvedpaths) {
+        if (exclub == null) {
+          // first entry
+          exclub = eff.effect;
+          lastHandled = eff;
+        } else {
+          // subsequent entries
+          X tmp = xchecker.getEffectLattice().LUB(exclub, eff.effect);
+          if (tmp == null) {
+            throw new UnsupportedOperationException("Implement good error messages for bad exc lubs");
+          } else {
+            exclub = tmp;
+            lastHandled = eff;
+          }
+        }
+      }
+      effstack.peek().mark();
+      // all LUB'ed paths are valid after the current prefix
+      effStack.peek().pushEffect(genericEffect.lift(exclub), node.getBlock());
+      scan(cblk,p);
+      // TODO next: collect traversals for all catch block exits, to be LUB'ed with the try-block-minus-handled effect
+      assert false;
+
+    }
+
     // BlockTree body = node.getBlock();
     // BlockTree finblock = node.getFinallyBlock();
     // var catches = node.getCatches();
@@ -991,6 +1049,9 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // because there might be some in there from another branch of execution (e.g., the then branch
     // of a conditional, where this try is in the else block). The solution is to properly implement
     // C(X).
+    if (node.getFinallyBlock() != null) {
+      throw new UnsupportedOperationException("Finally blocks are not yet implemented");
+    }
 
   }
 
