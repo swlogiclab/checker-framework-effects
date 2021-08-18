@@ -41,6 +41,7 @@ import com.sun.source.tree.UnionTypeTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.tree.WildcardTree;
 import java.lang.annotation.Annotation;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,10 +61,10 @@ import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.checker.genericeffects.qual.Impossible;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
+import org.checkerframework.javacutil.Pair;
 import org.checkerframework.javacutil.TreePathUtil;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypesUtils;
-import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.ControlEffect;
 import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
 
 /**
@@ -105,7 +106,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    * A stack of effect contexts, one for each level of nested methods (to support anonymous inner
    * classes).
    */
-  protected final Deque<ContextEffect<ControlEffectQuantale.ControlEffect<X>>> effStack;
+  protected final Deque<ContextEffect<ControlEffectQuantale<X>.ControlEffect>> effStack;
   /**
    * A stack of references to the methods being processed, including null for field initialization
    * and static initializer blocks.
@@ -153,7 +154,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     /* ErrorProne JdkObsolete warnings are suppressed here because we must use a deque/stack implementation that permits null.
      * Without supressing this warning, ErrorProne complains we should be using ArrayDeque, which rejects null elements. */
-    effStack = new LinkedList<ContextEffect<ControlEffect<X>>>();
+    effStack = new LinkedList<ContextEffect<ControlEffectQuantale<X>.ControlEffect>>();
     currentMethods = new LinkedList<MethodTree>();
 
     extension = ext;
@@ -163,7 +164,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     ignoringErrors = checker.getOption("ignoreErrors") != null;
     errorOnCurrentPath = false;
 
-    genericEffect = new ControlEffectQuantale<X>(checker.getEffectLattice());
+    genericEffect = new ControlEffectQuantale<X>(checker.getEffectLattice(), xtypeFactory);
 
     if (debugSpew) {
       System.err.println(
@@ -204,7 +205,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   public void processClassTree(ClassTree node) {
     // Fix up context for static initializers of new class
     currentMethods.addFirst(null);
-    effStack.addFirst(new ContextEffect<ControlEffectQuantale.ControlEffect<X>>(genericEffect));
+    effStack.addFirst(new ContextEffect<ControlEffectQuantale<X>.ControlEffect>(genericEffect));
     super.processClassTree(node);
     currentMethods.removeFirst();
     effStack.removeFirst();
@@ -275,8 +276,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // systems?
     // TODO: Work out laws for residuals w/ comm: e.g., x\(y\z) def <-> y\(x\z) def?
     if (!errorOnCurrentPath) {
-      ControlEffect<X> targetEffect = effStack.peek().currentPathEffect();
-      ControlEffect<X> callerEffect = xtypeFactory.getDeclaredEffect(methElt, node);
+      ControlEffectQuantale<X>.ControlEffect targetEffect = effStack.peek().currentPathEffect();
+      ControlEffectQuantale<X>.ControlEffect callerEffect = xtypeFactory.getDeclaredEffect(methElt, node);
       if (!effStack.peek().currentlyImpossible() && isInvalid(targetEffect, callerEffect))
         checkError(node, targetEffect, callerEffect, "subeffect.invalid.methodbody");
       else if (!effStack.peek().currentlyImpossible() && extension.reportWarning(node) != null)
@@ -313,7 +314,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    * @param callerEffect Caller effect of node.
    * @return Boolean value representing whether the effects are invalid (true) or not (false)
    */
-  private boolean isInvalid(ControlEffect<X> targetEffect, ControlEffect<X> callerEffect) {
+  private boolean isInvalid(ControlEffectQuantale<X>.ControlEffect targetEffect, ControlEffectQuantale<X>.ControlEffect callerEffect) {
     if (!genericEffect.LE(targetEffect, callerEffect)) {
       if (debugSpew) {
         System.err.println("Found\n\t"+targetEffect+"\n\t</=\n\t"+callerEffect);
@@ -334,7 +335,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    * @param failureMsg Error message to be reported.
    */
   private void checkError(
-      Tree node, ControlEffect<X> targetEffect, ControlEffect<X> callerEffect, @CompilerMessageKey String failureMsg) {
+      Tree node, ControlEffectQuantale<X>.ControlEffect targetEffect, ControlEffectQuantale<X>.ControlEffect callerEffect, @CompilerMessageKey String failureMsg) {
     if (!ignoringErrors) checker.reportError(node, failureMsg, targetEffect, callerEffect);
     else if (ignoringErrors && !extension.isIgnored(checker.getOption("ignoreErrors"), failureMsg))
       checker.reportError(node, failureMsg, targetEffect, callerEffect);
@@ -347,11 +348,11 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
     // Skip the check if we've already reported an error on this path.
     if (!ignoringErrors && !errorOnCurrentPath) {
-      ControlEffect<X> pathEffect = effStack.peek().currentPathEffect();
+      ControlEffectQuantale<X>.ControlEffect pathEffect = effStack.peek().currentPathEffect();
       //if (pathEffect == Impossible.class) {
       //  return; // In an enclosing context of a path that always throws/returns
       //}
-      ControlEffect<X> methodEffect =
+      ControlEffectQuantale<X>.ControlEffect methodEffect =
           xtypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()), node);
       if (debugSpew) {
         System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
@@ -387,7 +388,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    * @param warningMsg Warning message to be reported.
    */
   private void checkWarning(
-      Tree node, ControlEffect<X> targetEffect, ControlEffect<X> callerEffect, @CompilerMessageKey String warningMsg) {
+      Tree node, ControlEffectQuantale<X>.ControlEffect targetEffect, ControlEffectQuantale<X>.ControlEffect callerEffect, @CompilerMessageKey String warningMsg) {
     if (!ignoringWarnings) checker.reportWarning(node, warningMsg, targetEffect, callerEffect);
     else if (ignoringWarnings
         && !extension.isIgnored(checker.getOption("ignoreWarnings"), warningMsg))
@@ -399,7 +400,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    *
    * @return Effect of a method that a node is within.
    */
-  private ControlEffect<X> getMethodCallerEffect() {
+  private ControlEffectQuantale<X>.ControlEffect getMethodCallerEffect() {
     MethodTree callerTree = TreePathUtil.enclosingMethod(getCurrentPath());
     ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
     return xtypeFactory.getDeclaredEffect(callerElt, callerTree);
@@ -466,20 +467,16 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     return xtypeFactory.getDefaultEffect(clsElt);
   }
 
-  private ControlEffect<X> contextualize(ControlEffect<X> contextless) {
+  private ControlEffectQuantale<X>.ControlEffect contextualize(ControlEffectQuantale<X>.ControlEffect contextless) {
     assert (contextless.breakset == null) : "Should never need to contextualize an effect with break behaviors, only method declaration effects";
-    if (contextless.excMap == null) return contextless;
+    if (contextless.excs == null) return contextless;
     X ul = contextless.base;
     // Rewrite every exception target from null to the nearest exception context
-    Map<ClassType,Set<NonlocalEffect<X>>> m = new HashMap<>();
-    for (Map.Entry<ClassType,Set<NonlocalEffect<X>>> e : contextless.excMap.entrySet()) {
-      Set<NonlocalEffect<X>> retargeted = new HashSet<>();
-      for (NonlocalEffect<X> eff : e.getValue()) {
-        retargeted.add(new NonlocalEffect<>(eff.effect,getEnclosingThrowScopeTree(e.getKey()),eff.src));
-      }
-      m.put(e.getKey(), retargeted);
+    Set<Pair<ClassType,NonlocalEffect<X>>> m = new HashSet<>();
+    for (Pair<ClassType,NonlocalEffect<X>> e : contextless.excs) {
+      m.add(Pair.of(e.first, new NonlocalEffect<>(e.second.effect,getEnclosingThrowScopeTree(e.first), e.second.src)));
     }
-    return new ControlEffect<>(ul, m, null);
+    return genericEffect.new ControlEffect(ul, m, null);
   }
 
   /**
@@ -501,7 +498,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       scan(args, p);
     }
     ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-    ControlEffect<X> targetEffect = contextualize(xtypeFactory.getDeclaredEffect(methodElt, node));
+    ControlEffectQuantale<X>.ControlEffect targetEffect = contextualize(xtypeFactory.getDeclaredEffect(methodElt, node));
     if (debugSpew) {
       System.err.println("Pushing latent effect " + targetEffect + " for " + node);
     }
@@ -555,7 +552,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Visit arguments, and if anonymous inner class, the inner class body
     super.visitNewClass(node, p);
     ExecutableElement methodElt = TreeUtils.elementFromUse(node);
-    ControlEffect<X> targetEffect = contextualize(xtypeFactory.getDeclaredEffect(methodElt, node));
+    ControlEffectQuantale<X>.ControlEffect targetEffect = contextualize(xtypeFactory.getDeclaredEffect(methodElt, node));
     effStack.peek().pushEffect(targetEffect, node);
     effStack.peek().squashMark(node);
     checkResidual(node);
@@ -603,8 +600,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Assertions may or may not execute, so ensure either possibility is acceptable
     effStack.peek().mark();
     scan(node.getCondition(), p);
-    ControlEffect<X> condEff = effStack.peek().squashMark(node);
-    ControlEffect<X> joinWithUnit = genericEffect.LUB(genericEffect.unit(), condEff);
+    ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().squashMark(node);
+    ControlEffectQuantale<X>.ControlEffect joinWithUnit = genericEffect.LUB(genericEffect.unit(), condEff);
     if (joinWithUnit == null) {
       checker.reportError(node, "undefined.join.assertion", condEff);
     }
@@ -700,16 +697,16 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     effStack.peek().mark();
 
     scan(node.getStatement(), p);
-    ControlEffect<X> bodyEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect bodyEff = effStack.peek().latestEffect();
     scan(node.getCondition(), p);
-    ControlEffect<X> condEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().latestEffect();
 
     // Here we DO NOT simply squash, because we must invoke iteration
-    LinkedList<ControlEffect<X>> pieces = effStack.peek().rewindToMark();
+    LinkedList<ControlEffectQuantale<X>.ControlEffect> pieces = effStack.peek().rewindToMark();
     assert (pieces.get(0) == bodyEff);
     assert (pieces.get(1) == condEff);
 
-    ControlEffect<X> repeff = genericEffect.iter(genericEffect.seq(bodyEff, condEff));
+    ControlEffectQuantale<X>.ControlEffect repeff = genericEffect.iter(genericEffect.seq(bodyEff, condEff));
     if (repeff == null) {
       checker.reportError(node, "undefined.repetition.twopart", bodyEff, condEff);
       // Pretend we ran the loop and condition once each
@@ -717,7 +714,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       assert success; // TODO fix
     } else {
       // Valid iteration
-      ControlEffect<X> eff = genericEffect.seq(condEff, repeff);
+      ControlEffectQuantale<X>.ControlEffect eff = genericEffect.seq(condEff, repeff);
       boolean success = effStack.peek().pushEffect(eff, node);
       assert success; // TODO fix
     }
@@ -739,28 +736,28 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     // Scan the initializer statements (implicitly, in order)
     scan(node.getInitializer(), p);
-    ControlEffect<X> initEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect initEff = effStack.peek().latestEffect();
     scan(node.getCondition(), p);
-    ControlEffect<X> condEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().latestEffect();
     scan(node.getStatement(), p);
-    ControlEffect<X> bodyEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect bodyEff = effStack.peek().latestEffect();
     // mark for updates, since there may be multiple
     effStack.peek().mark();
     scan(node.getUpdate(), p);
-    ControlEffect<X> updateEff = effStack.peek().squashMark(null);
+    ControlEffectQuantale<X>.ControlEffect updateEff = effStack.peek().squashMark(null);
 
     // If we're reached here, it's possible to run the initializers, cond, body, update in that
     // order
     // We care about iterating body-update-cond, though
 
     // Here we DO NOT simply squash, because we must invoke iteration
-    LinkedList<ControlEffect<X>> pieces = effStack.peek().rewindToMark();
+    LinkedList<ControlEffectQuantale<X>.ControlEffect> pieces = effStack.peek().rewindToMark();
     assert (pieces.get(0) == initEff);
     assert (pieces.get(1) == condEff);
     assert (pieces.get(2) == bodyEff);
     assert (pieces.get(3) == updateEff);
 
-    ControlEffect<X> repeff =
+    ControlEffectQuantale<X>.ControlEffect repeff =
         genericEffect.iter(genericEffect.seq(genericEffect.seq(bodyEff, updateEff), condEff));
     if (repeff == null) {
       checker.reportError(node, "undefined.repetition.threepart", bodyEff, updateEff, condEff);
@@ -770,7 +767,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
           .pushEffect(genericEffect.seq(condEff, genericEffect.seq(bodyEff, condEff)), node);
     } else {
       // Valid iteration
-      ControlEffect<X> eff = genericEffect.seq(genericEffect.seq(initEff, condEff), repeff);
+      ControlEffectQuantale<X>.ControlEffect eff = genericEffect.seq(genericEffect.seq(initEff, condEff), repeff);
       effStack.peek().pushEffect(eff, node);
     }
     checkResidual(node);
@@ -795,10 +792,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     effStack.peek().mark();
     scan(thenTree, p);
     boolean thenError = errorOnCurrentPath;
-    LinkedList<ControlEffect<X>> thenEffs = effStack.peek().rewindToMark();
+    LinkedList<ControlEffectQuantale<X>.ControlEffect> thenEffs = effStack.peek().rewindToMark();
     assert (thenEffs.size() == 1);
-    ControlEffect<X> thenEff = thenEffs.get(0);
-    ControlEffect<X> elseEff = genericEffect.unit();
+    ControlEffectQuantale<X>.ControlEffect thenEff = thenEffs.get(0);
+    ControlEffectQuantale<X>.ControlEffect elseEff = genericEffect.unit();
     // If there's no else, there's no else error
     boolean elseError = false;
     // If there was an error on the then-path, there may still be no issue on the else path
@@ -807,16 +804,18 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       effStack.peek().mark();
       scan(elseTree, p);
       elseError = errorOnCurrentPath;
-      LinkedList<ControlEffect<X>> elseEffs = effStack.peek().rewindToMark();
+      LinkedList<ControlEffectQuantale<X>.ControlEffect> elseEffs = effStack.peek().rewindToMark();
       assert (elseEffs.size() == 1);
       elseEff = elseEffs.get(0);
     }
     // stack still has the condition effect on it, but no branch effects
     effStack.peek().debugDump("@@@@@@", true);
-    LinkedList<ControlEffect<X>> condEffs = effStack.peek().rewindToMark();
+    LinkedList<ControlEffectQuantale<X>.ControlEffect> condEffs = effStack.peek().rewindToMark();
     effStack.peek().debugDump("&&&&&&", true);
+    System.err.println("thenEff == "+thenEff);
+    System.err.println("elseEff == "+elseEff);
     assert (condEffs.size() == 1);
-    ControlEffect<X> condEff = condEffs.get(0);
+    ControlEffectQuantale<X>.ControlEffect condEff = condEffs.get(0);
 
     errorOnCurrentPath = condError || (thenError && elseError);
 
@@ -830,7 +829,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       effStack.peek().pushEffect(genericEffect.seq(condEff, thenEff), node);
     } else {
       // Both branches possible and error-free: the common case
-      ControlEffect<X> lub = genericEffect.LUB(thenEff, elseEff);
+      ControlEffectQuantale<X>.ControlEffect lub = genericEffect.LUB(thenEff, elseEff);
       if (lub == null) {
         if (elseTree == null) {
           checker.reportError(node, "undefined.join.unaryif", thenEff, elseEff);
@@ -984,7 +983,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   @Override
   public Void visitTry(TryTree node, Void p) {
     // TODO extension
-    throw new UnsupportedOperationException("not yet implemented");
+    //throw new UnsupportedOperationException("not yet implemented");
 
     // Visit the body
     // take the body effect, and remove all nonlocal effects targeting this try block
@@ -999,40 +998,44 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // TODO: figure out how to fix residual checking to deal with finally blocks appending on the right!!!
     // TODO: For that matter, figure out how to deal with fixing the residual checking to allow for the underlying effect of a method to be formed in part by catching a thrown exception
 
-
-    effstack.peek().mark();
-    effstack.peek().mark();
+    System.err.println("Visiting TRY: "+node);
+    effStack.peek().mark();
+    effStack.peek().mark();
     scan(node.getBlock(),p);
-    List<ControlEffect<X>> bodyEffs = effstack.peek().rewindToMark();
+    List<ControlEffectQuantale<X>.ControlEffect> bodyEffs = effStack.peek().rewindToMark();
     assert (bodyEffs.size() == 1);
-    ControlEffect<X> bodyEff = bodyEffs.get(0);
+    ControlEffectQuantale<X>.ControlEffect bodyEff = bodyEffs.get(0);
+    System.err.println("--> body effect = "+bodyEff);
 
-    Collection<Map.Entry<ClassType,NonlocalEffect<X>>> unhandled = bodyEff.excMap.entrySet();
+    Collection<Pair<ClassType,NonlocalEffect<X>>> unhandled = bodyEff.excs;
     for (CatchTree cblk : node.getCatches()) {
       // Each catch block runs after the prefixes of that throw
-      var m = unhandled.stream().collect(Collectors.partitioningBy(kv -> atypeFactory.getProcessingEnv().getTypeUtils().isSubtype(kv.getKey(), TreeUtils.typeOf(cblk.getParameter())));
-      List<Map.Entry<com.sun.jdi.ClassType,NonlocalEffect<X>>> resolvedpaths = m.get(true);
+      Map<Boolean,List<Pair<ClassType,NonlocalEffect<X>>>> m = unhandled.stream().collect(
+        Collectors.partitioningBy(
+          kv -> atypeFactory.getProcessingEnv().getTypeUtils().isSubtype(kv.first, TreeUtils.typeOf(cblk.getParameter()))));
+      List<Pair<ClassType,NonlocalEffect<X>>> resolvedpaths = m.get(true);
       unhandled = m.get(false);
       assert (resolvedpaths.size() > 0);
       NonlocalEffect<X> lastHandled = null;
       X exclub = null;
-      for (NonlocalEffect<X> eff : resolvedpaths) {
+      for (Pair<ClassType,NonlocalEffect<X>> eff : resolvedpaths) {
+        assert(atypeFactory.getProcessingEnv().getTypeUtils().isSubtype(eff.first, TreeUtils.typeOf(cblk.getParameter())));
         if (exclub == null) {
           // first entry
-          exclub = eff.effect;
-          lastHandled = eff;
+          exclub = eff.second.effect;
+          lastHandled = eff.second;
         } else {
           // subsequent entries
-          X tmp = xchecker.getEffectLattice().LUB(exclub, eff.effect);
+          X tmp = xchecker.getEffectLattice().LUB(exclub, eff.second.effect);
           if (tmp == null) {
-            throw new UnsupportedOperationException("Implement good error messages for bad exc lubs");
+            throw new UnsupportedOperationException("Implement good error messages for bad exc lubs; no lub of "+lastHandled+" and "+eff);
           } else {
             exclub = tmp;
-            lastHandled = eff;
+            lastHandled = eff.second;
           }
         }
       }
-      effstack.peek().mark();
+      effStack.peek().mark();
       // all LUB'ed paths are valid after the current prefix
       effStack.peek().pushEffect(genericEffect.lift(exclub), node.getBlock());
       scan(cblk,p);
@@ -1052,7 +1055,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     if (node.getFinallyBlock() != null) {
       throw new UnsupportedOperationException("Finally blocks are not yet implemented");
     }
-
+    return p;
   }
 
   @Override
@@ -1106,16 +1109,16 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Set mark for full expression
     effStack.peek().mark();
     scan(node.getCondition(), p);
-    ControlEffect<X> condEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().latestEffect();
     scan(node.getStatement(), p);
-    ControlEffect<X> bodyEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect bodyEff = effStack.peek().latestEffect();
 
     // Here we DO NOT simply squash, because we must invoke iteration
-    LinkedList<ControlEffect<X>> pieces = effStack.peek().rewindToMark();
+    LinkedList<ControlEffectQuantale<X>.ControlEffect> pieces = effStack.peek().rewindToMark();
     assert (pieces.get(0) == condEff);
     assert (pieces.get(1) == bodyEff);
 
-    ControlEffect<X> repeff = genericEffect.iter(genericEffect.seq(bodyEff, condEff));
+    ControlEffectQuantale<X>.ControlEffect repeff = genericEffect.iter(genericEffect.seq(bodyEff, condEff));
     if (repeff == null) {
       checker.reportError(node, "undefined.repetition.twopart", bodyEff, condEff);
       // Pretend we ran the condition, loop, and condition again
@@ -1124,7 +1127,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
           .pushEffect(genericEffect.seq(condEff, genericEffect.seq(bodyEff, condEff)), node);
     } else {
       // Valid iteration
-      ControlEffect<X> eff = genericEffect.seq(condEff, repeff);
+      ControlEffectQuantale<X>.ControlEffect eff = genericEffect.seq(condEff, repeff);
       effStack.peek().pushEffect(eff, node);
     }
     checkResidual(node);
