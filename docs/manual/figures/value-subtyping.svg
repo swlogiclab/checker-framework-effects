@@ -195,10 +195,10 @@
      style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1.20712066px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
      d="m 658.49239,265.89768 0,0"
      id="path3546"
-     inkscape:connector-type="polyline"
-     inkscape:connector-curvature="3"
-     inkscape:connection-start="#g24-05"
-     inkscape:connection-end="#g24-05" />
+     connector-type="polyline"
+     connector-curvature="3"
+     connection-start="#g24-05"
+     connection-end="#g24-05" />
   <g
      id="g34-2-5-5-9"
      transform="matrix(1,0,0,0.86985556,712.01656,-115.89132)">
