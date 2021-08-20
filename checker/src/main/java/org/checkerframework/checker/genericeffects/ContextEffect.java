@@ -23,21 +23,36 @@ public class ContextEffect<X> {
     return rep.size();
   }
 
+  /**
+   * Dump the state of the context to stderr. For debugging purposes only.
+   *
+   * @param prefix An identifiable string prefix
+   */
   public void debugDump(String prefix) {
     debugDump(prefix, false);
   }
+
+  /**
+   * Dump the state of the context to stderr. For debugging purposes only. This version takes an
+   * additional boolean flag indicating whether or not to also print the AST nodes associated with
+   * each context entry.
+   *
+   * @param prefix An identifiable string prefix
+   * @param full Whether or not to print full output including AST node information; <code>true
+   *     </code> prints such information, <code>false</code> omits it
+   */
   public void debugDump(String prefix, boolean full) {
     System.err.print(prefix);
-    for (Map.Entry<X,Tree> entr : rep) {
+    for (Map.Entry<X, Tree> entr : rep) {
       if (entr == null) {
         System.err.print("<mark> | ");
       } else {
         if (entr.getKey() == null) {
-          System.err.print("<impossible:"+entr.getValue()+"> | ");
+          System.err.print("<impossible:" + entr.getValue() + "> | ");
         } else if (full) {
-          System.err.print("<"+entr.getKey()+"@"+entr.getValue()+"> | ");
+          System.err.print("<" + entr.getKey() + "@" + entr.getValue() + "> | ");
         } else {
-          System.err.print(entr.getKey()+" | ");
+          System.err.print(entr.getKey() + " | ");
         }
       }
     }

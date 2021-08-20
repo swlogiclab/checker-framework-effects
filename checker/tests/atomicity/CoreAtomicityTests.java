@@ -1,6 +1,5 @@
 import org.checkerframework.checker.atomicity.qual.*;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
-import java.lang.Exception;
 
 public class CoreAtomicityTests {
   public static class TestException extends Exception {}
@@ -178,7 +177,9 @@ public class CoreAtomicityTests {
 
   @Right
   public void badLUB1(boolean b, AtomicityTestHelper h) {
-    // the branch logic should see the other branch marked impossible, and "ignore" it when computing the overall conditional effect, so there should be only one error reported in this method.
+    // the branch logic should see the other branch marked impossible, and "ignore" it when
+    // computing the overall conditional effect, so there should be only one error reported in this
+    // method.
     if (b) {
       h.Lock();
     } else {
@@ -190,7 +191,9 @@ public class CoreAtomicityTests {
 
   @Right
   public void badLUB2(boolean b, AtomicityTestHelper h) {
-    // the branch logic should see the other branch marked impossible, and "ignore" it when computing the overall conditional effect, so there should be only one error reported in this method.
+    // the branch logic should see the other branch marked impossible, and "ignore" it when
+    // computing the overall conditional effect, so there should be only one error reported in this
+    // method.
     if (b) {
       // Should only see an error here
       // :: error: (undefined.residual)
@@ -202,7 +205,8 @@ public class CoreAtomicityTests {
 
   @Right
   public void badLUB3(boolean b, AtomicityTestHelper h) {
-    // the branch logic should report errors in both branches, rather than for the overall conditional.
+    // the branch logic should report errors in both branches, rather than for the overall
+    // conditional.
     if (b) {
       // :: error: (undefined.residual)
       h.Unlock();
@@ -220,6 +224,7 @@ public class CoreAtomicityTests {
       h.Unlock();
     }
   }
+
   @Atomic
   public void badloop1(AtomicityTestHelper h) {
     // Iterating this atomic loop is not atomic
@@ -237,7 +242,9 @@ public class CoreAtomicityTests {
     // The repeated portion is body|>update|>cond, since the condition may fail.
     // In this case, that result is non-atomic
     // :: error: (undefined.residual)
-    for (int i = (h.DoNothingBool() ? 0 : 1); i < (h.LockBool() ? 10 : 10); i += (h.UnlockBool() ? 1 : 2)) {
+    for (int i = (h.DoNothingBool() ? 0 : 1);
+        i < (h.LockBool() ? 10 : 10);
+        i += (h.UnlockBool() ? 1 : 2)) {
       h.Lock();
       h.WellSync();
       h.Unlock();
@@ -247,17 +254,22 @@ public class CoreAtomicityTests {
   @Atomic
   public void badloop2(AtomicityTestHelper h) {
     // non-atomic because unlock then lock
-    // :: error: (undefined.residual)
-    for (int i = h.UnlockBool() ? 0 : 1; i < (h.LockBool() ? 10 : 10); i += (h.UnlockBool() ? 1 : 2)) {
+    for (int i = h.UnlockBool() ? 0 : 1;
+        // :: error: (undefined.residual)
+        i < (h.LockBool() ? 10 : 10);
+        i += (h.UnlockBool() ? 1 : 2)) {
       h.Lock();
       h.WellSync();
       h.Unlock();
     }
   }
+
   @Atomic
   public void badloop3(AtomicityTestHelper h) {
     // non-atomic because unlock then lock
-    for (int i = h.DoNothingBool() ? 0 : 1; i < (h.LockBool() ? 10 : 10); i += (h.UnlockBool() ? 1 : 2)) {
+    for (int i = h.DoNothingBool() ? 0 : 1;
+        i < (h.LockBool() ? 10 : 10);
+        i += (h.UnlockBool() ? 1 : 2)) {
       h.Lock();
       // :: error: (undefined.residual)
       h.DoStuff();
@@ -267,14 +279,14 @@ public class CoreAtomicityTests {
 
   // Exception tests
   @Both
-  @ThrownEffect(exception=Exception.class, behavior=Right.class)
+  @ThrownEffect(exception = Exception.class, behavior = Right.class)
   public void excTest0(AtomicityTestHelper h) throws Exception {
     h.Lock();
     throw new Exception();
   }
 
   @Atomic
-  @ThrownEffect(exception=Exception.class, behavior=Right.class)
+  @ThrownEffect(exception = Exception.class, behavior = Right.class)
   public void excTest1(AtomicityTestHelper h) throws Exception {
     h.Lock();
     if (h.DoNothingBool()) {
@@ -284,16 +296,17 @@ public class CoreAtomicityTests {
     }
   }
 
-  // Throw an exception not known to the compiler, which requires the use of ClassType instead of Class<?> internally
+  // Throw an exception not known to the compiler, which requires the use of ClassType instead of
+  // Class<?> internally
   @Both
-  @ThrownEffect(exception=TestException.class, behavior=Right.class)
+  @ThrownEffect(exception = TestException.class, behavior = Right.class)
   public void excTest2(AtomicityTestHelper h) throws TestException {
     h.Lock();
     throw new TestException();
   }
 
   @Atomic
-  @ThrownEffect(exception=TestException.class, behavior=Right.class)
+  @ThrownEffect(exception = TestException.class, behavior = Right.class)
   public void excTest3(AtomicityTestHelper h) throws TestException {
     h.Lock();
     if (h.DoNothingBool()) {
@@ -304,7 +317,7 @@ public class CoreAtomicityTests {
   }
 
   @Atomic
-  @ThrownEffect(exception=TestException.class, behavior=Right.class)
+  @ThrownEffect(exception = TestException.class, behavior = Right.class)
   public void excTest4(AtomicityTestHelper h) throws TestException {
     // Check that errors from bad throw prefixes are localized to throws
     h.Lock();
@@ -318,7 +331,7 @@ public class CoreAtomicityTests {
   }
 
   @Atomic
-  @ThrownEffect(exception=Exception.class, behavior=Right.class)
+  @ThrownEffect(exception = Exception.class, behavior = Right.class)
   public void excTest5(AtomicityTestHelper h) throws TestException {
     h.Lock();
     if (h.DoNothingBool()) {
@@ -378,7 +391,7 @@ public class CoreAtomicityTests {
   }
 
   @Atomic
-  @ThrownEffect(exception=Exception.class, behavior=Atomic.class)
+  @ThrownEffect(exception = Exception.class, behavior = Atomic.class)
   public void rethrowTest0(AtomicityTestHelper h) throws Exception {
     h.Lock();
     try {
@@ -393,7 +406,7 @@ public class CoreAtomicityTests {
   }
 
   @Atomic
-  @ThrownEffect(exception=Exception.class, behavior=NonAtomic.class)
+  @ThrownEffect(exception = Exception.class, behavior = NonAtomic.class)
   public void rethrowTest1(AtomicityTestHelper h) throws Exception {
     h.Lock();
     try {
@@ -410,7 +423,7 @@ public class CoreAtomicityTests {
   }
 
   @Atomic
-  @ThrownEffect(exception=Exception.class, behavior=Atomic.class)
+  @ThrownEffect(exception = Exception.class, behavior = Atomic.class)
   public void rethrowTest2(AtomicityTestHelper h) throws Exception {
     h.Lock();
     try {
@@ -419,7 +432,8 @@ public class CoreAtomicityTests {
       }
     } catch (TestException e) {
       h.Unlock();
-      // The residual check fails here, because exceptions also need to have atomic prefixes by the annotation above
+      // The residual check fails here, because exceptions also need to have atomic prefixes by the
+      // annotation above
       // :: error: (undefined.residual)
       h.DoStuff();
       // rethrow as non-atomic, while regular exceptions are still atomic
@@ -429,33 +443,36 @@ public class CoreAtomicityTests {
   }
 
   @Atomic
-  @ThrownEffect(exception=Exception.class, behavior=NonAtomic.class)
+  @ThrownEffect(exception = Exception.class, behavior = NonAtomic.class)
   // :: error: (subeffect.invalid.methodbody)
   public void completionCheck0(AtomicityTestHelper h) throws Exception {
-    // This line is okay in isolation because the method is marked as possibly throwing after non-atomic, so this is a valid prefix of the required throw
+    // This line is okay in isolation because the method is marked as possibly throwing after
+    // non-atomic, so this is a valid prefix of the required throw
     h.DoStuff();
   }
 
   @Atomic
-  @ThrownEffect(exception=Exception.class, behavior=NonAtomic.class)
+  @ThrownEffect(exception = Exception.class, behavior = NonAtomic.class)
   public void completionCheck1(AtomicityTestHelper h) throws Exception {
-    // This line is okay in isolation because the method is marked as possibly throwing after non-atomic, so this is a valid prefix of the required throw
+    // This line is okay in isolation because the method is marked as possibly throwing after
+    // non-atomic, so this is a valid prefix of the required throw
     h.DoStuff();
     throw new Exception();
   }
 
-  //@Atomic
-  //@ThrownEffect(exception=TestException.class, behavior=Atomic.class)
-  //public void finallyTest0(AtomicityTestHelper h) throws TestException {
+  // @Atomic
+  // @ThrownEffect(exception=TestException.class, behavior=Atomic.class)
+  // public void finallyTest0(AtomicityTestHelper h) throws TestException {
   //  h.Lock();
   //  try {
   //    if (h.WellSyncBool()) {
   //      throw new TestException();
   //    }
   //  } finally {
-  //    // This actually needs to be *appended* to the behavior, because finally acts as a catch+act+rethrow
+  //    // This actually needs to be *appended* to the behavior, because finally acts as a
+  // catch+act+rethrow
   //    h.Unlock();
   //  }
-  //}
+  // }
 
 }

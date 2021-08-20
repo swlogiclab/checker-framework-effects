@@ -1,11 +1,11 @@
 package org.checkerframework.checker.genericeffects;
 
+import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
+
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type.ClassType;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -22,15 +22,11 @@ import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
-import javax.naming.ldap.Control;
-
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.Placeholder;
-import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
-import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
+import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.javacutil.AnnotationUtils;
-import org.checkerframework.javacutil.BugInCF;
 import org.checkerframework.javacutil.Pair;
 
 /**
@@ -190,17 +186,20 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
 
   /**
    * Returns the Declared Effect on the passed method as parameter.
-   * 
-   * This method returns exceptional control effects with <code>null</code> targets! This is the default indication of "throws as far as it goes", which is used in context-less comparisons (e.g., method override checks).
-   * Contextual uses like at method or constructor invocations need to rewrite the targets in context.
+   *
+   * <p>This method returns exceptional control effects with <code>null</code> targets! This is the
+   * default indication of "throws as far as it goes", which is used in context-less comparisons
+   * (e.g., method override checks). Contextual uses like at method or constructor invocations need
+   * to rewrite the targets in context.
    *
    * @param methodElt : Method for which declared effect is to be returned
    * @param use : The tree where this element is being invoked
    * @return declared effect : if methodElt is annotated with a valid effect
    *     bottomMostEffectInLattice : otherwise, bottom most effect of lattice
    */
-  @SuppressWarnings({"unchecked","deprecation"}) // TODO: fetch annotation values the right way
-  public ControlEffectQuantale<X>.ControlEffect getDeclaredEffect(ExecutableElement methodElt, Tree use) {
+  @SuppressWarnings({"unchecked", "deprecation"}) // TODO: fetch annotation values the right way
+  public ControlEffectQuantale<X>.ControlEffect getDeclaredEffect(
+      ExecutableElement methodElt, Tree use) {
     if (debugSpew) {
       System.err.println("> Retrieving declared effect of: " + methodElt);
     }
@@ -230,47 +229,66 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
     Set<Pair<ClassType, NonlocalEffect<X>>> excBehaviors = new HashSet<>();
     // Check that any @ThrownEffect uses are valid
     for (AnnotationMirror thrown : getDeclAnnotations(methodElt)) {
-      System.err.println("Found declanno "+thrown);
+      System.err.println("Found declanno " + thrown);
       if (areSameByClass(thrown, ThrownEffect.class)) {
-        System.err.println("Found declanno "+thrown);
-        for (Map.Entry<? extends ExecutableElement,? extends AnnotationValue> e : thrown.getElementValues().entrySet()) {
-          System.err.println(e.getKey()+"->"+e.getValue());
+        System.err.println("Found declanno " + thrown);
+        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
+            thrown.getElementValues().entrySet()) {
+          System.err.println(e.getKey() + "->" + e.getValue());
         }
-        // TODO: this version of getElementValue is deprecated, check the handling of @SubtypeOf to see how main framework does this
-        //Class<? extends Exception> exc = (Class<? extends Exception>)AnnotationUtils.<Class<? extends Exception>>getElementValue(thrown, "exception", (Class<Class<? extends Exception>>)Class<? extends Exception>.class, true);
-        //Class<? extends Exception> exc = (Class<? extends Exception>)AnnotationUtils.<Class<? extends Exception>>getElementValue(thrown, "exception", Class.class, true);
-        
+        // TODO: this version of getElementValue is deprecated, check the handling of @SubtypeOf to
+        // see how main framework does this
+        // Class<? extends Exception> exc = (Class<? extends Exception>)AnnotationUtils.<Class<?
+        // extends Exception>>getElementValue(thrown, "exception", (Class<Class<? extends
+        // Exception>>)Class<? extends Exception>.class, true);
+        // Class<? extends Exception> exc = (Class<? extends Exception>)AnnotationUtils.<Class<?
+        // extends Exception>>getElementValue(thrown, "exception", Class.class, true);
+
         // This almost works, but I get a cast exception...
-        //Class<? extends Exception> exc = (Class<? extends Exception>)AnnotationUtils.getElementValue(thrown, "exception", Class.class, true);
+        // Class<? extends Exception> exc = (Class<? extends
+        // Exception>)AnnotationUtils.getElementValue(thrown, "exception", Class.class, true);
         ClassType exc = AnnotationUtils.getElementValue(thrown, "exception", ClassType.class, true);
         Object beh = AnnotationUtils.getElementValue(thrown, "behavior", Object.class, true);
-        System.err.println("Retrieved @ThrownEffect(exception="+exc+", behavior="+beh+"@"+beh.getClass()+")");
-        // TODO: There *must* be some kind of proper way to convert ClassType to a Class... or perhaps not: actually, this will only work for exception types on the compiler's classpath, not exception types being compiled! Should probably switch to using ClassType instead of Class<? extends Exception>
-        //Class<? extends Exception> excClass = null;
-        //try {
+        System.err.println(
+            "Retrieved @ThrownEffect(exception="
+                + exc
+                + ", behavior="
+                + beh
+                + "@"
+                + beh.getClass()
+                + ")");
+        // TODO: There *must* be some kind of proper way to convert ClassType to a Class... or
+        // perhaps not: actually, this will only work for exception types on the compiler's
+        // classpath, not exception types being compiled! Should probably switch to using ClassType
+        // instead of Class<? extends Exception>
+        // Class<? extends Exception> excClass = null;
+        // try {
         //  excClass = (Class<? extends Exception>)Class.forName(exc.toString());
         //  System.err.println("Converted exception to: "+excClass);
-        //} catch (ClassNotFoundException e) {
+        // } catch (ClassNotFoundException e) {
         //  throw new BugInCF("Unable to get class for "+exc, e);
-        //}
+        // }
         /* The annotations used for effects are supposed to be already compiled
-           and on the compiler's classpath */
+        and on the compiler's classpath */
         Class<? extends Annotation> annoClass = null;
         try {
-          annoClass = (Class<? extends Annotation>)Class.forName(beh.toString());
-          System.err.println("Converted annotation to: "+annoClass);
+          annoClass = (Class<? extends Annotation>) Class.forName(beh.toString());
+          System.err.println("Converted annotation to: " + annoClass);
         } catch (ClassNotFoundException e) {
-          System.err.println("Unable to get class for "+beh);
+          System.err.println("Unable to get class for " + beh);
         }
 
-        //ThrownEffect thrownEff = (ThrownEffect) thrown;
+        // ThrownEffect thrownEff = (ThrownEffect) thrown;
         // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
-        // TODO: This needs a target for the exceptional behavior: the try-catch or method body enclosing the call, depending on the exception type!
-        excBehaviors.add(Pair.of(exc, new NonlocalEffect<X>(fromAnnotation.apply(annoClass), null, use)));
+        // TODO: This needs a target for the exceptional behavior: the try-catch or method body
+        // enclosing the call, depending on the exception type!
+        excBehaviors.add(
+            Pair.of(exc, new NonlocalEffect<X>(fromAnnotation.apply(annoClass), null, use)));
       }
     }
 
-    return genericEffect.new ControlEffect(baseEffect, excBehaviors.size() > 0 ? excBehaviors : null, null);
+    return genericEffect
+    .new ControlEffect(baseEffect, excBehaviors.size() > 0 ? excBehaviors : null, null);
   }
 
   /**
@@ -296,14 +314,16 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
       Tree errorNode) {
     assert (declaringType != null);
 
-    ControlEffectQuantale<X>.ControlEffect overridingEffect = getDeclaredEffect(overridingMethod, errorNode);
+    ControlEffectQuantale<X>.ControlEffect overridingEffect =
+        getDeclaredEffect(overridingMethod, errorNode);
 
     // Chain of parent classes
     TypeMirror superclass = declaringType.getSuperclass();
     while (superclass != null && superclass.getKind() != TypeKind.NONE) {
       ExecutableElement overrides = findJavaOverride(overridingMethod, superclass);
       if (overrides != null) {
-        ControlEffectQuantale<X>.ControlEffect superClassEffect = getDeclaredEffect(overrides, errorNode);
+        ControlEffectQuantale<X>.ControlEffect superClassEffect =
+            getDeclaredEffect(overrides, errorNode);
         if (!genericEffect.LE(overridingEffect, superClassEffect)) {
           checker.reportError(
               errorNode,
@@ -326,7 +346,8 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
         if (implementedInterface.getKind() != TypeKind.NONE) {
           ExecutableElement overrides = findJavaOverride(overridingMethod, implementedInterface);
           if (overrides != null) {
-            ControlEffectQuantale<X>.ControlEffect interfaceEffect = getDeclaredEffect(overrides, errorNode);
+            ControlEffectQuantale<X>.ControlEffect interfaceEffect =
+                getDeclaredEffect(overrides, errorNode);
             if (!genericEffect.LE(overridingEffect, interfaceEffect) && issueConflictWarning) {
               checker.reportError(
                   errorNode,
