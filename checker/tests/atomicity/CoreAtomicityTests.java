@@ -330,7 +330,30 @@ public class CoreAtomicityTests {
   }
 
   @Atomic
-  public void catchTest0(AtomicityTestHelper h) throws TestException {
+  public void catchTest00(AtomicityTestHelper h) throws TestException {
+    h.Lock();
+    try {
+      throw new TestException();
+    } catch (TestException e) {
+      h.Unlock();
+    }
+  }
+
+  @Atomic
+  public void catchTest01(AtomicityTestHelper h) throws TestException {
+    h.Lock();
+    try {
+      h.Unlock();
+      throw new TestException();
+    } catch (TestException e) {
+      // lock after unlock is non-atomic
+      // :: error: (undefined.residual)
+      h.Lock();
+    }
+  }
+
+  @Atomic
+  public void catchTest0(AtomicityTestHelper h) {
     h.Lock();
     try {
       if (h.WellSyncBool()) {
@@ -342,17 +365,97 @@ public class CoreAtomicityTests {
   }
 
   @Atomic
-  @ThrownEffect(exception=TestException.class, behavior=Atomic.class)
-  public void finallyTest0(AtomicityTestHelper h) throws TestException {
+  public void catchTest1(AtomicityTestHelper h) {
     h.Lock();
     try {
       if (h.WellSyncBool()) {
         throw new TestException();
       }
-    } finally {
-      // This actually needs to be *appended* to the behavior, because finally acts as a catch+act+rethrow
+      // Catch a supertype of the thrown exception
+    } catch (Exception e) {
       h.Unlock();
     }
   }
+
+  @Atomic
+  @ThrownEffect(exception=Exception.class, behavior=Atomic.class)
+  public void rethrowTest0(AtomicityTestHelper h) throws Exception {
+    h.Lock();
+    try {
+      if (h.WellSyncBool()) {
+        throw new TestException();
+      }
+    } catch (TestException e) {
+      h.Unlock();
+      // rethrow while atomic
+      throw new Exception(e);
+    }
+  }
+
+  @Atomic
+  @ThrownEffect(exception=Exception.class, behavior=NonAtomic.class)
+  public void rethrowTest1(AtomicityTestHelper h) throws Exception {
+    h.Lock();
+    try {
+      if (h.WellSyncBool()) {
+        throw new TestException();
+      }
+    } catch (TestException e) {
+      h.Unlock();
+      h.DoStuff();
+      // rethrow as non-atomic
+      throw new Exception(e);
+    }
+    h.Unlock();
+  }
+
+  @Atomic
+  @ThrownEffect(exception=Exception.class, behavior=Atomic.class)
+  public void rethrowTest2(AtomicityTestHelper h) throws Exception {
+    h.Lock();
+    try {
+      if (h.WellSyncBool()) {
+        throw new TestException();
+      }
+    } catch (TestException e) {
+      h.Unlock();
+      // The residual check fails here, because exceptions also need to have atomic prefixes by the annotation above
+      // :: error: (undefined.residual)
+      h.DoStuff();
+      // rethrow as non-atomic, while regular exceptions are still atomic
+      throw new Exception(e);
+    }
+    h.Unlock();
+  }
+
+  @Atomic
+  @ThrownEffect(exception=Exception.class, behavior=NonAtomic.class)
+  // :: error: (subeffect.invalid.methodbody)
+  public void completionCheck0(AtomicityTestHelper h) throws Exception {
+    // This line is okay in isolation because the method is marked as possibly throwing after non-atomic, so this is a valid prefix of the required throw
+    h.DoStuff();
+  }
+
+  @Atomic
+  @ThrownEffect(exception=Exception.class, behavior=NonAtomic.class)
+  public void completionCheck1(AtomicityTestHelper h) throws Exception {
+    // This line is okay in isolation because the method is marked as possibly throwing after non-atomic, so this is a valid prefix of the required throw
+    h.DoStuff();
+    throw new Exception();
+  }
+
+  //@Atomic
+  //@ThrownEffect(exception=TestException.class, behavior=Atomic.class)
+  //public void finallyTest0(AtomicityTestHelper h) throws TestException {
+  //  h.Lock();
+  //  try {
+  //    if (h.WellSyncBool()) {
+  //      throw new TestException();
+  //    }
+  //  } finally {
+  //    // This actually needs to be *appended* to the behavior, because finally acts as a catch+act+rethrow
+  //    h.Unlock();
+  //  }
+  //}
 
 }

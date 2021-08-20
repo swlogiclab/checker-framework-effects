@@ -49,6 +49,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.ResourceBundle.Control;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -112,6 +113,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
    * and static initializer blocks.
    */
   protected final Deque<MethodTree> currentMethods;
+  /**
+   * A stack of residual targets for residual checking --- i.e., the effect that effect checking is trying to "complete"
+   */
+  protected final Deque<ControlEffectQuantale<X>.ControlEffect> residualTargets;
 
   /** Flag to disable effect checking */
   boolean ignoringEffects;
@@ -156,6 +161,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
      * Without supressing this warning, ErrorProne complains we should be using ArrayDeque, which rejects null elements. */
     effStack = new LinkedList<ContextEffect<ControlEffectQuantale<X>.ControlEffect>>();
     currentMethods = new LinkedList<MethodTree>();
+    residualTargets = new LinkedList<ControlEffectQuantale<X>.ControlEffect>();
 
     extension = ext;
 
@@ -206,9 +212,11 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Fix up context for static initializers of new class
     currentMethods.addFirst(null);
     effStack.addFirst(new ContextEffect<ControlEffectQuantale<X>.ControlEffect>(genericEffect));
+    residualTargets.addFirst(null);
     super.processClassTree(node);
     currentMethods.removeFirst();
     effStack.removeFirst();
+    residualTargets.removeFirst();
   }
 
   /**
@@ -237,29 +245,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     xtypeFactory.checkEffectOverride(
         (TypeElement) methElt.getEnclosingElement(), methElt, true, node);
 
-    //Map<Class<? extends Exception>, X> excBehaviors = new HashMap<>();
-    // Check that any @ThrownEffect uses are valid
-    // TODO: Requires same reflection fixes as in TypeFactory
-    //for (AnnotationMirror thrown : xtypeFactory.getDeclAnnotations(methElt)) {
-    //  if (xtypeFactory.areSameByClass(thrown, ThrownEffect.class)) {
-    //    ThrownEffect thrownEff = (ThrownEffect) thrown;
-    //    // TODO: require the effect be a checked exception (i.e., not subtype of RuntimeException)
-    //    X prev =
-    //        excBehaviors.put(thrownEff.exception(), fromAnnotation.apply(thrownEff.behavior()));
-    //    if (prev != null) {
-    //      checker.reportError(
-    //          node,
-    //          "duplicate.annotation.thrown",
-    //          thrownEff.exception(),
-    //          thrownEff.behavior(),
-    //          prev);
-    //    }
-    //  }
-    //}
-
     // Initialize method stack
     currentMethods.addFirst(node);
     effStack.addFirst(new ContextEffect<>(genericEffect));
+    residualTargets.addFirst(xtypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()), node));
 
     if (debugSpew) {
       System.err.println(
@@ -286,6 +275,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     currentMethods.removeFirst();
     effStack.removeFirst();
+    residualTargets.removeFirst();
     if (debugSpew) {
       System.err.println("Finished visiting method " + methElt + "\n");
     }
@@ -352,8 +342,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       //if (pathEffect == Impossible.class) {
       //  return; // In an enclosing context of a path that always throws/returns
       //}
-      ControlEffectQuantale<X>.ControlEffect methodEffect =
-          xtypeFactory.getDeclaredEffect(TreeUtils.elementFromDeclaration(currentMethods.peek()), node);
+      ControlEffectQuantale<X>.ControlEffect methodEffect = residualTargets.peek();
+
+      // TODO: In general we don't want to check the residual against the method declaration, because entering a break target or try-catch can change the acceptable behaviors. In particular, inside a try-catch block we want to *almost* check residual w.r.t. the method declaration, except for the exceptions caught locally, it's okay if sofar throws that exception, as long as its throw-prefix has a residual with either the underlying effect or some escaping effect of the method.
+
       if (debugSpew) {
         System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
         System.err.println("In location " + TreePathUtil.toString(visitorState.getPath()));
@@ -661,7 +653,11 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   @Override
   public Void visitCatch(CatchTree node, Void p) {
     // TODO: implement, with extension
-    throw new UnsupportedOperationException("Exceptions are not yet supported");
+    effStack.peek().mark();
+    scan(node.getBlock(), p);
+    effStack.peek().squashMark(node);
+    // residual will be checked in block
+    return p;
   }
 
   @Override
@@ -1000,12 +996,34 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     System.err.println("Visiting TRY: "+node);
     effStack.peek().mark();
+
+    // Within a try block, the residual target must be extended to include locally-handled exceptions
+    // (We handle every exception type with a local catch block the same, but note that if a particular exception is both locally handled and permitted to escape, and instances in the try block could for example be rethrown wrapped in a different effect for escape, so handling everything with a local catch the same is really the right call.)
+    // Intuitively, the effect of an exception-to-catch path is the prefix of the corresponding non-local effect from the body sequenced with the effect of the catch.
+    // In general if there is a catch for exception E:
+    // - The catch might return normally, in which case we care about residuals of <prefix-to-E-throw> \ <context-residual-target-underlying>
+    // - The catch might throw another exception F (either as a wrapped exception, or by abuse of terminology the catch for E might simply throw F without passing E along), in which case we care about residuals of <prefix-to-E-throw> \ <prefix-to-F-in-context-residual-target>
+    // Therefore, the right contextual effect to register here is:
+    //     current residual target + possible throw of any locally caught exception with prefix copied from any throw prefix in the current target or the underlying target
+    // This would give the most eager report, but may also be confusing for many users and would probably have high runtime costs even for modest exception-handling code: for a contextual target of size N behaviors and a try-catch with C catch blocks, this generates an effect of size C*(N-1)+N (adjusting for duplicating only throws, not underlying, and keeping existing throws).  So even a single catch would double the size of the effect.
+    // In particular, rethrows are relatively rare, so in practice a prefix for E that *happens* to residualize with a contextual prefix allowed for G would delay reporting until we visit the catch block for E (with the current context) and resolve that E is not re-thrown as some unrelated G.
+    // That said, the scenario above is somewhat contrived, and itself probably uncommon.
+    // Nonetheless, we compromise slightly on early reporting in order to mitigat the computational concerns and error-reporting subtleties. We essentially mark the locally-caught exceptions as "any-prefix-goes", and then check for real in conjunction with the catch block visit. 
+    Set<ClassType> caught = new HashSet<>();
+    for (CatchTree cblk : node.getCatches()) {
+      caught.add((ClassType)TreeUtils.typeOf(cblk.getParameter()));
+    }
+    residualTargets.addFirst(residualTargets.peek().withUnbounded(genericEffect.underlyingUnit(), caught, node));
+    System.err.println("TRY updated context for residuals to include "+caught+": "+residualTargets.peek());
     effStack.peek().mark();
     scan(node.getBlock(),p);
     List<ControlEffectQuantale<X>.ControlEffect> bodyEffs = effStack.peek().rewindToMark();
     assert (bodyEffs.size() == 1);
     ControlEffectQuantale<X>.ControlEffect bodyEff = bodyEffs.get(0);
     System.err.println("--> body effect = "+bodyEff);
+    residualTargets.removeFirst(); // Catch blocks are not handled by other peer catch blocks
+
+    Set<Pair<ControlEffectQuantale<X>.ControlEffect,CatchTree>> catchpaths = new HashSet<>();
 
     Collection<Pair<ClassType,NonlocalEffect<X>>> unhandled = bodyEff.excs;
     for (CatchTree cblk : node.getCatches()) {
@@ -1037,12 +1055,27 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       }
       effStack.peek().mark();
       // all LUB'ed paths are valid after the current prefix
+      effStack.peek().mark();
       effStack.peek().pushEffect(genericEffect.lift(exclub), node.getBlock());
       scan(cblk,p);
-      // TODO next: collect traversals for all catch block exits, to be LUB'ed with the try-block-minus-handled effect
-      assert false;
-
+      effStack.peek().squashMark(cblk);
+      List<ControlEffectQuantale<X>.ControlEffect> throwcatchEffs = effStack.peek().rewindToMark();
+      assert (throwcatchEffs.size() == 1);
+      ControlEffectQuantale<X>.ControlEffect throwcatchEff = throwcatchEffs.get(0);
+      catchpaths.add(Pair.of(throwcatchEff, cblk));
+      // no need to check residual here, it was checked in the inner-most part of the catch block.
     }
+
+    ControlEffectQuantale<X>.ControlEffect lub = bodyEff.filtering(caught); // TODO: WITH HANDLED EXCEPTIONS REMOVED
+    for (Pair<ControlEffectQuantale<X>.ControlEffect,CatchTree> tcpath : catchpaths) {
+      lub = genericEffect.LUB(lub, tcpath.first);
+      if (lub == null) {
+        throw new UnsupportedOperationException("add nice errors: couldn't lub main path of try-catch with catch node path "+tcpath.second);
+      }
+    }
+
+    effStack.peek().pushEffect(lub, node);
+    effStack.peek().squashMark(node);
 
     // BlockTree body = node.getBlock();
     // BlockTree finblock = node.getFinallyBlock();
