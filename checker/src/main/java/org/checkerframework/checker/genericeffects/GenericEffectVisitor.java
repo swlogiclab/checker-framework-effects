@@ -1,7 +1,5 @@
 package org.checkerframework.checker.genericeffects;
 
-import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
-
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssertTree;
@@ -57,6 +55,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
+import org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.javacutil.Pair;
 import org.checkerframework.javacutil.TreePathUtil;

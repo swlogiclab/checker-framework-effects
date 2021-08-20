@@ -1,7 +1,5 @@
 package org.checkerframework.checker.genericeffects;
 
-import static org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
-
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type.ClassType;
 import java.lang.annotation.Annotation;
@@ -22,6 +20,7 @@ import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
+import org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.Placeholder;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
@@ -197,7 +196,11 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
    * @return declared effect : if methodElt is annotated with a valid effect
    *     bottomMostEffectInLattice : otherwise, bottom most effect of lattice
    */
-  @SuppressWarnings({"unchecked", "deprecation"}) // TODO: fetch annotation values the right way
+  @SuppressWarnings({
+    "unchecked",
+    "deprecation",
+    "signature:argument"
+  }) // TODO: fetch annotation values the right way
   public ControlEffectQuantale<X>.ControlEffect getDeclaredEffect(
       ExecutableElement methodElt, Tree use) {
     if (debugSpew) {
