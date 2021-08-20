@@ -10,7 +10,7 @@ public class GenericEffectsTest extends CheckerFrameworkPerDirectoryTest {
   public GenericEffectsTest(List<File> testFiles) {
     super(
         testFiles,
-        org.checkerframework.checker.genericeffects.GenericEffectChecker.class,
+        org.checkerframework.checker.genericeffects.CastingEffectChecker.class,
         "genericeffects",
         "-Anomsgtext");
     // "-Alint=debugSpew");
