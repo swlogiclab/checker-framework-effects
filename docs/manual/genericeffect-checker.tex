@@ -3,9 +3,9 @@
 
 The Generic Effect Checker is, similar to the Subtyping Checker (Chapter~\ref{subtyping-checker}), a parameterized checker for rapidly building other checkers with common needs.
 
-The Generic Effect Checker, as the name suggests, builds \emph{effect systems}. 
+The Generic Effect Checker, as the name suggests, builds \emph{effect systems}.
 Most checkers in the Checker Framework use type qualifiers to reason about properties of data, and restrict where various sorts of data may flow in a program. This offers a basis to restrict the program's behaviors involving those sorts, e.g., by preventing a possibly-unencrypted password from being sent in plaintext over the internet (Chapter~\ref{encrypted-example}).
-Effect systems also restrict what a program can do, but focus directly on the behavior itself as the primary source of restriction: effect systems track the \emph{effect} of executing each method in the program, including how the local actions and calls to other methods combine to create the overall effect of each method.  
+Effect systems also restrict what a program can do, but focus directly on the behavior itself as the primary source of restriction: effect systems track the \emph{effect} of executing each method in the program, including how the local actions and calls to other methods combine to create the overall effect of each method.
 
 Put differently, while Java's regular type system and the qualifier-based checkers focus on the shape and properties of inputs and outputs of a method, effect systems focus on what might happen \emph{as code is running}. These extra things that might happen when a method runs (beyond returning a result) are called the \emph{effect} of a method, and describe some program behavior over time in some domain of interest.
 

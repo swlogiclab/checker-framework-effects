@@ -33,6 +33,7 @@ import org.checkerframework.javacutil.Pair;
  *
  * @param <X> The representation type of the underlying effect quantale.
  */
+@SuppressWarnings("interning:not.interned")
 public class ControlEffectQuantale<X>
     extends EffectQuantale<ControlEffectQuantale<X>.ControlEffect> {
 

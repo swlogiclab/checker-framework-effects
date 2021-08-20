@@ -89,6 +89,7 @@ import org.checkerframework.javacutil.TypesUtils;
  * upper bounds on static and instance field initializers (static runs anywhere, field runs with
  * <i>every</i> ctor).
  */
+@SuppressWarnings("interning:not.interned")
 public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFactory<X>> {
 
   /** Debug flag, set via the "debugSpew" lint option */
