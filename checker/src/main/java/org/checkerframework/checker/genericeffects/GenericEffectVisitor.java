@@ -357,7 +357,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
       if (debugSpew) {
         System.err.println("Checking residual " + pathEffect + " \\ " + methodEffect);
-        System.err.println("In location " + TreePathUtil.toString(visitorState.getPath()));
+        // System.err.println("In location " + TreePathUtil.toString(visitorState.getPath()));
       }
       if (genericEffect.residual(pathEffect, methodEffect) == null) {
         if (genericEffect.isCommutative()) {
@@ -542,9 +542,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     if (debugSpew) {
       System.err.println(
           "Path effect after " + node + " AFTER squash is " + effStack.peek().currentPathEffect());
-      System.err.println("In location " + TreePathUtil.toString(visitorState.getPath()));
-      System.err.println(
-          "Static scope? " + TreePathUtil.isTreeInStaticScope(visitorState.getPath()));
+      // System.err.println("In location " + TreePathUtil.toString(visitorState.getPath()));
+      // System.err.println(
+      //    "Static scope? " + TreePathUtil.isTreeInStaticScope(visitorState.getPath()));
+      // TODO: Leaving this here as a reminder to find a new way to identify static scope
     }
     checkResidual(node);
     assert (effStack.peek().size() == 1 + contextSize);
