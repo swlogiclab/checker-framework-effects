@@ -46,7 +46,7 @@ public class ExceptTest {
         critHelp.EntAndLeaCrit();
         if (critHelp.NotRelateLockBool()) {
             critHelp.Acquire();
-            throw new TestExcept();
+            throw new TestException();
         } else {
             critHelp.Acquire();
         }
@@ -150,7 +150,7 @@ public class ExceptTest {
             }
         } catch (TestException e) {
             critHelp.Acquire();
-            //:: error: (undefined.residual) 
+            // :: error: (undefined.residual) 
             // exceptions need to have locking prefixes.
             critHelp.Release(); 
             throw new Exception(e);
@@ -166,11 +166,10 @@ public class ExceptTest {
     
     @Locking
     @ThrownEffect(exception = Exception.class, behavior = Unlocking.class)
-    public void completionCheck1(AtomicityTestHelper h) throws Exception {
+    public void completionCheck1(CoreCriticalTest.CriticalTestHelper critHelp) throws Exception {
         critHelp.Release();
         throw new Exception();
     }
     
-    }
 }
     

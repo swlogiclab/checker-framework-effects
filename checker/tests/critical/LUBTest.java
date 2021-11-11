@@ -45,10 +45,10 @@ public class LUBTest {
     @Unlocking
     public void badLUB3(boolean b, CoreCriticalTest.CriticalTestHelper critHelp) {
         if (b) {
-            critHelp.Release();
+            critHelp.EntAndLeaCrit();
         }
         else {
-            critHelp.Release();
+            critHelp.CritRegion();
         }
     }
     

@@ -27,21 +27,23 @@ public class CriticalQuantale extends EffectQuantale<Class<? extends Annotation>
         effects.add(L);
         effects.add(UL);
     }
-   
+    
     @Override
-    public Class<? extends Annotation> LUB (Class<? extends Annotation> EffectA, Class<? extends Annotation> EffectB) {
+    public Class<? extends Annotation> LUB(Class<? extends Annotation> EffectA, Class<? extends Annotation> EffectB) {
         if (EffectA == EffectB) {
-            return EffectA;
+            return EffectB;
         }
         if (EffectA == B) {
             if (EffectB == C || EffectB == E) {
                 return EffectB;
             }
+            return null;
         }
         if (EffectB == B) {
             if (EffectA == C || EffectA == E) {
                 return EffectA;
             }
+            return null;
         }
         return null;
     }
@@ -58,29 +60,24 @@ public class CriticalQuantale extends EffectQuantale<Class<? extends Annotation>
             if (EffectA == L) {
                 if (EffectB == UL) return E;
                 if (EffectB == C) return L;
-                assert (false) : "Unhandled seq(" + EffectA + "," + EffectB + ")";
                 return null;
             }
             else if (EffectA == UL) {
                 if (EffectB == L) return C;
                 if (EffectB == E) return UL;
-                assert (false) : "Unhandled seq(" + EffectA + "," + EffectB + ")";
                 return null;
             }
             else if (EffectA == C) {
                 if (EffectB == UL) return UL;
                 if (EffectB == C) return C;
-                assert (false) : "Unhandled seq(" + EffectA + "," + EffectB + ")";
                 return null;
             }
             else if (EffectA == E) {
                 if (EffectB == L) return L;
                 if (EffectB == E) return E;
-                assert (false) : "Unhandled seq(" + EffectA + "," + EffectB + ")";
                 return null;
             }
         }
-        assert (false);
         return null;
     }
     
@@ -109,6 +106,7 @@ public class CriticalQuantale extends EffectQuantale<Class<? extends Annotation>
         if (sofar == B) {
             return target;
         }
+        
         if (target == E) {
             if (sofar == E) {
                 return E;
@@ -118,6 +116,7 @@ public class CriticalQuantale extends EffectQuantale<Class<? extends Annotation>
             }
             return null;
         }
+        
         if (target == C) {
             if (sofar == C) {
                 return C;
@@ -127,10 +126,32 @@ public class CriticalQuantale extends EffectQuantale<Class<? extends Annotation>
             }
             return null;
         }
+        
+        if (target == L) {
+            if (sofar == L) {
+                return C;
+            }
+            else if (sofar == E) {
+                return L;
+            }
+            return null;
+        }
+        
+        if (target == UL) {
+            if (sofar == UL) {
+                return E;
+            }
+            else if(sofar == C) {
+                return UL;
+            }
+            return null;
+        }
+        
         if (target == B) {
             return B;
         }
-        return null;
+        
+        throw new BugInCF("Unhandled residual " + sofar + " \\ " + target);
     }        
 }
 

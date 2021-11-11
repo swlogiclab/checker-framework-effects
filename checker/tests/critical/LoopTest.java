@@ -7,7 +7,7 @@ public class LoopTest {
         while(critHelp.NotRelateLockBool()) {
             critHelp.Acquire();
             critHelp.CritRegion();
-            critHelp.Release()
+            critHelp.Release();
         }
     }
     
@@ -42,7 +42,7 @@ public class LoopTest {
     public void badLoop3(CoreCriticalTest.CriticalTestHelper critHelp) {
         // undefined because lock then entrant
         for(int i = (critHelp.AcquireBool() ? 0 : 1);
-           i < (critHelp.EntAndLeaCrit() ? 10 : 10);
+           i < (critHelp.EntAndLeaCritBool() ? 10 : 10);
            i += (critHelp.AcquireBool() ? 1 : 2)) {
             critHelp.EntAndLeaCrit();
             critHelp.Acquire();

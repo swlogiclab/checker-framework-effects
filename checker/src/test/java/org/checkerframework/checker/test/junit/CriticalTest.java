@@ -14,10 +14,10 @@ public class CriticalTest extends CheckerFrameworkPerDirectoryTest {
     */
     
     public CriticalTest(List<File> testFiles) {
-        super {
-            testFiles,
+        super 
+            (testFiles,
             org.checkerframework.checker.critical.CriticalChecker.class,
-            "critical"
+            "critical",
             "-Anomsgtext"); // Disable full error message printing
         }
         

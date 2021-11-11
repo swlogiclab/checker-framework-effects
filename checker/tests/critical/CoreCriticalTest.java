@@ -42,12 +42,12 @@ public class CoreCriticalTest {
         
         @Locking
         public void lockSubLock() {
-            critHelp.Acquire()
+            critHelp.Acquire();
         }
         
-        @UnLocking
+        @Unlocking
         public void unlockSubUnlock() {
-            critHelp.Release()
+            critHelp.Release();
         }
         
         @Entrant
