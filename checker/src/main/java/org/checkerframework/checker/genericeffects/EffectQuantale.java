@@ -27,7 +27,12 @@ public abstract class EffectQuantale<X> {
    *     of the first
    */
   public boolean LE(X left, X right) {
-    return LUB(left, right).equals(right);
+    X lub = LUB(left, right);
+    if (lub == null) {
+      return false;
+    } else {
+      return lub.equals(right);
+    }
   }
 
   /**
