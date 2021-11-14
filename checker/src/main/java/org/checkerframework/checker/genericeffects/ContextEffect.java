@@ -218,7 +218,7 @@ public class ContextEffect<X> {
   }
 
   public void rewriteLastEffectToCommutativeUnit() {
-    assert (lat.isCommutative());
+    assert lat.isCommutative();
     Map.Entry<X, Tree> oldfirst = rep.removeFirst();
     rep.addFirst(new AbstractMap.SimpleEntry<X, Tree>(lat.unit(), oldfirst.getValue()));
     // Now need to recompute context and contextSinceLastMark

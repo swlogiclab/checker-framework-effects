@@ -686,6 +686,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // TODO: need extra plumbing to be sound w.r.t. fallthrough
 
     effStack.peek().mark();
+    // TODO: JDK 14 deprecated getExpression in favor of getExpressions (plural) for multi-label cases.
     scan(node.getExpression(), p);
     scan(node.getStatements(), p);
     effStack.peek().squashMark(node);
@@ -880,16 +881,18 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
           checker.reportError(node, "undefined.join", thenEff, elseEff);
         }
         errorOnCurrentPath = true;
+        // push a dummy effect to make sure the stack size expectations are met.
+        effStack.peek().pushEffect(genericEffect.unit(), node);
+      } else {
+        // This seq will always succeed (with valid EQs) since the seqs worked per-branch, and we have
+        // distributivity
+        effStack.peek().pushEffect(genericEffect.seq(condEff, lub), node);
+
+        // TODO: Figure out when we do/don't want multiple errors issued. Clearly want multiple for
+        // cases like traditional LUB systems, but sometimes may want to stop early for truly
+        // sequential EQs
+        checkResidual(node);
       }
-
-      // This seq will always succeed (with valid EQs) since the seqs worked per-branch, and we have
-      // distributivity
-      effStack.peek().pushEffect(genericEffect.seq(condEff, lub), node);
-
-      // TODO: Figure out when we do/don't want multiple errors issued. Clearly want multiple for
-      // cases like traditional LUB systems, but sometimes may want to stop early for truly
-      // sequential EQs
-      checkResidual(node);
     }
     assert (effStack.peek().size() == 1 + contextSize);
     return p;
@@ -1016,7 +1019,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // TODO: HIPRI: This fails when the exception type is only in the target project, not in the
     // compiler's classpath. getClassFromType will return Object.class.
     TypeMirror m = TreeUtils.typeOf(node.getExpression());
-    assert (TypesUtils.isClassType(m));
+    assert TypesUtils.isClassType(m);
     ClassType exctype = (ClassType) m;
     effStack
         .peek()
@@ -1116,10 +1119,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       NonlocalEffect<X> lastHandled = null;
       X exclub = null;
       for (Pair<ClassType, NonlocalEffect<X>> eff : resolvedpaths) {
-        assert (atypeFactory
+        assert atypeFactory
             .getProcessingEnv()
             .getTypeUtils()
-            .isSubtype(eff.first, TreeUtils.typeOf(cblk.getParameter())));
+            .isSubtype(eff.first, TreeUtils.typeOf(cblk.getParameter()));
         if (exclub == null) {
           // first entry
           exclub = eff.second.effect;
