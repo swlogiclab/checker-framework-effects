@@ -533,7 +533,13 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     if (debugSpew) {
       System.err.println("Pushing latent effect " + targetEffect + " for " + node);
     }
-    effStack.peek().pushEffect(targetEffect, node);
+    boolean worked = effStack.peek().pushEffect(targetEffect, node);
+    if (!worked) {
+      errorOnCurrentPath = true;
+      checker.reportError(node, "undefined.sequencing", effStack.peek().currentPathEffect(), targetEffect);
+      // TODO: turn these detailed logs into a set of more detailed error messages
+      genericEffect.lastSequencingErrors(); // resets per-operation error log
+    }
     if (debugSpew) {
       System.err.println(
           "Path effect after " + node + " BEFORE squash is " + effStack.peek().currentPathEffect());
