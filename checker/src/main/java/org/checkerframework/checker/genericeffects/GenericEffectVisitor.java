@@ -536,7 +536,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     boolean worked = effStack.peek().pushEffect(targetEffect, node);
     if (!worked) {
       errorOnCurrentPath = true;
-      checker.reportError(node, "undefined.sequencing", effStack.peek().currentPathEffect(), targetEffect);
+      checker.reportError(
+          node, "undefined.sequencing", effStack.peek().currentPathEffect(), targetEffect);
       // TODO: turn these detailed logs into a set of more detailed error messages
       genericEffect.lastSequencingErrors(); // resets per-operation error log
     }
@@ -692,7 +693,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // TODO: need extra plumbing to be sound w.r.t. fallthrough
 
     effStack.peek().mark();
-    // TODO: JDK 14 deprecated getExpression in favor of getExpressions (plural) for multi-label cases.
+    // TODO: JDK 14 deprecated getExpression in favor of getExpressions (plural) for multi-label
+    // cases.
     scan(node.getExpression(), p);
     scan(node.getStatements(), p);
     effStack.peek().squashMark(node);
@@ -890,7 +892,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
         // push a dummy effect to make sure the stack size expectations are met.
         effStack.peek().pushEffect(genericEffect.unit(), node);
       } else {
-        // This seq will always succeed (with valid EQs) since the seqs worked per-branch, and we have
+        // This seq will always succeed (with valid EQs) since the seqs worked per-branch, and we
+        // have
         // distributivity
         effStack.peek().pushEffect(genericEffect.seq(condEff, lub), node);
 
