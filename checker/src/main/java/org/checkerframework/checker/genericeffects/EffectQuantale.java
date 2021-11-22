@@ -33,7 +33,7 @@ public abstract class EffectQuantale<X> {
     } else {
       return lub.equals(right);
     }
-  }
+  } 
 
   /**
    * Compute the least upper bound of two effects, if it exists.

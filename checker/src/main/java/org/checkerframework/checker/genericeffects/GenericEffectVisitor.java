@@ -533,7 +533,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     if (debugSpew) {
       System.err.println("Pushing latent effect " + targetEffect + " for " + node);
     }
-    boolean worked = effStack.peek().pushEffect(targetEffect, node);
+    boolean worked = effStack.peek().pushEffect(targetEffect, node); 
     if (!worked) {
       errorOnCurrentPath = true;
       checker.reportError(
