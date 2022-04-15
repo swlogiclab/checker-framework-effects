@@ -448,8 +448,17 @@ public class AnnotatedTypes {
             memberType);
       case INTERSECTION:
         AnnotatedTypeMirror result = memberType;
+        TypeMirror enclosingElementType = member.getEnclosingElement().asType();
         for (AnnotatedTypeMirror bound : ((AnnotatedIntersectionType) receiverType).getBounds()) {
-          result = substituteTypeVariables(types, atypeFactory, bound, member, result);
+          if (TypesUtils.isErasedSubtype(bound.getUnderlyingType(), enclosingElementType, types)) {
+            result =
+                substituteTypeVariables(
+                    types,
+                    atypeFactory,
+                    atypeFactory.applyCaptureConversion(bound),
+                    member,
+                    result);
+          }
         }
         return result;
       case UNION:
@@ -512,6 +521,7 @@ public class AnnotatedTypes {
     AnnotatedDeclaredType enclosingType = atypeFactory.getAnnotatedType(enclosingClassOfElem);
     AnnotatedDeclaredType base =
         (AnnotatedDeclaredType) asOuterSuper(types, atypeFactory, t, enclosingType);
+    base = (AnnotatedDeclaredType) atypeFactory.applyCaptureConversion(base);
 
     final List<AnnotatedTypeVariable> ownerParams =
         new ArrayList<>(enclosingType.getTypeArguments().size());

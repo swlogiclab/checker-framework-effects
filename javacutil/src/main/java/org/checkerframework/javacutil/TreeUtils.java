@@ -12,6 +12,7 @@ import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.InstanceOfTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -230,11 +231,12 @@ public final class TreeUtils {
   @Pure
   public static @Nullable Element elementFromTree(Tree tree) {
     if (tree == null) {
-      throw new BugInCF("InternalUtils.symbol: tree is null");
+      throw new BugInCF("TreeUtils.elementFromTree: tree is null");
     }
 
     if (!(tree instanceof JCTree)) {
-      throw new BugInCF("InternalUtils.symbol: tree is not a valid Javac tree");
+      throw new BugInCF(
+          "TreeUtils.elementFromTree: tree is not a valid Javac tree but a " + tree.getClass());
     }
 
     if (isExpressionTree(tree)) {
@@ -366,7 +368,7 @@ public final class TreeUtils {
   public static ExecutableElement constructor(NewClassTree tree) {
 
     if (!(tree instanceof JCTree.JCNewClass)) {
-      throw new BugInCF("InternalUtils.constructor: not a javac internal tree");
+      throw new BugInCF("TreeUtils.constructor: not a javac internal tree");
     }
 
     JCNewClass newClassTree = (JCNewClass) tree;
@@ -886,7 +888,7 @@ public final class TreeUtils {
       Class<?> type, String methodName, ProcessingEnvironment env, String... paramTypes) {
     String typeName = type.getCanonicalName();
     if (typeName == null) {
-      throw new BugInCF("class %s has no canonical name", type);
+      throw new BugInCF("TreeUtils.getMethod: class %s has no canonical name", type);
     }
     return getMethod(typeName, methodName, env, paramTypes);
   }
@@ -1660,7 +1662,8 @@ public final class TreeUtils {
    * @return the list of expressions in the case
    */
   public static List<? extends ExpressionTree> caseTreeGetExpressions(CaseTree caseTree) {
-    // Could also test against JDK version number, which is likely more efficient.
+    // Could also test against JDK version number (or use a variable), which is likely more
+    // efficient.
     try {
       Method method = CaseTree.class.getDeclaredMethod("getExpressions");
       @SuppressWarnings({"unchecked", "nullness"})
@@ -1680,6 +1683,164 @@ public final class TreeUtils {
       return Collections.emptyList();
     } else {
       return Collections.singletonList(expression);
+    }
+  }
+
+  /**
+   * Returns the body of the case statement if it is of the form {@code case <expression> ->
+   * <expression>}. This method should only be called if {@link CaseTree#getStatements()} returns
+   * null.
+   *
+   * @param caseTree the case expression to get the body from
+   * @return the body of the case tree
+   */
+  public static @Nullable Tree caseTreeGetBody(CaseTree caseTree) {
+    try {
+      Method method = CaseTree.class.getDeclaredMethod("getBody");
+      return (Tree) method.invoke(caseTree);
+    } catch (NoSuchMethodException
+        | IllegalAccessException
+        | IllegalArgumentException
+        | InvocationTargetException e) {
+      // Just assume that the case tree is of the form case <expression> : statement(s)
+      return null;
+    }
+  }
+
+  /**
+   * Returns the binding variable of {@code bindingPatternTree}.
+   *
+   * @param bindingPatternTree the BindingPatternTree whose binding variable is returned
+   * @return the binding variable of {@code bindingPatternTree}
+   */
+  public static VariableTree bindingPatternTreeGetVariable(Tree bindingPatternTree) {
+    try {
+      Class<?> bindingPatternClass = Class.forName("com.sun.source.tree.BindingPatternTree");
+      Method getVariableMethod = bindingPatternClass.getMethod("getVariable");
+      VariableTree variableTree = (VariableTree) getVariableMethod.invoke(bindingPatternTree);
+      if (variableTree != null) {
+        return variableTree;
+      }
+      throw new BugInCF(
+          "TreeUtils.bindingPatternTreeGetVariable: variable is null for tree: %s",
+          bindingPatternTree);
+    } catch (ClassNotFoundException
+        | NoSuchMethodException
+        | InvocationTargetException
+        | IllegalAccessException e) {
+      throw new BugInCF(
+          "TreeUtils.bindingPatternTreeGetVariable: reflection failed for tree: %s",
+          bindingPatternTree, e);
+    }
+  }
+
+  /**
+   * Returns the pattern of {@code instanceOfTree} tree or null if the instanceof does not have a
+   * pattern.
+   *
+   * @param instanceOfTree the {@link InstanceOfTree} whose pattern is returned
+   * @return the {@code PatternTree} of {@code instanceOfTree} or null if is doesn't exist
+   */
+  public static @Nullable Tree instanceOfGetPattern(InstanceOfTree instanceOfTree) {
+    try {
+      Method getPatternMethod = InstanceOfTree.class.getMethod("getPattern");
+      return (Tree) getPatternMethod.invoke(instanceOfTree);
+    } catch (NoSuchMethodException e) {
+      return null;
+    } catch (InvocationTargetException | IllegalAccessException e) {
+      throw new BugInCF(
+          "TreeUtils.instanceOfGetPattern: reflection failed for tree: %s", instanceOfTree, e);
+    }
+  }
+
+  /**
+   * Returns the selector expression of {@code switchExpressionTree}. For example
+   *
+   * <pre>
+   *   switch ( <em>expression</em> ) { ... }
+   * </pre>
+   *
+   * @param switchExpressionTree the switch expression whose selector expression is returned
+   * @return the selector expression of {@code switchExpressionTree}
+   */
+  public static ExpressionTree switchExpressionTreeGetExpression(Tree switchExpressionTree) {
+    try {
+      Class<?> switchExpressionClass = Class.forName("com.sun.source.tree.SwitchExpressionTree");
+      Method getExpressionMethod = switchExpressionClass.getMethod("getExpression");
+      ExpressionTree expressionTree =
+          (ExpressionTree) getExpressionMethod.invoke(switchExpressionTree);
+      if (expressionTree != null) {
+        return expressionTree;
+      }
+      throw new BugInCF(
+          "TreeUtils.switchExpressionTreeGetExpression: expression is null for tree: %s",
+          switchExpressionTree);
+    } catch (ClassNotFoundException
+        | NoSuchMethodException
+        | InvocationTargetException
+        | IllegalAccessException e) {
+      throw new BugInCF(
+          "TreeUtils.switchExpressionTreeGetExpression: reflection failed for tree: %s",
+          switchExpressionTree, e);
+    }
+  }
+
+  /**
+   * Returns the cases of {@code switchExpressionTree}. For example
+   *
+   * <pre>
+   *   switch ( <em>expression</em> ) {
+   *     <em>cases</em>
+   *   }
+   * </pre>
+   *
+   * @param switchExpressionTree the switch expression whose cases are returned
+   * @return the cases of {@code switchExpressionTree}
+   */
+  public static List<? extends CaseTree> switchExpressionTreeGetCases(Tree switchExpressionTree) {
+    try {
+      Class<?> switchExpressionClass = Class.forName("com.sun.source.tree.SwitchExpressionTree");
+      Method getCasesMethod = switchExpressionClass.getMethod("getCases");
+      @SuppressWarnings("unchecked")
+      List<? extends CaseTree> cases =
+          (List<? extends CaseTree>) getCasesMethod.invoke(switchExpressionTree);
+      if (cases != null) {
+        return cases;
+      }
+      throw new BugInCF(
+          "TreeUtils.switchExpressionTreeGetCases: cases is null for tree: %s",
+          switchExpressionTree);
+    } catch (ClassNotFoundException
+        | NoSuchMethodException
+        | InvocationTargetException
+        | IllegalAccessException e) {
+      throw new BugInCF(
+          "TreeUtils.switchExpressionTreeGetCases: reflection failed for tree: %s",
+          switchExpressionTree, e);
+    }
+  }
+
+  /**
+   * Returns the value (expression) for {@code yieldTree}.
+   *
+   * @param yieldTree the yield tree
+   * @return the value (expression) for {@code yieldTree}.
+   */
+  public static ExpressionTree yieldTreeGetValue(Tree yieldTree) {
+    try {
+      Class<?> yieldTreeClass = Class.forName("com.sun.source.tree.YieldTree");
+      Method getCasesMethod = yieldTreeClass.getMethod("getValue");
+      ExpressionTree expressionTree = (ExpressionTree) getCasesMethod.invoke(yieldTree);
+      if (expressionTree != null) {
+        return expressionTree;
+      }
+      throw new BugInCF("TreeUtils.yieldTreeGetValue: expression is null for tree: %s", yieldTree);
+    } catch (ClassNotFoundException
+        | NoSuchMethodException
+        | InvocationTargetException
+        | IllegalAccessException e) {
+      throw new BugInCF(
+          "TreeUtils.yieldTreeGetValue: reflection failed for tree: %s", yieldTree, e);
     }
   }
 
