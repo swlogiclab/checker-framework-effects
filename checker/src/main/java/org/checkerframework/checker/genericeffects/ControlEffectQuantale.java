@@ -885,4 +885,9 @@ public class ControlEffectQuantale<X>
   public boolean isCommutative() {
     return underlying.isCommutative();
   }
+
+  @Override
+  public boolean supportsErrorLocalization() {
+    return underlying.supportsErrorLocalization();
+  }
 }

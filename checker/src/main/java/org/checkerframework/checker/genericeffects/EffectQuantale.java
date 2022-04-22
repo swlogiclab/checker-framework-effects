@@ -33,7 +33,7 @@ public abstract class EffectQuantale<X> {
     } else {
       return lub.equals(right);
     }
-  } 
+  }
 
   /**
    * Compute the least upper bound of two effects, if it exists.
@@ -109,6 +109,22 @@ public abstract class EffectQuantale<X> {
    * @return The greatest effect y such that <code>LE(seq(sofar,y),target)</code>
    */
   public abstract X residual(X sofar, X target);
+
+  /**
+   * Flag indicating whether this effect quantale supports residuals.
+   *
+   * <p>Default is yes, though this may change in the future. If this returns false, then <code>
+   * residual()</code> will never be invoked. This is often useful when initially developing a new
+   * sequential effect system, to experiment with the lattice more easily.
+   *
+   * <p>Developers of <i>commutative</i> effect systemes should <i>never</i> override this. Not only
+   * should they instead inherit from {@link FlowInsensitiveEffectLattice} rather than directly from
+   * this class, any commutative effect system <i>automatically</i> supports error localization for
+   * free (and {@link FlowInsensitiveEffectLattice} implements this).
+   */
+  public boolean supportsErrorLocalization() {
+    return true;
+  }
 
   /**
    * An accessor returning whether sequencing is also commutative. This is not required of effect

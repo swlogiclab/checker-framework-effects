@@ -97,6 +97,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   private ControlEffectQuantale<X> genericEffect;
   /** Reference to a plugin for determining the effects of basic Java language features. */
   private GenericEffectExtension<X> extension;
+  /** Flag to disable residual checking for systems that may not yet support it */
+  private final boolean noResiduals;
 
   /**
    * A stack of effect contexts, one for each level of nested methods (to support anonymous inner
@@ -167,6 +169,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     errorOnCurrentPath = false;
 
     genericEffect = new ControlEffectQuantale<X>(checker.getEffectLattice(), xtypeFactory);
+    noResiduals = !checker.getEffectLattice().supportsErrorLocalization();
 
     if (debugSpew) {
       System.err.println(
@@ -336,6 +339,11 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   }
 
   private void checkResidual(Tree node) {
+    // Not all effect quantales will support residuals
+    if (noResiduals) {
+      return;
+    }
+
     // TODO: Impose actual checks on static & instance field initializer expression effects
     if (currentMethods.peek() == null) {
       return;
@@ -533,7 +541,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     if (debugSpew) {
       System.err.println("Pushing latent effect " + targetEffect + " for " + node);
     }
-    boolean worked = effStack.peek().pushEffect(targetEffect, node); 
+    boolean worked = effStack.peek().pushEffect(targetEffect, node);
     if (!worked) {
       errorOnCurrentPath = true;
       checker.reportError(
