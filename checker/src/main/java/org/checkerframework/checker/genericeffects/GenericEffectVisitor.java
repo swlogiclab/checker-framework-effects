@@ -338,6 +338,15 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       checker.reportError(node, failureMsg, targetEffect, callerEffect);
   }
 
+  /**
+   * Internal method to check that the effect of the method body so far has not already become
+   * incompatible with the annotated/assumed method effect. This is the core of reporting localized
+   * error messages rather than method-global complaints, allowing us to report the earliest
+   * location in program order where the method behaves incompatibly with what it should do.
+   *
+   * @param node The AST node currently being checked, which will be used as a possible error
+   *     location.
+   */
   private void checkResidual(Tree node) {
     // Not all effect quantales will support residuals
     if (noResiduals) {
