@@ -55,7 +55,7 @@ public class ControlEffectQuantale<X>
      * <p>Empty sets are represented by an empty collection OR null for efficiency of
      * <i>construction</i>. Most control effect instances will not have any exceptions or breaks.
      */
-    public final Set<Pair<com.sun.jdi.ClassType, NonlocalEffect<X>>> excs;
+    public final Set<Pair<ClassType, NonlocalEffect<X>>> excs;
 
     /** Effects up to points where breaks cause non-local exits from cases and loops */
     public final Set<NonlocalEffect<X>> breakset;
@@ -212,7 +212,7 @@ public class ControlEffectQuantale<X>
      */
     public ControlEffect appendFinallyBasic(X finallyBodyBaseEffect) {
       X base = null;
-      Set<Pair<com.sun.jdi.ClassType, NonlocalEffect<X>>> excs = null;
+      Set<Pair<ClassType, NonlocalEffect<X>>> excs = null;
       Set<NonlocalEffect<X>> breakset = null;
       
       if (this.base != null) {
@@ -223,11 +223,11 @@ public class ControlEffectQuantale<X>
       }
       if (this.excs != null && this.excs.size() > 0) {
         excs = new HashSet<>();
-        for (var exc : this.excs) {
-          var cls = exc.first;
-          var eff = exc.second.effect;
-          var target = exc.second.target;
-          var src = exc.second.src;
+        for (Pair<ClassType,NonlocalEffect<X>> exc : this.excs) {
+          ClassType cls = exc.first;
+          X eff = exc.second.effect;
+          Tree target = exc.second.target;
+          Tree src = exc.second.src;
 
           eff = underlying.seq(eff, finallyBodyBaseEffect);
           if (eff == null) {
@@ -239,10 +239,10 @@ public class ControlEffectQuantale<X>
       }
       if (this.breakset != null && this.breakset.size() > 0) {
         breakset = new HashSet<>();
-        for (var bk : this.breakset) {
-          var eff = bk.effect;
-          var target = bk.target;
-          var src = bk.src;
+        for (NonlocalEffect<X> bk : this.breakset) {
+          X eff = bk.effect;
+          Tree target = bk.target;
+          Tree src = bk.src;
 
           eff = underlying.seq(eff, finallyBodyBaseEffect);
           if (eff == null) {
