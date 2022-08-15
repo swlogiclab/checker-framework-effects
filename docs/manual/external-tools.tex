@@ -118,7 +118,7 @@ configurations {
 \begin{Verbatim}
 dependencies {
     ... existing dependencies...
-    ext.checkerFrameworkVersion = '3.21.4'
+    ext.checkerFrameworkVersion = '3.22.2'
     implementation "org.checkerframework:checker-qual-android:${checkerFrameworkVersion}"
     // or if you use no annotations in source code the above line could be
     // compileOnly "org.checkerframework:checker-qual-android:${checkerFrameworkVersion}"
@@ -191,7 +191,7 @@ android {
 \begin{Verbatim}
 dependencies {
     ... existing dependencies...
-    ext.checkerFrameworkVersion = '3.21.4'
+    ext.checkerFrameworkVersion = '3.22.2'
     implementation "org.checkerframework:checker-qual-android:${checkerFrameworkVersion}"
     // or if you use no annotations in source code the above line could be
     // compileOnly "org.checkerframework:checker-qual-android:${checkerFrameworkVersion}"
@@ -210,7 +210,7 @@ gradlew assembleCheckTypes
 
 \sectionAndLabel{Ant task}{ant-task}
 
-If you use the \href{http://ant.apache.org/}{Ant} build tool to compile
+If you use the \href{https://ant.apache.org/}{Ant} build tool to compile
 your software, then you can add an Ant task that runs a checker.  We assume
 that your Ant file already contains a compilation target that uses the
 \code{javac} task, and that the \<CHECKERFRAMEWORK> environment variable is set.
@@ -341,13 +341,13 @@ file showing how to enable the Checker Framework:
 \begin{Verbatim}
 prebuilt_jar(
     name = 'checker-framework',
-    binary_jar = 'checker-3.21.4.jar',
+    binary_jar = 'checker-3.22.2.jar',
     visibility = [ 'PUBLIC' ]
 )
 
 prebuilt_jar(
     name = 'checker-qual',
-    binary_jar = 'checker-qual-3.21.4.jar',
+    binary_jar = 'checker-qual-3.22.2.jar',
     visibility = [ 'PUBLIC' ]
 )
 
@@ -411,21 +411,21 @@ one of them.  However, if you are using the Windows command shell, you must
 use the last one.
 % Is the last one required for Cygwin, as well as for the Windows command shell?
 Adjust the pathnames if you have installed the Checker Framework somewhere
-other than \<\${HOME}/checker-framework-3.21.4/>.
+other than \<\${HOME}/checker-framework-3.22.2/>.
 
 
 \begin{itemize}
   \item
     Option 1:
     Add directory
-    \code{.../checker-framework-3.21.4/checker/bin} to your path, \emph{before} any other
+    \code{.../checker-framework-3.22.2/checker/bin} to your path, \emph{before} any other
     directory that contains a \<javac> executable.
 
     If you are
     using the bash shell, a way to do this is to add the following to your
     \verb|~/.profile| (or alternately \verb|~/.bash_profile| or \verb|~/.bashrc|) file:
 \begin{Verbatim}
-  export CHECKERFRAMEWORK=${HOME}/checker-framework-3.21.4
+  export CHECKERFRAMEWORK=${HOME}/checker-framework-3.22.2
   export PATH=${CHECKERFRAMEWORK}/checker/bin:${PATH}
 \end{Verbatim}
 
@@ -446,7 +446,7 @@ other than \<\${HOME}/checker-framework-3.21.4/>.
     file:
 % No Windows example because this doesn't work under Windows.
 \begin{Verbatim}
-  export CHECKERFRAMEWORK=${HOME}/checker-framework-3.21.4
+  export CHECKERFRAMEWORK=${HOME}/checker-framework-3.22.2
   alias javacheck='$CHECKERFRAMEWORK/checker/bin/javac'
 \end{Verbatim}
 
@@ -468,11 +468,11 @@ other than \<\${HOME}/checker-framework-3.21.4/>.
 
 \begin{Verbatim}
   # Unix
-  export CHECKERFRAMEWORK=${HOME}/checker-framework-3.21.4
+  export CHECKERFRAMEWORK=${HOME}/checker-framework-3.22.2
   alias javacheck='java -jar "$CHECKERFRAMEWORK/checker/dist/checker.jar"'
 
   # Windows
-  set CHECKERFRAMEWORK = C:\Program Files\checker-framework-3.21.4\
+  set CHECKERFRAMEWORK = C:\Program Files\checker-framework-3.22.2\
   doskey javacheck=java -jar "%CHECKERFRAMEWORK%\checker\dist\checker.jar" $*
 \end{Verbatim}
 
@@ -551,9 +551,9 @@ Alternately, you can get all of the jars mentioned in this section from Maven Ce
 
 \begin{itemize}
 \item \<javac.jar>: \url{https://search.maven.org/artifact/com.google.errorprone/javac/9%2B181-r4173-1/jar}
-\item \<checker-qual.jar>: \url{https://repo1.maven.org/maven2/org/checkerframework/checker-qual/3.21.4/checker-qual-3.21.4.jar}
-\item \<checker-util.jar>: \url{https://repo1.maven.org/maven2/org/checkerframework/checker-util/3.21.4/checker-util-3.21.4.jar}
-\item \<checker.jar>: \url{https://repo1.maven.org/maven2/org/checkerframework/checker/3.21.4/checker-3.21.4-all.jar}
+\item \<checker-qual.jar>: \url{https://repo1.maven.org/maven2/org/checkerframework/checker-qual/3.22.2/checker-qual-3.22.2.jar}
+\item \<checker-util.jar>: \url{https://repo1.maven.org/maven2/org/checkerframework/checker-util/3.22.2/checker-util-3.22.2.jar}
+\item \<checker.jar>: \url{https://repo1.maven.org/maven2/org/checkerframework/checker/3.22.2/checker-3.22.2-all.jar}
 \end{itemize}
 
 Different arguments to \<javac> are required for JDK 8
@@ -647,7 +647,7 @@ javac \
 -processor org.checkerframework.checker.nullness.NullnessChecker
 \end{Verbatim}
 
-The arguments are explained above, except for two of them:.
+The arguments are explained above, except for two of them:
 \begin{enumerate}
 
 \item \<-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED> which
@@ -660,7 +660,7 @@ required with JDK 17+ because the Checker Framework accesses non-exported member
 
 \end{enumerate}
 
-If this option is missing, \<javac> may issue the following warning:
+If this option is missing, \<javac> may issue one of the below warnings:
 \begin{Verbatim}
 WARNING: An illegal reflective access operation has occurred
 WARNING: Illegal reflective access by org.checkerframework.javacutil.Resolver
@@ -668,6 +668,13 @@ WARNING: Illegal reflective access by org.checkerframework.javacutil.Resolver
 WARNING: Please consider reporting this to the maintainers of org.checkerframework.javacutil.Resolver
 WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
 WARNING: All illegal access operations will be denied in a future release
+\end{Verbatim}
+
+\begin{Verbatim}
+java.lang.IllegalAccessError: class org.checkerframework.javacutil.AbstractTypeProcessor
+  (in unnamed module ...) cannot access class com.sun.tools.javac.processing.JavacProcessingEnvironment
+  (in module jdk.compiler) because module jdk.compiler does not export com.sun.tools.javac.processing
+  to unnamed module ...
 \end{Verbatim}
 
 
@@ -917,7 +924,7 @@ Checker Framework on that.  The
 
 \sectionAndLabel{Maven}{maven}
 
-If you use the \href{http://maven.apache.org/}{Maven} tool,
+If you use the \href{https://maven.apache.org/}{Maven} tool,
 then you can enable Checker Framework checkers by following the
 instructions below.
 
@@ -939,21 +946,18 @@ checker as an annotation processor directly.
 
 Debugging your Maven configuration can be tricky because of a
 \ahreforurl{https://issues.apache.org/jira/browse/MCOMPILER-434}{bug in
-  Maven}: Maven does not report annotation processor exceptions, even when
+  maven-compiler-plugin versions before 3.10.1}: Maven does not report
+annotation processor exceptions, even when
 the \<-X> command-line argument is passed.
 
 
 \begin{enumerate}
 
-\item Declare a dependency on the Checker Framework artifacts, either from
-  Maven Central or from a local directory.  Find the
+\item Declare a dependency on the Checker Framework artifacts from
+  Maven Central.  Find the
   existing \code{<dependencies>} section (not within
   \code{<dependencyManagement>}, but somewhere else) and add the following new
   \code{<dependency>} items:
-
-\begin{enumerate}
-\item
-  To obtain artifacts from Maven Central:
 
 \begin{alltt}
   <dependencies>
@@ -965,6 +969,25 @@ the \<-X> command-line argument is passed.
       <artifactId>checker-qual</artifactId>
       <version>\ReleaseVersion{}</version>
     </dependency>
+  </dependencies>
+\end{alltt}
+
+Periodically update to the most recent version, to obtain the
+latest bug fixes and new features:
+\begin{Verbatim}
+  mvn versions:use-latest-versions -Dincludes="org.checkerframework:*"
+\end{Verbatim}
+
+\item If using JDK 8, use a Maven property to hold the location of the
+  Error Prone \<javac.jar>.
+To set the value of these properties automatically, you will use the Maven Dependency plugin.
+
+Add a dependency:
+
+\begin{alltt}
+  <dependencies>
+    ... existing <dependency> items ...
+
     <dependency>
       <groupId>com.google.errorprone</groupId>
       <artifactId>javac</artifactId>
@@ -974,23 +997,11 @@ the \<-X> command-line argument is passed.
 \end{alltt}
 
 Java 11 and later do not need the \<com.google.errorprone:javac>
-dependency.  If you will never use Java 8, you can omit it.
+dependency.
 The need for the \<com.google.errorprone:javac> artifact when running under
 JDK 8 is explained in Section~\ref{javac-jdk8}.
 
-Periodically update to the most recent version, to obtain the
-latest bug fixes and new features:
-\begin{Verbatim}
-  mvn versions:use-latest-versions -Dincludes="org.checkerframework:*"
-\end{Verbatim}
-
-\end{enumerate}
-
-\item If using JDK 8, use a Maven property to hold the location of the
-  Error Prone \<javac.jar>.  They were declared as Maven dependencies above.
-To set the value of these properties automatically, you will use the Maven Dependency plugin.
-
-First, create the property in the \code{properties} section of the POM:
+Create the property in the \code{properties} section of the POM:
 
 \begin{alltt}
 <properties>
@@ -1042,7 +1053,7 @@ section, or add it if it is not present.
         <plugins>
           <plugin>
             <artifactId>maven-compiler-plugin</artifactId>
-            <version>3.8.1</version>
+            <version>3.10.1</version>
             <configuration>
               <fork>true</fork> <!-- Must fork or else JVM arguments are ignored. -->
               <compilerArguments>
@@ -1361,7 +1372,7 @@ will not appear in the editor.
 
 \sectionAndLabel{sbt}{sbt}
 
-\ahref{https://www.scala-sbt.org/}{sbt} is a build tool for
+\href{https://www.scala-sbt.org/}{sbt} is a build tool for
 Scala, Java, and more.
 
 Adjust the \<-processor> command-line argument for the processor(s)

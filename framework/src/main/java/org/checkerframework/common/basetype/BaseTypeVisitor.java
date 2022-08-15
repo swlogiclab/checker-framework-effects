@@ -186,7 +186,7 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
   /** The factory to use for obtaining "parsed" version of annotations. */
   protected final Factory atypeFactory;
 
-  /** For obtaining line numbers in -Ashowchecks debugging output. */
+  /** For obtaining line numbers in {@code -Ashowchecks} debugging output. */
   protected final SourcePositions positions;
 
   /** The element for java.util.Vector#copyInto. */
@@ -1007,7 +1007,11 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
     if (suggestPureMethods && !TreeUtils.isSynthetic(node)) {
       // Issue a warning if the method is pure, but not annotated as such.
       EnumSet<Pure.Kind> additionalKinds = r.getKinds().clone();
-      additionalKinds.removeAll(kinds);
+      if (!(infer && inferPurity)) {
+        // During WPI, propagate all purity kinds, even those that are already
+        // present (because they were inferred in a previous WPI round).
+        additionalKinds.removeAll(kinds);
+      }
       if (TreeUtils.isConstructor(node)) {
         additionalKinds.remove(Pure.Kind.DETERMINISTIC);
       }
@@ -1640,7 +1644,7 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
           methodName,
           invokedMethod.getTypeVariables());
       List<AnnotatedTypeMirror> params =
-          AnnotatedTypes.expandVarArgsParameters(atypeFactory, invokedMethod, node.getArguments());
+          AnnotatedTypes.adaptParameters(atypeFactory, invokedMethod, node.getArguments());
       checkArguments(params, node.getArguments(), methodName, method.getParameters());
       checkVarargs(invokedMethod, node);
 
@@ -1664,7 +1668,7 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
         checkThisConstructorCall(node);
       }
     } catch (RuntimeException t) {
-      // Sometimes the type arguments are inferred incorrect which causes crashes. Once #979
+      // Sometimes the type arguments are inferred incorrectly, which causes crashes. Once #979
       // is fixed this should be removed and crashes should be reported normally.
       if (node.getTypeArguments().size() == typeargs.size()) {
         // They type arguments were explicitly written.
@@ -1929,7 +1933,7 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
 
     List<? extends ExpressionTree> passedArguments = node.getArguments();
     List<AnnotatedTypeMirror> params =
-        AnnotatedTypes.expandVarArgsParameters(atypeFactory, constructorType, passedArguments);
+        AnnotatedTypes.adaptParameters(atypeFactory, constructorType, passedArguments);
 
     ExecutableElement constructor = constructorType.getElement();
     CharSequence constructorName = ElementUtils.getSimpleNameOrDescription(constructor);
@@ -3219,7 +3223,7 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
       AnnotatedExecutableType constructor,
       NewClassTree newClassTree) {
     // Only check the primary annotations, the type arguments are checked elsewhere.
-    Set<AnnotationMirror> explicitAnnos = atypeFactory.fromNewClass(newClassTree).getAnnotations();
+    Set<AnnotationMirror> explicitAnnos = atypeFactory.getExplicitNewClassAnnos(newClassTree);
     if (explicitAnnos.isEmpty()) {
       return;
     }
