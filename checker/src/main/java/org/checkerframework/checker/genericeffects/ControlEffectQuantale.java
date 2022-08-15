@@ -48,14 +48,15 @@ public class ControlEffectQuantale<X>
 
     /** Base effect, null for absent */
     public final X base;
+
     /**
      * Effects up to points where (checked) exceptions are thrown.
      *
      * <p>Empty sets are represented by an empty collection OR null for efficiency of
      * <i>construction</i>. Most control effect instances will not have any exceptions or breaks.
      */
-    // public final Map<ClassType, Set<NonlocalEffect<X>>> excMap;
-    public final Set<Pair<ClassType, NonlocalEffect<X>>> excs;
+    public final Set<Pair<com.sun.jdi.ClassType, NonlocalEffect<X>>> excs;
+
     /** Effects up to points where breaks cause non-local exits from cases and loops */
     public final Set<NonlocalEffect<X>> breakset;
 
@@ -197,6 +198,62 @@ public class ControlEffectQuantale<X>
         filtered.add(Pair.of(t, new UnboundedNonlocalEffect<X>(u, target)));
       }
       return new ControlEffect(this.base, filtered, this.breakset);
+    }
+
+    /** Convenience method which returns true if there are any non-local behaviors in this effect. */
+    public boolean hasControlBehaviors() {
+      return (excs != null && excs.size() > 0) || (breakset != null && breakset.size() > 0);
+    }
+
+    /**
+     * Construct a duplicate effect with the specified base effect appended to all branches,
+     * specifically for handling finally blocks. Eventually this will need to support folding
+     * in a full control effect with additional throws, with throws from a finally replacing the original throws.
+     */
+    public ControlEffect appendFinallyBasic(X finallyBodyBaseEffect) {
+      X base = null;
+      Set<Pair<com.sun.jdi.ClassType, NonlocalEffect<X>>> excs = null;
+      Set<NonlocalEffect<X>> breakset = null;
+      
+      if (this.base != null) {
+        base = underlying.seq(this.base, finallyBodyBaseEffect);
+        if (base == null) {
+          return null;
+        }
+      }
+      if (this.excs != null && this.excs.size() > 0) {
+        excs = new HashSet<>();
+        for (var exc : this.excs) {
+          var cls = exc.first;
+          var eff = exc.second.effect;
+          var target = exc.second.target;
+          var src = exc.second.src;
+
+          eff = underlying.seq(eff, finallyBodyBaseEffect);
+          if (eff == null) {
+            return null;
+          } else {
+            excs.add(Pair.of(cls, new NonlocalEffect<X>(eff, target, src)));
+          }
+        }
+      }
+      if (this.breakset != null && this.breakset.size() > 0) {
+        breakset = new HashSet<>();
+        for (var bk : this.breakset) {
+          var eff = bk.effect;
+          var target = bk.target;
+          var src = bk.src;
+
+          eff = underlying.seq(eff, finallyBodyBaseEffect);
+          if (eff == null) {
+            return null;
+          } else {
+            breakset.add(new NonlocalEffect<X>(eff, target, src));
+          }
+        }
+      }
+
+      return new ControlEffect(base, excs, breakset);
     }
   }
 

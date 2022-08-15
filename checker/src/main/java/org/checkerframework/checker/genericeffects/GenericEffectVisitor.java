@@ -48,6 +48,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.ResourceBundle.Control;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
@@ -1204,7 +1205,20 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // of a conditional, where this try is in the else block). The solution is to properly implement
     // C(X).
     if (node.getFinallyBlock() != null) {
-      throw new UnsupportedOperationException("Finally blocks are not yet implemented");
+      effStack.peek().mark();
+      scan(node.getFinallyBlock(), p);
+      effStack.peek().squashMark(node.getFinallyBlock());
+      List<ControlEffectQuantale<X>.ControlEffect> finallyEffects = effStack.peek().rewindToMark();
+      assert (finallyEffects.size() == 1);
+      ControlEffectQuantale<X>.ControlEffect finallyEffect = finallyEffects.get(0);
+      if (finallyEffect.hasControlBehaviors()) {
+        throw new UnsupportedOperationException("Finally blocks that throw are not yet supported");
+      }
+
+      // TODO: combine the mark so far for this node with .appendFinallyBasic(finallyEffect.base)
+      // If it's null, report an error (lots of room for improving the error message quality)
+      // If not, use the result as the effect of this whole try-finally.
+      assert false;
     }
     return p;
   }
