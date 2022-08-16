@@ -3,6 +3,7 @@ import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
 
 public class CoreAtomicityTests {
   public static class TestException extends Exception {}
+  public static class TestException2 extends Exception {}
 
   public static interface AtomicityTestHelper {
     @Right
@@ -460,19 +461,44 @@ public class CoreAtomicityTests {
     throw new Exception();
   }
 
-  // @Atomic
-  // @ThrownEffect(exception=TestException.class, behavior=Atomic.class)
-  // public void finallyTest0(AtomicityTestHelper h) throws TestException {
+  @Atomic
+  @ThrownEffect(exception=TestException.class, behavior=Atomic.class)
+  public void finallyTest0(AtomicityTestHelper h) throws TestException {
+   h.Lock();
+   try {
+     if (h.WellSyncBool()) {
+       throw new TestException();
+     }
+   } finally {
+     // This actually needs to be *appended* to the behavior, because finally acts as a catch+act+rethrow
+     h.Unlock();
+   }
+  }
+
+  // TODO: Also need tests with both catch and finally, tests with multiple exceptions caught, tests with different exceptions thrown and some caught with others escaping through finally
+  // TODO: Need systematic testing of behavior when an exception and a subtype thereof are both thrown, and either the subtype or supertype is caught (allowing the supertype to escape if the subtype is caught)
+
+  //@Atomic
+  //@ThrownEffect(exception = Exception.class, behavior = Atomic.class)
+  //public void finallyTest1(AtomicityTestHelper h) throws TestException2 {
   //  h.Lock();
   //  try {
-  //    if (h.WellSyncBool()) {
+  //    if (h.DoNothingBool()) {
+  //      // So TestException should reach the catch with a R prefix
   //      throw new TestException();
   //    }
+  //    // regular exceptions should have an R prefix
+  //    h.Lock();
+  //    throw new TestException2();
+  //  } catch (TestException e) {
+  //    // Should reach here with a R prefix, "leave" with an A prefix going into the finally
+  //    h.WellSync();
   //  } finally {
-  //    // This actually needs to be *appended* to the behavior, because finally acts as a
-  // catch+act+rethrow
+  //    // Should reach here with two effects of interest:
+  //    // The base effect should be A, which is the R@TestException|>A=A from the throw+catch.
+  //    // There should also be a an R@Exception which will become A@Exception
   //    h.Unlock();
   //  }
-  // }
+  //}
 
 }

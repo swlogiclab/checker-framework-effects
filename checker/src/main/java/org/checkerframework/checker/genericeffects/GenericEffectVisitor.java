@@ -1142,7 +1142,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
                               .isSubtype(kv.first, TreeUtils.typeOf(cblk.getParameter()))));
       List<Pair<ClassType, NonlocalEffect<X>>> resolvedpaths = m.get(true);
       unhandled = m.get(false);
-      assert (resolvedpaths.size() > 0);
+      assert (resolvedpaths.size() > 0) : "No resolved paths for" + cblk.toString();
       NonlocalEffect<X> lastHandled = null;
       X exclub = null;
       for (Pair<ClassType, NonlocalEffect<X>> eff : resolvedpaths) {
@@ -1193,21 +1193,21 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       }
     }
 
-    effStack.peek().pushEffect(lub, node);
-    effStack.peek().squashMark(node);
-
-    // BlockTree body = node.getBlock();
-    // BlockTree finblock = node.getFinallyBlock();
-    // var catches = node.getCatches();
 
     // TODO: Okay, can't just append finally block effect to all entries in the exception map,
     // because there might be some in there from another branch of execution (e.g., the then branch
     // of a conditional, where this try is in the else block). The solution is to properly implement
     // C(X).
-    if (node.getFinallyBlock() != null) {
+    if (node.getFinallyBlock() == null) {
+      effStack.peek().pushEffect(lub, node);
+      effStack.peek().squashMark(node);
+    } else {
+      effStack.peek().mark(); // extra mark so we can rewind everything
+      // Record prior try-catch body for the finally block's residual checking to compare on the base effect
+      effStack.peek().pushEffect(lub, node);
       effStack.peek().mark();
       scan(node.getFinallyBlock(), p);
-      effStack.peek().squashMark(node.getFinallyBlock());
+      //effStack.peek().squashMark(node.getFinallyBlock());
       List<ControlEffectQuantale<X>.ControlEffect> finallyEffects = effStack.peek().rewindToMark();
       assert (finallyEffects.size() == 1);
       ControlEffectQuantale<X>.ControlEffect finallyEffect = finallyEffects.get(0);
@@ -1218,8 +1218,15 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       // TODO: combine the mark so far for this node with .appendFinallyBasic(finallyEffect.base)
       // If it's null, report an error (lots of room for improving the error message quality)
       // If not, use the result as the effect of this whole try-finally.
-      assert false;
+      ControlEffectQuantale<X>.ControlEffect overall = lub.appendFinallyBasic(finallyEffect.base);
+      if (overall == null) {
+        // TODO: Report every composition that failed, with detailed exception and path info
+        checker.reportError(node.getFinallyBlock(), "undefined.finally.basic");
+        errorOnCurrentPath = true;
+      }
+      effStack.peek().squashMark(node);
     }
+    checkResidual(node);
     return p;
   }
 
