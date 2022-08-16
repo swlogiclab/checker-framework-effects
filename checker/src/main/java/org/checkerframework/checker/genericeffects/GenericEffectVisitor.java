@@ -706,13 +706,15 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     return p;
   }
 
+  @SuppressWarnings("deprecation")
   @Override
   public Void visitCase(CaseTree node, Void p) {
     // TODO: need extra plumbing to be sound w.r.t. fallthrough
 
     effStack.peek().mark();
     // TODO: JDK 14 deprecated getExpression in favor of getExpressions (plural) for multi-label
-    // cases.
+    // cases. Right now we disable the warning only in this method
+    // so we can actually build on JDK17
     scan(node.getExpression(), p);
     scan(node.getStatements(), p);
     effStack.peek().squashMark(node);
