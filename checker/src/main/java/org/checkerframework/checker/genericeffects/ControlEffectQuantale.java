@@ -574,7 +574,7 @@ public class ControlEffectQuantale<X>
 
     // sequence exception maps
 
-    if (l.excs != null && r.excs != null) {
+    if (l.excs != null) {
       emap = new HashSet<>(l.excs);
     } else if (r.excs != null) {
       emap = new HashSet<>();

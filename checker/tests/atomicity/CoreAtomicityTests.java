@@ -1,6 +1,18 @@
 import org.checkerframework.checker.atomicity.qual.*;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
 
+/**
+ * This class collects tests which are nominally for the Atomicity effect checker, but
+ * in practice are really framework tests for the GenericEffectChecker.
+ * 
+ * The AtomicityEffectQuantale is rich enough to test most functionality of the framework
+ * quite thoroughly, because the effect quantale is non-trivial (more than 2 effects, and
+ * not totally-ordered) but still relatively small (only 5 effects) and residuated (to
+ * check error reporting precision).
+ * 
+ * The only framework functionality that cannot be tested with the Atomicity effect system
+ * is how the framework handles <i>partial</i> effect quantale operations.
+ */
 public class CoreAtomicityTests {
   public static class TestException extends Exception {}
   public static class TestException2 extends Exception {}
@@ -319,6 +331,17 @@ public class CoreAtomicityTests {
 
   @Atomic
   @ThrownEffect(exception = TestException.class, behavior = Right.class)
+  public void excTest3b(AtomicityTestHelper h) throws TestException {
+    h.Lock();
+    if (h.DoNothingBool()) {
+      throw new TestException();
+    }
+    // This is the same as excTest3, but with the completion after the conditional rather than in the else branch
+    h.Unlock();
+  }
+
+  @Atomic
+  @ThrownEffect(exception = TestException.class, behavior = Right.class)
   public void excTest4(AtomicityTestHelper h) throws TestException {
     // Check that errors from bad throw prefixes are localized to throws
     h.Lock();
@@ -389,6 +412,20 @@ public class CoreAtomicityTests {
     } catch (Exception e) {
       h.Unlock();
     }
+  }
+
+  @Atomic
+  public void catchTest2(AtomicityTestHelper h) {
+    h.Lock();
+    try {
+      if (h.WellSyncBool()) {
+        throw new TestException();
+      }
+      // Catch a supertype of the thrown exception
+    } catch (Exception e) {
+      // Do nothing; same as test above but completion of Atomic effect is now after the catch
+    }
+    h.Unlock();
   }
 
   @Atomic
