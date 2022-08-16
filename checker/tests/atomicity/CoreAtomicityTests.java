@@ -543,27 +543,27 @@ public class CoreAtomicityTests {
     h.Unlock();
   }
 
-  //@Atomic
-  //@ThrownEffect(exception = TestException2.class, behavior = Atomic.class)
-  //public void finallyTest2(AtomicityTestHelper h) throws TestException2 {
-  //  h.Lock();
-  //  try {
-  //    if (h.DoNothingBool()) {
-  //      // So TestException should reach the catch with a R prefix
-  //      throw new TestException();
-  //    }
-  //    // regular exceptions should have an R prefix
-  //    h.Lock();
-  //    throw new TestException2();
-  //  } catch (TestException e) {
-  //    // Should reach here with a R prefix, "leave" with an A prefix going into the finally
-  //    h.WellSync();
-  //  } finally {
-  //    // Should reach here with two effects of interest:
-  //    // The base effect should be A, which is the R@TestException|>A=A from the throw+catch.
-  //    // There should also be a an R@Exception which will become A@Exception
-  //    h.Unlock();
-  //  }
-  //}
+  @Atomic
+  @ThrownEffect(exception = TestException2.class, behavior = Atomic.class)
+  public void finallyTest2(AtomicityTestHelper h) throws TestException2 {
+    h.Lock();
+    try {
+      if (h.DoNothingBool()) {
+        // So TestException should reach the catch with a R prefix
+        throw new TestException();
+      }
+      // regular exceptions should have an R prefix
+      h.Lock();
+      throw new TestException2();
+    } catch (TestException e) {
+      // Should reach here with a R prefix, "leave" with an A prefix going into the finally
+      h.WellSync();
+    } finally {
+      // Should reach here with two effects of interest:
+      // The base effect should be A, which is the R@TestException|>A=A from the throw+catch.
+      // There should also be a an R@Exception which will become A@Exception
+      h.Unlock();
+    }
+  }
 
 }
