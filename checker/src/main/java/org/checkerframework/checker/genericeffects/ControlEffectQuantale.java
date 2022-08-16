@@ -200,21 +200,30 @@ public class ControlEffectQuantale<X>
       return new ControlEffect(this.base, filtered, this.breakset);
     }
 
-    /** Convenience method which returns true if there are any non-local behaviors in this effect. */
+    /**
+     * Convenience method which returns true if there are any non-local behaviors in this effect.
+     *
+     * @return Check if this control effect has any exceptions or break behaviors
+     */
     public boolean hasControlBehaviors() {
       return (excs != null && excs.size() > 0) || (breakset != null && breakset.size() > 0);
     }
 
     /**
      * Construct a duplicate effect with the specified base effect appended to all branches,
-     * specifically for handling finally blocks. Eventually this will need to support folding
-     * in a full control effect with additional throws, with throws from a finally replacing the original throws.
+     * specifically for handling finally blocks. Eventually this will need to support folding in a
+     * full control effect with additional throws, with throws from a finally replacing the original
+     * throws.
+     *
+     * @param finallyBodyBaseEffect A base (underlying) effect to append to all behaviors
+     * @return A variant of the receiver as if the exception and break effects were caught and
+     *     "rethrown"
      */
     public ControlEffect appendFinallyBasic(X finallyBodyBaseEffect) {
       X base = null;
       Set<Pair<ClassType, NonlocalEffect<X>>> excs = null;
       Set<NonlocalEffect<X>> breakset = null;
-      
+
       if (this.base != null) {
         base = underlying.seq(this.base, finallyBodyBaseEffect);
         if (base == null) {
@@ -223,7 +232,7 @@ public class ControlEffectQuantale<X>
       }
       if (this.excs != null && this.excs.size() > 0) {
         excs = new HashSet<>();
-        for (Pair<ClassType,NonlocalEffect<X>> exc : this.excs) {
+        for (Pair<ClassType, NonlocalEffect<X>> exc : this.excs) {
           ClassType cls = exc.first;
           X eff = exc.second.effect;
           Tree target = exc.second.target;

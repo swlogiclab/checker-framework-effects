@@ -48,7 +48,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.ResourceBundle.Control;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
@@ -1144,8 +1143,13 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
                               .isSubtype(kv.first, TreeUtils.typeOf(cblk.getParameter()))));
       List<Pair<ClassType, NonlocalEffect<X>>> resolvedpaths = m.get(true);
       unhandled = m.get(false);
-      assert (resolvedpaths.size() > 0) 
-        : "No resolved paths for" + cblk.toString() + "\nMap is "+m+"\nUnhandled was originally "+unhandled;
+      assert (resolvedpaths.size() > 0)
+          : "No resolved paths for"
+              + cblk.toString()
+              + "\nMap is "
+              + m
+              + "\nUnhandled was originally "
+              + unhandled;
       NonlocalEffect<X> lastHandled = null;
       X exclub = null;
       for (Pair<ClassType, NonlocalEffect<X>> eff : resolvedpaths) {
@@ -1196,7 +1200,6 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       }
     }
 
-
     // TODO: Okay, can't just append finally block effect to all entries in the exception map,
     // because there might be some in there from another branch of execution (e.g., the then branch
     // of a conditional, where this try is in the else block). The solution is to properly implement
@@ -1206,11 +1209,12 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       effStack.peek().squashMark(node);
     } else {
       effStack.peek().mark(); // extra mark so we can rewind everything
-      // Record prior try-catch body for the finally block's residual checking to compare on the base effect
+      // Record prior try-catch body for the finally block's residual checking to compare on the
+      // base effect
       effStack.peek().pushEffect(lub, node);
       effStack.peek().mark();
       scan(node.getFinallyBlock(), p);
-      //effStack.peek().squashMark(node.getFinallyBlock());
+      // effStack.peek().squashMark(node.getFinallyBlock());
       List<ControlEffectQuantale<X>.ControlEffect> finallyEffects = effStack.peek().rewindToMark();
       assert (finallyEffects.size() == 1);
       ControlEffectQuantale<X>.ControlEffect finallyEffect = finallyEffects.get(0);

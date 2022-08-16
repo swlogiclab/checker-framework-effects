@@ -240,10 +240,13 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
             thrown.getElementValues().entrySet()) {
           System.err.println(e.getKey() + "->" + e.getValue());
         }
-        //ThrownEffect[] thrownArray = AnnotationUtils.getElementValue(thrown, "value", ThrownEffect[].class, true);
-        List<AnnotationMirror> throwList = AnnotationUtils.getElementValueArray(thrown, "value", AnnotationMirror.class, true);
+        // ThrownEffect[] thrownArray = AnnotationUtils.getElementValue(thrown, "value",
+        // ThrownEffect[].class, true);
+        List<AnnotationMirror> throwList =
+            AnnotationUtils.getElementValueArray(thrown, "value", AnnotationMirror.class, true);
         for (AnnotationMirror innerThrown : throwList) {
-          ClassType exc = AnnotationUtils.getElementValue(innerThrown, "exception", ClassType.class, true);
+          ClassType exc =
+              AnnotationUtils.getElementValue(innerThrown, "exception", ClassType.class, true);
           Object beh = AnnotationUtils.getElementValue(innerThrown, "behavior", Object.class, true);
           Class<? extends Annotation> annoClass = null;
           try {
