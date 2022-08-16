@@ -24,6 +24,7 @@ import org.checkerframework.checker.genericeffects.ControlEffectQuantale.Nonloca
 import org.checkerframework.checker.genericeffects.qual.DefaultEffect;
 import org.checkerframework.checker.genericeffects.qual.Placeholder;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
+import org.checkerframework.checker.genericeffects.qual.ThrownEffects;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.Pair;
@@ -233,6 +234,28 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
     // Check that any @ThrownEffect uses are valid
     for (AnnotationMirror thrown : getDeclAnnotations(methodElt)) {
       System.err.println("Found declanno " + thrown);
+      // Handle the case of multiple thrown annotations
+      if (areSameByClass(thrown, ThrownEffects.class)) {
+        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
+            thrown.getElementValues().entrySet()) {
+          System.err.println(e.getKey() + "->" + e.getValue());
+        }
+        //ThrownEffect[] thrownArray = AnnotationUtils.getElementValue(thrown, "value", ThrownEffect[].class, true);
+        List<AnnotationMirror> throwList = AnnotationUtils.getElementValueArray(thrown, "value", AnnotationMirror.class, true);
+        for (AnnotationMirror innerThrown : throwList) {
+          ClassType exc = AnnotationUtils.getElementValue(innerThrown, "exception", ClassType.class, true);
+          Object beh = AnnotationUtils.getElementValue(innerThrown, "behavior", Object.class, true);
+          Class<? extends Annotation> annoClass = null;
+          try {
+            annoClass = (Class<? extends Annotation>) Class.forName(beh.toString());
+            System.err.println("Converted annotation to: " + annoClass);
+          } catch (ClassNotFoundException e) {
+            System.err.println("Unable to get class for " + beh);
+          }
+          excBehaviors.add(
+              Pair.of(exc, new NonlocalEffect<X>(fromAnnotation.apply(annoClass), null, use)));
+        }
+      }
       if (areSameByClass(thrown, ThrownEffect.class)) {
         System.err.println("Found declanno " + thrown);
         for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :

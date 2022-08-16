@@ -1142,7 +1142,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
                               .isSubtype(kv.first, TreeUtils.typeOf(cblk.getParameter()))));
       List<Pair<ClassType, NonlocalEffect<X>>> resolvedpaths = m.get(true);
       unhandled = m.get(false);
-      assert (resolvedpaths.size() > 0) : "No resolved paths for" + cblk.toString();
+      assert (resolvedpaths.size() > 0) 
+        : "No resolved paths for" + cblk.toString() + "\nMap is "+m+"\nUnhandled was originally "+unhandled;
       NonlocalEffect<X> lastHandled = null;
       X exclub = null;
       for (Pair<ClassType, NonlocalEffect<X>> eff : resolvedpaths) {

@@ -488,12 +488,27 @@ public class CoreAtomicityTests {
    }
   }
 
+
   // TODO: Also need tests with both catch and finally, tests with multiple exceptions caught, tests with different exceptions thrown and some caught with others escaping through finally
   // TODO: Need systematic testing of behavior when an exception and a subtype thereof are both thrown, and either the subtype or supertype is caught (allowing the supertype to escape if the subtype is caught)
 
+  @Atomic
+  @ThrownEffect(exception = TestException.class, behavior = Both.class)
+  @ThrownEffect(exception = TestException2.class, behavior = Right.class)
+  public void multiThrow0(AtomicityTestHelper h) throws TestException, TestException2 {
+    if (h.DoNothingBool()) {
+      throw new TestException();
+    }
+    h.Lock();
+    if (h.DoNothingBool()) {
+      throw new TestException2();
+    }
+    h.Unlock();
+  }
+
   //@Atomic
-  //@ThrownEffect(exception = Exception.class, behavior = Atomic.class)
-  //public void finallyTest1(AtomicityTestHelper h) throws TestException2 {
+  //@ThrownEffect(exception = TestException2.class, behavior = Atomic.class)
+  //public void finallyTest2(AtomicityTestHelper h) throws TestException2 {
   //  h.Lock();
   //  try {
   //    if (h.DoNothingBool()) {
