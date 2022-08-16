@@ -475,6 +475,19 @@ public class CoreAtomicityTests {
    }
   }
 
+  @Atomic
+  public void finallyTest1(AtomicityTestHelper h) throws TestException {
+   h.Lock();
+   try {
+      throw new TestException();
+   } catch (TestException e) {
+    h.WellSync();
+   } finally {
+     // This actually needs to be *appended* to the behavior, because finally acts as a catch+act+rethrow
+     h.Unlock();
+   }
+  }
+
   // TODO: Also need tests with both catch and finally, tests with multiple exceptions caught, tests with different exceptions thrown and some caught with others escaping through finally
   // TODO: Need systematic testing of behavior when an exception and a subtype thereof are both thrown, and either the subtype or supertype is caught (allowing the supertype to escape if the subtype is caught)
 
