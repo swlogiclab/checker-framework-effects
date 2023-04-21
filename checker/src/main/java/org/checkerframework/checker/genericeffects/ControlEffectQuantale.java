@@ -449,7 +449,7 @@ public class ControlEffectQuantale<X>
 
   private Set<BadSequencing<X>> lastErrors;
 
-  public Collection<BadSequencing<X>> lastSequencingErrors() {
+  public Set<BadSequencing<X>> lastSequencingErrors() {
     Set<BadSequencing<X>> errs = lastErrors;
     lastErrors = null;
     return errs;
@@ -884,5 +884,87 @@ public class ControlEffectQuantale<X>
   @Override
   public boolean isCommutative() {
     return underlying.isCommutative();
+  }
+
+  public ControlEffect appendFinallyOrSync(ControlEffect c, ControlEffect unconditional) {
+    // The general idea is to prefix every behavior in unconditional (which represents
+    // a finally block or the effect of a synchronized block ending) with *every*
+    // behavior in c, and put those base behaviors back into their original "c-setting".
+    // If the prefix put in front of unconditional was actually an exception prefix,
+    // the base of the composition turns back into a (longer) exception prefix, because
+    // that corresponds to the finally block working normally.
+    // Any non-local control arising from finally corresponds to situations like
+    // the body of a try-catch raising an exception, then the finally block raising
+    // *a different* exception that takes precedence.
+    //
+    // TODO: For now we're assuming breaks work the same, i.e., if a finally block run for
+    // a body that threw an exception breaks, the break takes precedence. Check this.
+
+    X newbase = null;
+    Set<Pair<ClassType, NonlocalEffect<X>>> emap = null;
+    Set<NonlocalEffect<X>> bset;
+
+    assert (lastErrors == null)
+        : "ControlEffect.seq called without retrieving errors of prior call";
+
+    // Base is handled like normal sequencing, but it's okay for the base to be null
+    // (e.g., if the final block just throws for some reason)
+    newbase = null;
+    if (c.base == null || unconditional.base == null) {
+      // c or unconditional must only (re)throw or break
+      newbase = null;
+    } else {
+      newbase = underlying.seq(c.base, unconditional.base);
+      // sequenced two normal runs and failed
+      if (newbase == null) {
+        addSequencingError(c.base, unconditional.base, null);
+      }
+    }
+    // TODO: Ah, still need to deal with regular return of the body running into the exceptional and breaking control flow of the finally/unsync
+
+    // For each exception in c, we treat the prefix like a new base, sequence with
+    // unconditional *normally* (i.e., we reuse seq), then readjust the base of that
+    // to be for the original exception. We take the union of all of these in c.
+    Set<BadSequencing<X>> allerrors = new HashSet<>();
+    Set<Pair<ClassType, NonlocalEffect<X>>> newExcs = new HashSet<>();
+    Set<NonlocalEffect<X>> newBreaks = new HashSet<>();
+    for (Pair<ClassType,NonlocalEffect<X>> p : c.excs) {
+      ClassType cls = p.first;
+      NonlocalEffect<X> prefix = p.second;
+
+      ControlEffect prefixAsBase = new ControlEffect(prefix.effect, null, null);
+      ControlEffect thenFinally = seq(prefixAsBase, unconditional);
+      // any errors in sequencing need to be collected
+      if (thenFinally == null) {
+        allerrors.addAll(lastSequencingErrors()); // destructively retrieves and clears
+      } else {
+        newExcs.addAll(thenFinally.excs);
+	newBreaks.addAll(thenFinally.breakset); // Assumes breaks in a finally win out over an exception
+	if (thenFinally.base != null) {
+          // construct a fresh nonlocal effect with the original source and target, but updated
+	  // prefix. 
+	  newExcs.add(Pair.of(cls, prefix.copyWithPrefix(thenFinally.base)));
+	}
+      }
+    }
+    // And again for breaks. Again, we assume breaks from a finally win over both exceptions and breaks
+    // from the body of the try-(catch-)finally or synchronized block
+    for (NonlocalEffect<X> prefix : c.breakset) {
+      ControlEffect prefixAsBase = new ControlEffect(prefix.effect, null, null);
+      ControlEffect thenFinally = seq(prefixAsBase, unconditional);
+      // any errors in sequencing need to be collected
+      if (thenFinally == null) {
+        allerrors.addAll(lastSequencingErrors()); // destructively retrieves and clears
+      } else {
+        newExcs.addAll(thenFinally.excs);
+	newBreaks.addAll(thenFinally.breakset); // Assumes breaks in a finally win out over an exception
+	if (thenFinally.base != null) {
+          // construct a fresh nonlocal effect with the original source and target, but updated
+	  // prefix. 
+	  newBreaks.add(prefix.copyWithPrefix(thenFinally.base));
+	}
+      }
+    }     
+
   }
 }

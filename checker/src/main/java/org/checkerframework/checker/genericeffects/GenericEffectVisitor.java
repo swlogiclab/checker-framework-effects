@@ -52,6 +52,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
@@ -216,6 +217,13 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   }
 
   /**
+   * Check whether this is a synchronized method.
+   */
+  public static boolean isSynchronized(MethodTree t) {
+    return t.getModifiers().getFlags().contains(Modifier.SYNCHRONIZED);
+  }
+
+  /**
    * Method that visits method tree nodes and adds their effects to the stacks set up in the
    * constructor.
    *
@@ -247,6 +255,9 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     residualTargets.addFirst(
         xtypeFactory.getDeclaredEffect(
             TreeUtils.elementFromDeclaration(currentMethods.peek()), node));
+    if (isSynchronized(node) && nontrivialSynchronized()) {
+      effStack.peek().pushEffect(new ControlEffectQuantale<X>.ControlEffect(startSync(), null, null), node);
+    }
 
     if (debugSpew) {
       System.err.println(
@@ -254,6 +265,13 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
 
     Void ret = super.visitMethod(node, p);
+
+    if (isSynchronized(node) && nontrivialSynchronized()) {
+      //asdf;
+      // TODO: This is incorrect; we're not pushing just here, we need to push onto the end of all
+      // the escaping effects as well!
+      effStack.peek().pushEffect(endSync(), node);
+    }
 
     // Completion Check
     // We skip this if every path to the end of the method already reported a type (effect) error
@@ -785,8 +803,12 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     effStack.peek().mark();
 
     // Scan the initializer statements (implicitly, in order)
-    scan(node.getInitializer(), p);
-    ControlEffectQuantale<X>.ControlEffect initEff = effStack.peek().latestEffect();
+    boolean hasInitializer = node.getInitializer() != null && !node.getInitializer().isEmpty();
+    if (hasInitializer) {
+      scan(node.getInitializer(), p);
+    }
+    ControlEffectQuantale<X>.ControlEffect initEff = hasInitializer ? effStack.peek().latestEffect() : genericEffect.unit();
+
     scan(node.getCondition(), p);
     ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().latestEffect();
     scan(node.getStatement(), p);
@@ -802,10 +824,16 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     // Here we DO NOT simply squash, because we must invoke iteration
     LinkedList<ControlEffectQuantale<X>.ControlEffect> pieces = effStack.peek().rewindToMark();
-    assert (pieces.get(0) == initEff);
-    assert (pieces.get(1) == condEff);
-    assert (pieces.get(2) == bodyEff);
-    assert (pieces.get(3) == updateEff);
+    if (hasInitializer) {
+      assert (pieces.get(0) == initEff);
+      assert (pieces.get(1) == condEff);
+      assert (pieces.get(2) == bodyEff);
+      assert (pieces.get(3) == updateEff);
+    } else {
+      assert (pieces.get(0) == condEff);
+      assert (pieces.get(1) == bodyEff);
+      assert (pieces.get(2) == updateEff);
+    }
 
     ControlEffectQuantale<X>.ControlEffect repeff =
         genericEffect.iter(genericEffect.seq(genericEffect.seq(bodyEff, updateEff), condEff));
@@ -960,8 +988,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Note: We don't iterate even if there is a single initializer for all array cells, because the
     // expression is evaluated only once, and the value is duplicated
     effStack.peek().mark();
-    for (ExpressionTree init : node.getInitializers()) {
-      scan(init, p);
+    if (node.getInitializers() != null) {
+      for (ExpressionTree init : node.getInitializers()) {
+        scan(init, p);
+      }
     }
     effStack.peek().squashMark(node);
     checkResidual(node);
@@ -1016,9 +1046,17 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     throw new UnsupportedOperationException("not yet implemented");
   }
 
+  public boolean nontrivialSynchronized() { return false; }
+  public X startSync() { return null; }
+  public X endSync() { return null; }
+
   @Override
   public Void visitSynchronized(SynchronizedTree node, Void p) {
-    throw new UnsupportedOperationException("not yet implemented");
+    if (!nontrivialSynchronized()) {
+      return super.visitSynchronized(node, p);
+    } else {
+      throw new UnsupportedOperationException("not yet implemented; need to handle sync release / finally block");
+    }
   }
 
   @Override
@@ -1063,7 +1101,12 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     effStack.peek().mark();
 
     // Within a try block, the residual target must be extended to include locally-handled
-    // exceptions
+    // exceptions, otherwise residual checks within the try block will fail.
+    // In general we don't know (and can't really ask) what the right upper bound on locally-thrown-and-caught
+    // exception prefix behaviors is, so we add those as a special type of non-local control behavior
+    // called "unbounded," which means all residual checks succeed for throws of those exceptions.
+    // They'll be checked later when we get to the corresponding catch block, at which point
+    // that prefix becomes the context for the body of the catch block being checked.
     // (We handle every exception type with a local catch block the same, but note that if a
     // particular exception is both locally handled and permitted to escape, and instances in the
     // try block could for example be rethrown wrapped in a different effect for escape, so handling
@@ -1196,7 +1239,8 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   public Void visitTypeCast(TypeCastTree node, Void p) {
     effStack.peek().mark();
     scan(node.getExpression(), p);
-    effStack.peek().pushEffect(genericEffect.lift(extension.checkTypeCast(node)), node);
+    if (extension.doesTypeCastCheck())
+      effStack.peek().pushEffect(genericEffect.lift(extension.checkTypeCast(node)), node);
     effStack.peek().squashMark(node);
     checkResidual(node);
     String warning = extension.reportWarning(node);
