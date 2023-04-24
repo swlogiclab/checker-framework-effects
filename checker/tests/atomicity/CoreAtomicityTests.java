@@ -475,4 +475,9 @@ public class CoreAtomicityTests {
   //  }
   // }
 
+  @Atomic
+  public int justReturn() {
+    return 3;
+  }
+
 }

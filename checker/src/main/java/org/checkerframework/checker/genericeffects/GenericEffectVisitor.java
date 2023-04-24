@@ -256,7 +256,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
         xtypeFactory.getDeclaredEffect(
             TreeUtils.elementFromDeclaration(currentMethods.peek()), node));
     if (isSynchronized(node) && nontrivialSynchronized()) {
-      effStack.peek().pushEffect(new ControlEffectQuantale<X>.ControlEffect(startSync(), null, null), node);
+      effStack.peek().pushEffect(genericEffect.lift(startSync()), node);
     }
 
     if (debugSpew) {
@@ -270,18 +270,46 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       //asdf;
       // TODO: This is incorrect; we're not pushing just here, we need to push onto the end of all
       // the escaping effects as well!
-      effStack.peek().pushEffect(endSync(), node);
+      effStack.peek().pushEffect(genericEffect.lift(endSync()), node);
     }
 
     // Completion Check
     // We skip this if every path to the end of the method already reported a type (effect) error
-    // TODO: This isn't *quite* what we want for *commutative* effect systems, for which we'd like
-    // to report *all* errors...
-    // TODO: Maybe an extra flag on the lattice, so we handle non-comm differently from comm
-    // systems?
-    // TODO: Work out laws for residuals w/ comm: e.g., x\(y\z) def <-> y\(x\z) def?
     if (!errorOnCurrentPath) {
       ControlEffectQuantale<X>.ControlEffect targetEffect = effStack.peek().currentPathEffect();
+      if (nontrivialSynchronized() && isSynchronized(node)) {
+	ControlEffectQuantale<X>.ControlEffect aftersync = genericEffect.appendFinallyOrSync(targetEffect, genericEffect.lift(endSync()));
+	if (aftersync == null) {
+          checker.reportError(node, "undefined.sequencing.syncmethodend", targetEffect, endSync());
+          errorOnCurrentPath = true; // Don't bother with completion check
+	} else {
+          targetEffect = aftersync; // must check completion against this
+        }
+      }
+      // Now flatten for early/explicit returns
+      // TODO: Refactor to ControlEffectQuantale with cached error reporting
+      X base = targetEffect.base;
+      Set<ControlEffectQuantale.NonlocalEffect<X>> breaks = targetEffect.breakset;
+      Set<Pair<ClassType,ControlEffectQuantale.NonlocalEffect<X>>> excs = targetEffect.excs;
+      if (breaks != null) {
+        // At this point, every remaining break should be a non-local return of this method
+        for (ControlEffectQuantale.NonlocalEffect<X> b : breaks) {
+          assert (b.target == node);
+	  if (base == null) {
+            base = b.effect;
+	  } else {
+            X bjoin = xchecker.getEffectLattice().LUB(base, b.effect);
+	    if (bjoin == null) {
+              checker.reportError(b.src, "return.early.incompat", b.effect);
+	    } else {
+              base = bjoin;
+	    }
+	  }
+       }
+       targetEffect = genericEffect.new ControlEffect(base, excs, null);
+     }
+      
+      
       ControlEffectQuantale<X>.ControlEffect callerEffect =
           xtypeFactory.getDeclaredEffect(methElt, node);
       if (!effStack.peek().currentlyImpossible() && isInvalid(targetEffect, callerEffect))
@@ -418,15 +446,30 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       checker.reportWarning(node, warningMsg, targetEffect, callerEffect);
   }
 
+//  /**
+//   * Method that is used by visitor methods to get the effect of a method that a node is within.
+//   *
+//   * @return Effect of a method that a node is within.
+//   */
+//  private ControlEffectQuantale<X>.ControlEffect getMethodCallerEffect() {
+//    MethodTree callerTree = TreePathUtil.enclosingMethod(getCurrentPath());
+//    ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
+//    return xtypeFactory.getDeclaredEffect(callerElt, callerTree);
+//  }
+
   /**
-   * Method that is used by visitor methods to get the effect of a method that a node is within.
+   * Retrieve the tree of the nearest enclosing early return scope
    *
-   * @return Effect of a method that a node is within.
+   * @return the tree for the nearest enclosing early return scope
    */
-  private ControlEffectQuantale<X>.ControlEffect getMethodCallerEffect() {
-    MethodTree callerTree = TreePathUtil.enclosingMethod(getCurrentPath());
-    ExecutableElement callerElt = TreeUtils.elementFromDeclaration(callerTree);
-    return xtypeFactory.getDeclaredEffect(callerElt, callerTree);
+  public Tree getEnclosingReturnTargetTree() {
+    // Per docs, iterates from leaves to root
+    for (Tree t : getCurrentPath()) {
+      if (t.getKind() == Tree.Kind.METHOD) {
+        return t;
+      }
+    }
+    return null;
   }
 
   /**
@@ -874,6 +917,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     LinkedList<ControlEffectQuantale<X>.ControlEffect> thenEffs = effStack.peek().rewindToMark();
     assert (thenEffs.size() == 1);
     ControlEffectQuantale<X>.ControlEffect thenEff = thenEffs.get(0);
+    assert (thenEff != null);
     ControlEffectQuantale<X>.ControlEffect elseEff = genericEffect.unit();
     // If there's no else, there's no else error
     boolean elseError = false;
@@ -1014,12 +1058,14 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // residual check here, just a LE check!
     effStack.peek().mark();
     scan(node.getExpression(), p);
+    effStack.peek().pushEffect(genericEffect.breakout(getEnclosingReturnTargetTree(), node), node);
     effStack.peek().squashMark(node);
     // TODO: is looking at the top of the stack faster than getMethodCallerEffect ?
-    if (!genericEffect.LE(effStack.peek().currentPathEffect(), getMethodCallerEffect())) {
-      checker.reportError(
-          node, "invalid.return", effStack.peek().currentPathEffect(), getMethodCallerEffect());
-    }
+    //if (!genericEffect.LE(effStack.peek().currentPathEffect(), getMethodCallerEffect())) {
+    //  checker.reportError(
+    //      node, "invalid.return", effStack.peek().currentPathEffect(), getMethodCallerEffect());
+    //}
+    //
     // TODO: Real question is what state I leave the stack in when returning. This will be hit
     // always at the end of a sequence of statements, but sometimes those will be nested inside a
     // conditional or loop.... and want the callers to know not to consider this path --- poison
@@ -1027,7 +1073,10 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // TODO: Maybe the "set of behaviors" collection is the right way to handle exceptions, as long
     // as I track which exception leads to what... but then I need to handle methods that return
     // effects.... so I need a meta-annotation @ThrowsEffect(Class<?>, X)!
-    effStack.peek().markImpossible(node);
+    //effStack.peek().markImpossible(node);
+    
+
+
     return p;
   }
 

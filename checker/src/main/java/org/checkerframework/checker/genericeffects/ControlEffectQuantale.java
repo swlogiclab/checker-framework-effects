@@ -558,11 +558,11 @@ public class ControlEffectQuantale<X>
 
   /**
    * Construct a control effect that breaks directly to the specified target, from a given source
-   * AST node.
+   * AST node. This may be a literal break statement, or may be an early return if the target is a method.
    *
-   * @param target The AST node of where the break will be resolved (switch or loop)
+   * @param target The AST node of where the break will be resolved (switch or loop, or method if we're modeling early return)
    * @param src The AST node of the break statement
-   * @return A control effect modeling the nonlocal jump associated with the given break statement
+   * @return A control effect modeling the nonlocal jump associated with the given break/return statement
    */
   public ControlEffect breakout(Tree target, Tree src) {
     Set<NonlocalEffect<X>> bset = new HashSet<>();
@@ -751,34 +751,33 @@ public class ControlEffectQuantale<X>
       // already-triggered control effect, then it's an error and there is no residual.
 
       Set<NonlocalEffect<X>> breakset = new HashSet<>();
-      if (sofar.breakset != null && target.breakset == null) {
-        // Target has no breaks, so no residual can be defined
-        throw new BugInCF("WIP: target has no breaks but sofar does"); // return null;
-        // TODO: But wait, *as this is currently used* this will reject all breaks, since the
-        // residual is always checked w.r.t. method annotation.
-        // TODO: This is still the correct definition of residual! But it suggests that the target
-        // should change inside valid domains of breaks (loops/switches). Suggests maybe some more
-        // theory work to do...
-      }
       Set<X> overApprox = new HashSet<>();
       if (sofar.breakset != null) {
         for (NonlocalEffect<X> bsofar : sofar.breakset) {
           boolean matched = false;
-          for (NonlocalEffect<X> btarget : target.breakset) {
-            if (underlying.LE(bsofar.effect, btarget.effect)) {
-              overApprox.add(btarget.effect);
-              matched = true;
-              break;
+          if (underlying.residual(bsofar.effect, target.base) != null) {
+            matched = true;
+	  } else {
+            for (NonlocalEffect<X> btarget : target.breakset) {
+              if (underlying.LE(bsofar.effect, btarget.effect)) {
+                overApprox.add(btarget.effect);
+                matched = true;
+                break;
+              }
             }
-          }
+	    if (!matched) {
+              // could also be a prefix of some exception
+	      for (Pair<ClassType,NonlocalEffect<X>> p : target.excs) {
+                if (underlying.residual(bsofar.effect, p.second.effect) != null) {
+                  matched = true;
+		  break;
+		}
+	      }
+	    }
+	  }
           if (!matched) {
             // This effect isn't over-approximated
-            // TODO: extend lastErrors to handle these
-            throw new BugInCF(
-                "WIP: break effect "
-                    + bsofar.effect
-                    + " in sofar has no over-approx in"
-                    + target.breakset); // return null;
+            return null;
           }
         }
       }
@@ -901,8 +900,9 @@ public class ControlEffectQuantale<X>
     // a body that threw an exception breaks, the break takes precedence. Check this.
 
     X newbase = null;
-    Set<Pair<ClassType, NonlocalEffect<X>>> emap = null;
-    Set<NonlocalEffect<X>> bset;
+    Set<BadSequencing<X>> allerrors = new HashSet<>();
+    Set<Pair<ClassType, NonlocalEffect<X>>> newExcs = new HashSet<>();
+    Set<NonlocalEffect<X>> newBreaks = new HashSet<>();
 
     assert (lastErrors == null)
         : "ControlEffect.seq called without retrieving errors of prior call";
@@ -920,14 +920,43 @@ public class ControlEffectQuantale<X>
         addSequencingError(c.base, unconditional.base, null);
       }
     }
-    // TODO: Ah, still need to deal with regular return of the body running into the exceptional and breaking control flow of the finally/unsync
+    // still need to deal with regular return of the body running into the exceptional and breaking control flow of the finally/unsync
+    if (c.base != null) {
+      Set<NonlocalEffect<X>> sndInCtxt = new HashSet<>();
+      // Copy over appropriately prefixed breaks from the finally/unsync
+      if (unconditional.breakset != null) {
+        for (NonlocalEffect<X> x : unconditional.breakset) {
+          X tmp = underlying.seq(c.base, x.effect);
+          if (tmp == null) {
+            addSequencingError(c.base, x.effect, x.src);
+          } else {
+            sndInCtxt.add(x.copyWithPrefix(tmp));
+          }
+        }
+      }
+      newBreaks.addAll(sndInCtxt);
 
-    // For each exception in c, we treat the prefix like a new base, sequence with
+      // Unlike normal seq, we don't blindly copy over the LHS exceptions, since those need to be *suffixed* below
+      // This deals only with normal runs of c followed by exceptions in the finally/unsync
+      // Exceptions from c are dealt with below
+      if (unconditional.excs != null) {
+        for (Pair<ClassType, NonlocalEffect<X>> exc : unconditional.excs) {
+          X tmp = underlying.seq(c.base, exc.second.effect);
+          if (tmp == null) {
+            addSequencingError(c.base, exc.second.effect, exc.second.src);
+          } else {
+            newExcs.add(Pair.of(exc.first, exc.second.copyWithPrefix(tmp)));
+          }
+        }
+      }
+    }
+
+    // Save all accumulated errors from above, as we'll be using seq as a subroutine below
+    allerrors.addAll(lastSequencingErrors());
+
+    // For each exception in c, we treat the prefix like a new base for the finally/unsync, sequence with
     // unconditional *normally* (i.e., we reuse seq), then readjust the base of that
     // to be for the original exception. We take the union of all of these in c.
-    Set<BadSequencing<X>> allerrors = new HashSet<>();
-    Set<Pair<ClassType, NonlocalEffect<X>>> newExcs = new HashSet<>();
-    Set<NonlocalEffect<X>> newBreaks = new HashSet<>();
     for (Pair<ClassType,NonlocalEffect<X>> p : c.excs) {
       ClassType cls = p.first;
       NonlocalEffect<X> prefix = p.second;
@@ -966,5 +995,17 @@ public class ControlEffectQuantale<X>
       }
     }     
 
+    if (!allerrors.isEmpty()) {
+      lastErrors = allerrors;
+      return null;
+    } else {
+      if (newBreaks.isEmpty())
+        newBreaks = null;
+      if (newExcs.isEmpty())
+        newExcs = null;
+      if (newbase != null || newBreaks != null || newExcs != null) {
+        return new ControlEffect(newbase, newExcs, newBreaks);
+      } else { return null; }
+    }
   }
 }
