@@ -5,6 +5,8 @@ import org.checkerframework.checker.genericeffects.EffectQuantale;
 import org.checkerframework.checker.genericeffects.GenericEffectChecker;
 import org.checkerframework.framework.source.SupportedLintOptions;
 import org.checkerframework.framework.source.SupportedOptions;
+import org.checkerframework.checker.atomicity.qual.Left;
+import org.checkerframework.checker.atomicity.qual.Right;
 
 @SupportedLintOptions({"debugSpew"})
 @SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
@@ -27,4 +29,11 @@ public class AtomicityChecker extends GenericEffectChecker<Class<? extends Annot
   public Class<? extends Annotation> fromAnnotation(Class<? extends Annotation> anno) {
     return anno;
   }
+
+  @Override
+  public boolean nontrivialSynchronized() { return true; }
+  @Override
+  public Class<? extends Annotation> startSync() { return Right.class; }
+  @Override
+  public Class<? extends Annotation> endSync() { return Left.class; }
 }

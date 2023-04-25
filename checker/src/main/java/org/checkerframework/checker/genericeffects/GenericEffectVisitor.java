@@ -1095,16 +1095,20 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     throw new UnsupportedOperationException("not yet implemented");
   }
 
-  public boolean nontrivialSynchronized() { return false; }
-  public X startSync() { return null; }
-  public X endSync() { return null; }
+  public boolean nontrivialSynchronized() { return xchecker.nontrivialSynchronized(); }
+  public X startSync() { return xchecker.startSync(); }
+  public X endSync() { return xchecker.endSync(); }
 
   @Override
   public Void visitSynchronized(SynchronizedTree node, Void p) {
     if (!nontrivialSynchronized()) {
       return super.visitSynchronized(node, p);
     } else {
-      throw new UnsupportedOperationException("not yet implemented; need to handle sync release / finally block");
+      scan(node.getExpression(), p);
+      effStack.peek().pushEffect(genericEffect.lift(startSync()), node);
+      scan(node.getBlock(), p);
+      effStack.peek().pushEffect(genericEffect.lift(endSync()), node);
+      return p;
     }
   }
 
@@ -1117,6 +1121,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     TypeMirror m = TreeUtils.typeOf(node.getExpression());
     assert TypesUtils.isClassType(m);
     ClassType exctype = (ClassType) m;
+    // TODO We want to ignore unchecked exceptions
     effStack
         .peek()
         .pushEffect(genericEffect.raise(exctype, getEnclosingThrowScopeTree(exctype), node), node);

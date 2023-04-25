@@ -34,4 +34,9 @@ public abstract class GenericEffectChecker<X> extends BaseTypeChecker {
   }
 
   public abstract X fromAnnotation(Class<? extends Annotation> anno);
+
+
+  public boolean nontrivialSynchronized() { return false; }
+  public X startSync() { return null; }
+  public X endSync() { return null; }
 }

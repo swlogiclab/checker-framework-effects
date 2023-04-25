@@ -952,48 +952,57 @@ public class ControlEffectQuantale<X>
     }
 
     // Save all accumulated errors from above, as we'll be using seq as a subroutine below
-    allerrors.addAll(lastSequencingErrors());
+    if (lastErrors != null)
+      allerrors.addAll(lastSequencingErrors());
 
     // For each exception in c, we treat the prefix like a new base for the finally/unsync, sequence with
     // unconditional *normally* (i.e., we reuse seq), then readjust the base of that
     // to be for the original exception. We take the union of all of these in c.
-    for (Pair<ClassType,NonlocalEffect<X>> p : c.excs) {
-      ClassType cls = p.first;
-      NonlocalEffect<X> prefix = p.second;
+    if (c.excs != null) {
+      for (Pair<ClassType,NonlocalEffect<X>> p : c.excs) {
+        ClassType cls = p.first;
+        NonlocalEffect<X> prefix = p.second;
 
-      ControlEffect prefixAsBase = new ControlEffect(prefix.effect, null, null);
-      ControlEffect thenFinally = seq(prefixAsBase, unconditional);
-      // any errors in sequencing need to be collected
-      if (thenFinally == null) {
-        allerrors.addAll(lastSequencingErrors()); // destructively retrieves and clears
-      } else {
-        newExcs.addAll(thenFinally.excs);
-	newBreaks.addAll(thenFinally.breakset); // Assumes breaks in a finally win out over an exception
-	if (thenFinally.base != null) {
-          // construct a fresh nonlocal effect with the original source and target, but updated
-	  // prefix. 
-	  newExcs.add(Pair.of(cls, prefix.copyWithPrefix(thenFinally.base)));
-	}
+        ControlEffect prefixAsBase = new ControlEffect(prefix.effect, null, null);
+        ControlEffect thenFinally = seq(prefixAsBase, unconditional);
+        // any errors in sequencing need to be collected
+        if (thenFinally == null) {
+          if (lastErrors != null)
+            allerrors.addAll(lastSequencingErrors()); // destructively retrieves and clears
+        } else {
+          newExcs.addAll(thenFinally.excs);
+          newBreaks.addAll(thenFinally.breakset); // Assumes breaks in a finally win out over an exception
+          if (thenFinally.base != null) {
+            // construct a fresh nonlocal effect with the original source and target, but updated
+            // prefix. 
+            newExcs.add(Pair.of(cls, prefix.copyWithPrefix(thenFinally.base)));
+          }
+        }
       }
     }
     // And again for breaks. Again, we assume breaks from a finally win over both exceptions and breaks
     // from the body of the try-(catch-)finally or synchronized block
-    for (NonlocalEffect<X> prefix : c.breakset) {
-      ControlEffect prefixAsBase = new ControlEffect(prefix.effect, null, null);
-      ControlEffect thenFinally = seq(prefixAsBase, unconditional);
-      // any errors in sequencing need to be collected
-      if (thenFinally == null) {
-        allerrors.addAll(lastSequencingErrors()); // destructively retrieves and clears
-      } else {
-        newExcs.addAll(thenFinally.excs);
-	newBreaks.addAll(thenFinally.breakset); // Assumes breaks in a finally win out over an exception
-	if (thenFinally.base != null) {
-          // construct a fresh nonlocal effect with the original source and target, but updated
-	  // prefix. 
-	  newBreaks.add(prefix.copyWithPrefix(thenFinally.base));
-	}
-      }
-    }     
+    if (c.breakset != null) {
+      for (NonlocalEffect<X> prefix : c.breakset) {
+        ControlEffect prefixAsBase = new ControlEffect(prefix.effect, null, null);
+        ControlEffect thenFinally = seq(prefixAsBase, unconditional);
+        // any errors in sequencing need to be collected
+        if (thenFinally == null) {
+          if (lastErrors != null)
+            allerrors.addAll(lastSequencingErrors()); // destructively retrieves and clears
+        } else {
+          if (thenFinally.excs != null)
+            newExcs.addAll(thenFinally.excs);
+          if (thenFinally.breakset != null)
+            newBreaks.addAll(thenFinally.breakset); // Assumes breaks in a finally win out over an exception
+          if (thenFinally.base != null) {
+            // construct a fresh nonlocal effect with the original source and target, but updated
+            // prefix. 
+            newBreaks.add(prefix.copyWithPrefix(thenFinally.base));
+          }
+        }
+      }     
+    }
 
     if (!allerrors.isEmpty()) {
       lastErrors = allerrors;

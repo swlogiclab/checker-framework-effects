@@ -480,4 +480,10 @@ public class CoreAtomicityTests {
     return 3;
   }
 
+  @Atomic
+  public synchronized void syncMethod(AtomicityTestHelper h) {
+    h.Lock();
+    h.Unlock();
+  }
+
 }
