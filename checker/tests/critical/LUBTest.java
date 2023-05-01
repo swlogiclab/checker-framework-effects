@@ -28,12 +28,14 @@ public class LUBTest {
             critHelp.Acquire();
         }
         else {
+            // :: error: (undefined.residual)
             critHelp.CritRegion();
         }
     }
     
     @Locking
     public void badLUB2(boolean b, CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.join)
         if (b) {
             critHelp.EntAndLeaCrit();
         }
@@ -45,6 +47,7 @@ public class LUBTest {
     @Unlocking
     public void badLUB3(boolean b, CoreCriticalTest.CriticalTestHelper critHelp) {
         if (b) {
+            // :: error: (undefined.residual)
             critHelp.EntAndLeaCrit();
         }
         else {
@@ -55,6 +58,7 @@ public class LUBTest {
     @Unlocking
     public void badLUB4(boolean b, CoreCriticalTest.CriticalTestHelper critHelp) {
         if (b) {
+            // :: error: (undefined.residual)
             critHelp.Acquire();
         }
         else {

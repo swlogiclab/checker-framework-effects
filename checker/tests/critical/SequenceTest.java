@@ -22,6 +22,7 @@ public class SequenceTest {
     
     @Critical
     public void failedCritical2(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.Acquire();
         critHelp.CritRegion();
         critHelp.EntAndLeaCrit();
@@ -29,6 +30,7 @@ public class SequenceTest {
     
     @Critical
     public void failedCritical3(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.EntAndLeaCrit();
         critHelp.NotRelateLock();
         critHelp.Acquire();
@@ -37,11 +39,13 @@ public class SequenceTest {
     
     @Critical
     public void failedCritical4(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.Acquire();
     }
     
     @Critical
     public void failedCritical5(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.EntAndLeaCrit();
     }
     
@@ -66,6 +70,7 @@ public class SequenceTest {
         critHelp.EntAndLeaCrit();
         critHelp.NotRelateLock();
         critHelp.EntAndLeaCrit();
+        // :: error: (undefined.sequencing)
         critHelp.Release();
     }
     
@@ -73,16 +78,19 @@ public class SequenceTest {
     public void failedEntrant3(CoreCriticalTest.CriticalTestHelper critHelp) {
         critHelp.Acquire();
         critHelp.CritRegion();
+        // :: error: (undefined.sequencing)
         critHelp.EntAndLeaCrit();
     }
     
     @Entrant
     public void failedEntrant4(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.Release();
     }
     
     @Entrant
     public void failedEntrant5(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.CritRegion();
     }
     
@@ -104,11 +112,13 @@ public class SequenceTest {
     
     @Locking
     public void failedLock2(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.Release();
     }
     
     @Locking
     public void failedLock3(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.CritRegion();
     }
     
@@ -118,6 +128,7 @@ public class SequenceTest {
         critHelp.EntAndLeaCrit();
         critHelp.Acquire();
         critHelp.Release();
+        // :: error: (undefined.sequencing)
         critHelp.CritRegion();
     }
     
@@ -125,6 +136,7 @@ public class SequenceTest {
     public void failedLock5(CoreCriticalTest.CriticalTestHelper critHelp) {
         critHelp.EntAndLeaCrit();
         critHelp.NotRelateLock();
+        // :: error: (undefined.sequencing)
         critHelp.Release();
     }
     
@@ -149,16 +161,19 @@ public class SequenceTest {
         critHelp.CritRegion();
         critHelp.Release();
         critHelp.Acquire();
+        // :: error: (undefined.sequencing)
         critHelp.Acquire();
     }
     
     @Unlocking
     public void failedUnlock3(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.Acquire();
     }
     
     @Unlocking
     public void failedUnlock4(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.residual)
         critHelp.EntAndLeaCrit();
     }
     

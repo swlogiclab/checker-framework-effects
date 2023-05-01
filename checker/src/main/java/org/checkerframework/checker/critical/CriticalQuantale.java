@@ -60,29 +60,24 @@ public class CriticalQuantale extends EffectQuantale<Class<? extends Annotation>
             if (EffectA == L) {
                 if (EffectB == UL) return E;
                 if (EffectB == C) return L;
-                assert false : "Unhandled seq(" + EffectA + "," + EffectB + ")";
                 return null;
             }
             else if (EffectA == UL) {
                 if (EffectB == L) return C;
                 if (EffectB == E) return UL;
-                assert false : "Unhandled seq(" + EffectA + "," + EffectB + ")";
                 return null;
             }
             else if (EffectA == C) {
                 if (EffectB == UL) return UL;
                 if (EffectB == C) return C;
-                assert false : "Unhandled seq(" + EffectA + "," + EffectB + ")";
                 return null;
             }
             else if (EffectA == E) {
                 if (EffectB == L) return L;
                 if (EffectB == E) return E;
-                assert false : "Unhandled seq(" + EffectA + "," + EffectB + ")";
                 return null;
             }
         }
-        assert false;
         return null;
     }
     

@@ -22,6 +22,7 @@ public class LoopTest {
     
     @Locking
     public void badLoop1(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.repetition.twopart)
         while(critHelp.NotRelateLockBool()) {
             critHelp.EntAndLeaCrit();
             critHelp.Acquire();
@@ -31,6 +32,7 @@ public class LoopTest {
     
     @Unlocking
     public void badLoop2(CoreCriticalTest.CriticalTestHelper critHelp) {
+        // :: error: (undefined.repetition.twopart)
         while(critHelp.NotRelateLockBool()) {
             critHelp.CritRegion();
             critHelp.Release();

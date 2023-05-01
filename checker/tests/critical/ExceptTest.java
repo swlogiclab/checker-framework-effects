@@ -149,9 +149,8 @@ public class ExceptTest {
                 throw new TestException();
             }
         } catch (TestException e) {
-            critHelp.Acquire();
-            // :: error: (undefined.residual) 
             // exceptions need to have locking prefixes.
+            // :: error: (undefined.residual) 
             critHelp.Release(); 
             throw new Exception(e);
         }
