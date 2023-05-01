@@ -1112,6 +1112,24 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
   }
 
+  // This is adapted from TypesUtils.isThrowable
+  public static boolean isCheckedException(TypeMirror type) {
+    assert (TypesUtils.isThrowable(type));
+    while (type != null && type.getKind() == TypeKind.DECLARED) {
+      DeclaredType dt = (DeclaredType) type;
+      TypeElement elem = (TypeElement) dt.asElement();
+      Name name = elem.getQualifiedName();
+      if ("java.lang.RuntimeException".contentEquals(name)) {
+        return false;
+      }
+      if ("java.lang.Exception".contentEquals(name)) {
+        return true; // Hit Exception before RuntimeException, so checked
+      }
+      type = elem.getSuperclass();
+    }
+    return true;
+  }
+
   @Override
   public Void visitThrow(ThrowTree node, Void p) {
     effStack.peek().mark();
@@ -1121,10 +1139,12 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     TypeMirror m = TreeUtils.typeOf(node.getExpression());
     assert TypesUtils.isClassType(m);
     ClassType exctype = (ClassType) m;
-    // TODO We want to ignore unchecked exceptions
-    effStack
-        .peek()
-        .pushEffect(genericEffect.raise(exctype, getEnclosingThrowScopeTree(exctype), node), node);
+    // We want to ignore unchecked exceptions
+    if (isCheckedException(m)) {
+      effStack
+          .peek()
+          .pushEffect(genericEffect.raise(exctype, getEnclosingThrowScopeTree(exctype), node), node);
+    }
     effStack.peek().squashMark(node);
     checkResidual(node);
     return p;
