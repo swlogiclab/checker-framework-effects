@@ -53,7 +53,10 @@ import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.checkerframework.checker.genericeffects.ControlEffectQuantale.NonlocalEffect;
@@ -1114,7 +1117,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
   // This is adapted from TypesUtils.isThrowable
   public static boolean isCheckedException(TypeMirror type) {
-    assert (TypesUtils.isThrowable(type));
+    assert TypesUtils.isThrowable(type);
     while (type != null && type.getKind() == TypeKind.DECLARED) {
       DeclaredType dt = (DeclaredType) type;
       TypeElement elem = (TypeElement) dt.asElement();
