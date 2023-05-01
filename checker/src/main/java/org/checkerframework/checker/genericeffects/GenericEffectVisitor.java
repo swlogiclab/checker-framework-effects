@@ -252,6 +252,13 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     xtypeFactory.checkEffectOverride(
         (TypeElement) methElt.getEnclosingElement(), methElt, true, node);
 
+    // Bail early after override check if this is an empty body
+    if (node.getBody() == null || node.getBody().getStatements() == null ||
+		    node.getBody().getStatements().isEmpty() ||
+		    node.getBody().getStatements().get(0).getKind() == Tree.Kind.EMPTY_STATEMENT) {
+      return p;
+    }
+
     // Initialize method stack
     currentMethods.addFirst(node);
     effStack.addFirst(new ContextEffect<>(genericEffect));
