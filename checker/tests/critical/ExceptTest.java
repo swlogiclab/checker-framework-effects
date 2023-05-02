@@ -46,6 +46,7 @@ public class ExceptTest {
         critHelp.EntAndLeaCrit();
         if (critHelp.NotRelateLockBool()) {
             critHelp.Acquire();
+            // :: error: (undefined.residual)
             throw new TestException();
         } else {
             critHelp.Acquire();
@@ -80,7 +81,7 @@ public class ExceptTest {
             critHelp.Acquire();
             throw new TestException();
         } catch (TestException e) {
-            // Entrant after locking is undefined. 
+            // :: error: (undefined.sequencing)
             critHelp.EntAndLeaCrit();
         }
     }
@@ -93,7 +94,8 @@ public class ExceptTest {
                 throw new TestException();
             }
         } catch (TestException e) {
-            critHelp.Acquire();
+            // :: error: (undefined.sequencing)
+            critHelp.Acquire(); // double acquire
         }
     }
     
@@ -106,7 +108,8 @@ public class ExceptTest {
             }
             // Catch a supertype of the thrown exception
         } catch (Exception e) {
-            critHelp.Acquire();
+            // :: error: (undefined.sequencing)
+            critHelp.Acquire(); // double-acquire
         }
     }
     
@@ -119,6 +122,7 @@ public class ExceptTest {
                 throw new TestException(); 
             }
         } catch (TestException e) {
+            // :: error: (undefined.sequencing)
             critHelp.Acquire();
             throw new Exception(e);
         }
@@ -133,10 +137,12 @@ public class ExceptTest {
                 throw new TestException();
             }
         } catch (TestException e) {
+            // :: error: (undefined.sequencing)
             critHelp.Acquire();
             critHelp.Release(); //After unlocking is Entrant
             throw new Exception(e); // rethrow as entrant
         }
+        // :: error: (undefined.sequencing)
         critHelp.Acquire();
     }
     
@@ -150,17 +156,24 @@ public class ExceptTest {
             }
         } catch (TestException e) {
             // exceptions need to have locking prefixes.
-            // :: error: (undefined.residual) 
             critHelp.Release(); 
+            // :: error: (undefined.residual) 
             throw new Exception(e);
         }
     }
     
     @Locking
     @ThrownEffect(exception = Exception.class, behavior = Unlocking.class)
-    // exceptions need to have locking prefixes.
+    // :: error: (subeffect.invalid.methodbody)
     public void completionCheck0(CoreCriticalTest.CriticalTestHelper critHelp) throws Exception {
-        critHelp.Release(); 
+        critHelp.NotRelateLock(); 
+    }
+
+    @Locking
+    @ThrownEffect(exception = Exception.class, behavior = Unlocking.class)
+    // :: error: (subeffect.invalid.methodbody)
+    public void completionCheck2(CoreCriticalTest.CriticalTestHelper critHelp) throws Exception {
+        critHelp.Release(); // This is permitted by residual because it's a prefix of the exception path
     }
     
     @Locking

@@ -25,7 +25,6 @@ public class SequenceTest {
         // :: error: (undefined.residual)
         critHelp.Acquire();
         critHelp.CritRegion();
-        critHelp.EntAndLeaCrit();
     }
     
     @Critical
@@ -34,7 +33,6 @@ public class SequenceTest {
         critHelp.EntAndLeaCrit();
         critHelp.NotRelateLock();
         critHelp.Acquire();
-        critHelp.EntAndLeaCrit();
     }
     
     @Critical
@@ -122,7 +120,7 @@ public class SequenceTest {
         critHelp.CritRegion();
     }
     
-    @Locking
+    @Unlocking
     public void failedLock4(CoreCriticalTest.CriticalTestHelper critHelp) {
         critHelp.Release();
         critHelp.EntAndLeaCrit();

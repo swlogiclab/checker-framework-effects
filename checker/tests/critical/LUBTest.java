@@ -44,7 +44,9 @@ public class LUBTest {
         }
     }
     
+    // This method has a residual failure in one branch, and completion failure on the other
     @Unlocking
+    // :: error: (subeffect.invalid.methodbody)
     public void badLUB3(boolean b, CoreCriticalTest.CriticalTestHelper critHelp) {
         if (b) {
             // :: error: (undefined.residual)
