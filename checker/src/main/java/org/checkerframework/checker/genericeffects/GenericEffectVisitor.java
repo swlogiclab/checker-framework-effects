@@ -1289,12 +1289,13 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     ControlEffectQuantale<X>.ControlEffect lub =
         bodyEff.filtering(caught); // TODO: WITH HANDLED EXCEPTIONS REMOVED
+    assert lub != null;
     for (Pair<ControlEffectQuantale<X>.ControlEffect, CatchTree> tcpath : catchpaths) {
       lub = genericEffect.LUB(lub, tcpath.first);
       if (lub == null) {
         throw new UnsupportedOperationException(
-            "add nice errors: couldn't lub main path of try-catch with catch node path "
-                + tcpath.second);
+            "add nice errors: couldn't lub main path "+lub+" of try-catch with catch node path "
+                + tcpath.first + " of " + tcpath.second);
       }
     }
 

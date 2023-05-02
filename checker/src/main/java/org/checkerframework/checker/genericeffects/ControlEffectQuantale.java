@@ -970,8 +970,10 @@ public class ControlEffectQuantale<X>
           if (lastErrors != null)
             allerrors.addAll(lastSequencingErrors()); // destructively retrieves and clears
         } else {
-          newExcs.addAll(thenFinally.excs);
-          newBreaks.addAll(thenFinally.breakset); // Assumes breaks in a finally win out over an exception
+          if (thenFinally.excs != null)
+            newExcs.addAll(thenFinally.excs);
+          if (thenFinally.breakset != null)
+            newBreaks.addAll(thenFinally.breakset); // Assumes breaks in a finally win out over an exception
           if (thenFinally.base != null) {
             // construct a fresh nonlocal effect with the original source and target, but updated
             // prefix. 
