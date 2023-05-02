@@ -26,9 +26,15 @@ public class PseudoHibernate {
       public Transaction beginTransaction() throws TxException;
       @Entrant
       public void close();
+      @Critical
+      @ThrownEffect(exception=TxException.class, behavior=Critical.class)
+      public Query createQuery(String s) throws TxException;
     }
     public abstract class SessionFactory {
         public abstract Session openSession();
+    }
+    public interface Query {
+      public int executeUpdate() throws TxException;
     }
 
     /* Example template from Hibernate docs: https://docs.jboss.org/hibernate/orm/3.2/api/org/hibernate/Session.html
@@ -46,7 +52,7 @@ public class PseudoHibernate {
 	    throw e;
         }
         try {
-            doWork(tx);
+            doWork(sess);
             tx.commit();
         } catch (TxException e) {
             tx.rollback();
@@ -58,10 +64,12 @@ public class PseudoHibernate {
 
     @Critical
     @ThrownEffect(exception=TxException.class, behavior=Critical.class)
-    public void doWork(Transaction tx) throws TxException {
+    public void doWork(Session sess) throws TxException {
         System.out.println("Ready to work...");
 	// :: error: (undefined.residual)
-        tx.begin();
+	Transaction tx = sess.beginTransaction();
+	Query q = sess.createQuery("...");
+	q.executeUpdate();
         System.out.println("Working...");
     }
 }
