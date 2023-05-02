@@ -276,13 +276,6 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
     Void ret = super.visitMethod(node, p);
 
-    if (isSynchronized(node) && nontrivialSynchronized()) {
-      //asdf;
-      // TODO: This is incorrect; we're not pushing just here, we need to push onto the end of all
-      // the escaping effects as well!
-      effStack.peek().pushEffect(genericEffect.lift(endSync()), node);
-    }
-
     // Completion Check
     // We skip this if every path to the end of the method already reported a type (effect) error
     if (!errorOnCurrentPath) {
@@ -1182,6 +1175,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // the underlying effect of a method to be formed in part by catching a thrown exception
 
     System.err.println("Visiting TRY: " + node);
+    effStack.peek().mark(); // so we can squash the body once, remove it, merge w/ finally, and re-push combination
     effStack.peek().mark();
 
     // Within a try block, the residual target must be extended to include locally-handled
@@ -1238,6 +1232,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     Set<Pair<ControlEffectQuantale<X>.ControlEffect, CatchTree>> catchpaths = new HashSet<>();
 
     Collection<Pair<ClassType, NonlocalEffect<X>>> unhandled = bodyEff.excs;
+    if (unhandled != null) {
     for (CatchTree cblk : node.getCatches()) {
       // Each catch block runs after the prefixes of that throw
       Map<Boolean, List<Pair<ClassType, NonlocalEffect<X>>>> m =
@@ -1290,6 +1285,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       catchpaths.add(Pair.of(throwcatchEff, cblk));
       // no need to check residual here, it was checked in the inner-most part of the catch block.
     }
+    }
 
     ControlEffectQuantale<X>.ControlEffect lub =
         bodyEff.filtering(caught); // TODO: WITH HANDLED EXCEPTIONS REMOVED
@@ -1303,7 +1299,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
 
     effStack.peek().pushEffect(lub, node);
-    effStack.peek().squashMark(node);
+    ControlEffectQuantale<X>.ControlEffect trybodyeff = effStack.peek().squashMark(node);
 
     // BlockTree body = node.getBlock();
     // BlockTree finblock = node.getFinallyBlock();
@@ -1314,7 +1310,28 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // of a conditional, where this try is in the else block). The solution is to properly implement
     // C(X).
     if (node.getFinallyBlock() != null) {
-      throw new UnsupportedOperationException("Finally blocks are not yet implemented");
+      // We undid 1/2 marks, now back to 2
+      effStack.peek().mark();
+      scan(node.getFinallyBlock(), p);
+      LinkedList<ControlEffectQuantale<X>.ControlEffect> finallyeffs = effStack.peek().rewindToMark();
+      assert finallyeffs.size() == 1;
+      ControlEffectQuantale<X>.ControlEffect finallyeff = finallyeffs.get(0);
+
+      // Also rewind out the try
+      LinkedList<ControlEffectQuantale<X>.ControlEffect> tryeffs2 = effStack.peek().rewindToMark();
+      assert tryeffs2.size() == 1;
+      // These should actually be reference equal
+      assert trybodyeff == tryeffs2.get(0);
+      // there are now 0 marks from the try
+
+      ControlEffectQuantale<X>.ControlEffect withfinally = genericEffect.appendFinallyOrSync(trybodyeff, finallyeff);
+      if (withfinally != null) {
+        effStack.peek().pushEffect(withfinally, node);
+      } else {
+        checker.reportError(node, "undefined.finally", trybodyeff, finallyeff);
+      }
+    } else {
+      effStack.peek().squashMark(node); // clear extra mark
     }
     return p;
   }

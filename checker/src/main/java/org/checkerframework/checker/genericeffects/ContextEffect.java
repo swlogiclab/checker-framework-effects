@@ -249,7 +249,7 @@ public class ContextEffect<X> {
     while (rep.peekFirst() != null) {
       rep.removeFirst();
     }
-    rep.removeFirst(); // remove null
+    rep.removeFirst(); // remove null; consume the mark
     contextSinceLastMark = snapshots.removeFirst();
     context = snapshots.removeFirst();
     pushEffect(squashed, t);
