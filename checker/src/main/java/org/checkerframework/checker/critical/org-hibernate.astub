@@ -1,0 +1,25 @@
+import org.checkerframework.checker.critical.qual.*;
+import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
+
+package org.hibernate;
+public class SharedSessionContract extends Serializable {
+    @Locking
+    @ThrownEffect(exception=HibernateException.class, behavior=Basic.class)
+    public Transaction beginTransaction();
+}
+package jakarta.persistence.EntityTransaction;
+public class Transaction {
+    @Locking
+    @ThrownEffect(exception=HibernateException.class, behavior=Basic.class)
+    public void begin();
+
+    @Unlocking
+    @ThrownEffect(exception=HibernateException.class, behavior=Basic.class)
+    public void commit();
+
+    @Unlocking
+    @ThrownEffect(exception=HibernateException.class, behavior=Unlocking.class)
+    public void rollback();
+    
+}
+

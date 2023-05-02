@@ -3,12 +3,13 @@ package org.checkerframework.checker.critical;
 import java.lang.annotation.Annotation;
 import org.checkerframework.checker.genericeffects.EffectQuantale;
 import org.checkerframework.checker.genericeffects.GenericEffectChecker;
+import org.checkerframework.framework.qual.StubFiles;
 import org.checkerframework.framework.source.SupportedLintOptions;
 import org.checkerframework.framework.source.SupportedOptions;
 
 @SupportedLintOptions({"debugSpew"})
 @SupportedOptions({"ignoreEffects", "ignoreErrors", "ignoreWarnings"})
-
+@StubFiles({"org-hibernate.astub"})
 public class CriticalChecker extends GenericEffectChecker<Class<? extends Annotation>> {
     
     @Override
