@@ -309,14 +309,14 @@ public class ControlEffectQuantale<X>
      *     otherwise <code>false</code>
      */
     public boolean LE(EffectQuantale<X> underlying, NonlocalEffect<X> other) {
-      System.err.println("Checking if " + this + " is <= " + other);
+      //System.err.println("Checking if " + this + " is <= " + other);
       boolean res =
           ((other.target == null
                       || target == other.target
                       || (target != null && target.equals(other.target)))
                   && underlying.LE(effect, other.effect))
               || other.isUnbounded();
-      System.err.println("Checking if " + this + " is <= " + other + ": " + res);
+      //System.err.println("Checking if " + this + " is <= " + other + ": " + res);
       return res;
     }
 
@@ -694,7 +694,7 @@ public class ControlEffectQuantale<X>
       } else {
         // sofar isn't less than target, and we can't sequence anything on the right of it to make
         // it so
-        System.err.println("sofar has null underlying, so must be LE target, but isn't");
+        //System.err.println("sofar has null underlying, so must be LE target, but isn't");
         return null;
       }
     }
@@ -706,7 +706,7 @@ public class ControlEffectQuantale<X>
         && target.excs == null) {
       X baseResid = underlying.residual(sofar.base, target.base);
       if (baseResid == null) {
-        System.err.println("sofar.base has no underlying residual with target.base");
+        //System.err.println("sofar.base has no underlying residual with target.base");
         return null;
       }
       return lift(baseResid);
@@ -827,19 +827,19 @@ public class ControlEffectQuantale<X>
                 && (possibleUB.second.isUnbounded()
                     || underlying.LE(exc.second.effect, possibleUB.second.effect))) {
               // overApproxExc.add(possibleUB);
-              System.err.println(exc + " is permitted by " + possibleUB);
+              //System.err.println(exc + " is permitted by " + possibleUB);
               permitted = true;
             } else {
-              System.err.println(exc + " is NOT permitted by " + possibleUB);
+              //System.err.println(exc + " is NOT permitted by " + possibleUB);
             }
           }
           if (!permitted) {
             // Sofar throws something the target doesn't allow at all
-            System.err.println(
-                "WIP: sofar throws "
-                    + exc
-                    + " but target doesn't allow this: "
-                    + target.excs); // return null;
+            //System.err.println(
+            //    "WIP: sofar throws "
+            //        + exc
+            //        + " but target doesn't allow this: "
+            //        + target.excs); // return null;
             return null;
           }
         }

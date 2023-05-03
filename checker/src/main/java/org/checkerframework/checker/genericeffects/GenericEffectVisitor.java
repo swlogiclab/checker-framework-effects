@@ -848,17 +848,24 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Set mark for full node
     effStack.peek().mark();
 
+    // Additional mark and squash for each of these, there may be multiple initializers, conditions, updates
+
     // Scan the initializer statements (implicitly, in order)
     boolean hasInitializer = node.getInitializer() != null && !node.getInitializer().isEmpty();
     if (hasInitializer) {
+      effStack.peek().mark();
       scan(node.getInitializer(), p);
+      effStack.peek().squashMark(null);
     }
     ControlEffectQuantale<X>.ControlEffect initEff = hasInitializer ? effStack.peek().latestEffect() : genericEffect.unit();
 
+    effStack.peek().mark();
     scan(node.getCondition(), p);
-    ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().squashMark(node.getCondition()); //latestEffect();
+
+    effStack.peek().mark();
     scan(node.getStatement(), p);
-    ControlEffectQuantale<X>.ControlEffect bodyEff = effStack.peek().latestEffect();
+    ControlEffectQuantale<X>.ControlEffect bodyEff = effStack.peek().squashMark(node.getStatement()); //latestEffect();
     // mark for updates, since there may be multiple
     effStack.peek().mark();
     scan(node.getUpdate(), p);
@@ -871,14 +878,16 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Here we DO NOT simply squash, because we must invoke iteration
     LinkedList<ControlEffectQuantale<X>.ControlEffect> pieces = effStack.peek().rewindToMark();
     if (hasInitializer) {
-      assert (pieces.get(0) == initEff);
-      assert (pieces.get(1) == condEff);
-      assert (pieces.get(2) == bodyEff);
-      assert (pieces.get(3) == updateEff);
+      assert (pieces.size() == 4);
+      assert pieces.get(0).equals(initEff) : "pieces.get(0) = " + pieces.get(0) + " while initEff = " + initEff;
+      assert pieces.get(1).equals(condEff);
+      assert pieces.get(2).equals(bodyEff) : "pieces.get(2) = " + pieces.get(2) + " while bodyEff = " + bodyEff;
+      assert pieces.get(3).equals(updateEff);
     } else {
-      assert (pieces.get(0) == condEff);
-      assert (pieces.get(1) == bodyEff);
-      assert (pieces.get(2) == updateEff);
+      assert (pieces.size() == 3);
+      assert pieces.get(0).equals(condEff);
+      assert pieces.get(1).equals(bodyEff);
+      assert pieces.get(2).equals(updateEff);
     }
 
     ControlEffectQuantale<X>.ControlEffect repeff =
@@ -935,11 +944,15 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       elseEff = elseEffs.get(0);
     }
     // stack still has the condition effect on it, but no branch effects
+    if (debugSpew) {
     effStack.peek().debugDump("@@@@@@", true);
+    }
     LinkedList<ControlEffectQuantale<X>.ControlEffect> condEffs = effStack.peek().rewindToMark();
+    if (debugSpew) {
     effStack.peek().debugDump("&&&&&&", true);
     System.err.println("thenEff == " + thenEff);
     System.err.println("elseEff == " + elseEff);
+    }
     assert (condEffs.size() == 1);
     ControlEffectQuantale<X>.ControlEffect condEff = condEffs.get(0);
 
@@ -1174,7 +1187,9 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // TODO: For that matter, figure out how to deal with fixing the residual checking to allow for
     // the underlying effect of a method to be formed in part by catching a thrown exception
 
+    if (debugSpew) {
     System.err.println("Visiting TRY: " + node);
+    }
     effStack.peek().mark(); // so we can squash the body once, remove it, merge w/ finally, and re-push combination
     effStack.peek().mark();
 
@@ -1219,14 +1234,18 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
     residualTargets.addFirst(
         residualTargets.peek().withUnbounded(genericEffect.underlyingUnit(), caught, node));
+    if (debugSpew) {
     System.err.println(
         "TRY updated context for residuals to include " + caught + ": " + residualTargets.peek());
+    }
     effStack.peek().mark();
     scan(node.getBlock(), p);
     List<ControlEffectQuantale<X>.ControlEffect> bodyEffs = effStack.peek().rewindToMark();
     assert (bodyEffs.size() == 1);
     ControlEffectQuantale<X>.ControlEffect bodyEff = bodyEffs.get(0);
+    if (debugSpew) {
     System.err.println("--> body effect = " + bodyEff);
+    }
     residualTargets.removeFirst(); // Catch blocks are not handled by other peer catch blocks
 
     Set<Pair<ControlEffectQuantale<X>.ControlEffect, CatchTree>> catchpaths = new HashSet<>();

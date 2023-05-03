@@ -26,6 +26,7 @@ import org.checkerframework.checker.genericeffects.qual.Placeholder;
 import org.checkerframework.checker.genericeffects.qual.ThrownEffect;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.javacutil.AnnotationUtils;
+import org.checkerframework.javacutil.BugInCF;
 import org.checkerframework.javacutil.Pair;
 
 /**
@@ -232,12 +233,18 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
     Set<Pair<ClassType, NonlocalEffect<X>>> excBehaviors = new HashSet<>();
     // Check that any @ThrownEffect uses are valid
     for (AnnotationMirror thrown : getDeclAnnotations(methodElt)) {
+      if (debugSpew) {
       System.err.println("Found declanno " + thrown);
+      }
       if (areSameByClass(thrown, ThrownEffect.class)) {
+        if (debugSpew) {
         System.err.println("Found declanno " + thrown);
+	}
         for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
             thrown.getElementValues().entrySet()) {
+          if (debugSpew) {
           System.err.println(e.getKey() + "->" + e.getValue());
+	  }
         }
         // TODO: this version of getElementValue is deprecated, check the handling of @SubtypeOf to
         // see how main framework does this
@@ -252,6 +259,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
         // Exception>)AnnotationUtils.getElementValue(thrown, "exception", Class.class, true);
         ClassType exc = AnnotationUtils.getElementValue(thrown, "exception", ClassType.class, true);
         Object beh = AnnotationUtils.getElementValue(thrown, "behavior", Object.class, true);
+        if (debugSpew) {
         System.err.println(
             "Retrieved @ThrownEffect(exception="
                 + exc
@@ -260,6 +268,7 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
                 + "@"
                 + beh.getClass()
                 + ")");
+	}
         // TODO: There *must* be some kind of proper way to convert ClassType to a Class... or
         // perhaps not: actually, this will only work for exception types on the compiler's
         // classpath, not exception types being compiled! Should probably switch to using ClassType
@@ -276,9 +285,14 @@ public class GenericEffectTypeFactory<X> extends BaseAnnotatedTypeFactory {
         Class<? extends Annotation> annoClass = null;
         try {
           annoClass = (Class<? extends Annotation>) Class.forName(beh.toString());
+          if (debugSpew) {
           System.err.println("Converted annotation to: " + annoClass);
+	  }
         } catch (ClassNotFoundException e) {
+          if (debugSpew) {
           System.err.println("Unable to get class for " + beh);
+	  }
+	  throw new BugInCF("Unable to get class for " + beh);
         }
 
         // ThrownEffect thrownEff = (ThrownEffect) thrown;
