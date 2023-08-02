@@ -96,7 +96,7 @@ import org.checkerframework.javacutil.TypesUtils;
 public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFactory<X>> {
 
   /** Debug flag, set via the "debugSpew" lint option */
-  protected final boolean debugSpew;
+  protected  boolean debugSpew;
   /** Reference to the effect quantale being checked. */
   private ControlEffectQuantale<X> genericEffect;
   /** Reference to a plugin for determining the effects of basic Java language features. */
@@ -297,6 +297,9 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       if (breaks != null) {
         // At this point, every remaining break should be a non-local return of this method
         for (ControlEffectQuantale.NonlocalEffect<X> b : breaks) {
+          if (b.target != node) {
+            System.err.println("Found non-method-targeting break to: "+b.target +"\nfrom source: "+b.src);
+          }
           assert (b.target == node);
 	  if (base == null) {
             base = b.effect;
@@ -329,6 +332,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
 
     errorOnCurrentPath = contextualErrorOnCurrentPath;
+    ignoringErrors = checker.getOption("ignoreErrors") != null;
 
     return ret;
   }
@@ -742,13 +746,24 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
   @Override
   public Void visitBreak(BreakTree node, Void p) {
     if (node.getLabel() != null) {
-      throw new UnsupportedOperationException(
-          "Generic Effect Framework does not yet support labeled breaks");
+      checker.reportWarning(node, "unsupported.break");
+      errorOnCurrentPath = true;
+      ignoringErrors = true; // turn off all error reporting for the rest of this method
+      return p;
     }
     effStack.peek().mark();
     effStack.peek().pushEffect(genericEffect.breakout(getEnclosingBreakScopeTree(), node), node);
     // TODO extension
+    //System.err.println("Checking break residual...");
+    //  ControlEffectQuantale<X>.ControlEffect pathEffect = effStack.peek().currentPathEffect();
+    //System.err.println("currentPathEffect == " + pathEffect);
+    //  ControlEffectQuantale<X>.ControlEffect methodEffect = residualTargets.peek();
+    //System.err.println("currentMethodEffect == " + methodEffect);
+    //System.err.println("currentPathEffect \\ currentMethodEffect == " + genericEffect.residual(pathEffect, methodEffect));
+    effStack.peek().squashMark(node);
+    boolean oldDebug = debugSpew;
     checkResidual(node);
+    debugSpew = oldDebug;
     return p;
   }
 
@@ -789,17 +804,34 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     return p;
   }
 
+  protected boolean isLoopTree(Tree node) {
+    switch (node.getKind()) {
+      case DO_WHILE_LOOP:
+      case ENHANCED_FOR_LOOP:
+      case FOR_LOOP:
+      case WHILE_LOOP:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   @Override
   public Void visitContinue(ContinueTree node, Void p) {
-    // TODO: implement, with extension. Non-trivial due to continue-to-label
+    // TODO: implement label support 
     if (node.getLabel() == null) {
+      effStack.peek().mark();
       if (extension.doesContinueCheck()) {
         effStack.peek().pushEffect(genericEffect.lift(extension.checkContinue(node)), node);
-        effStack.peek().squashMark(node);
-        checkResidual(node);
       }
+      effStack.peek().pushEffect(genericEffect.breakout(getEnclosingBreakScopeTree(), node), node);
+      effStack.peek().squashMark(node);
+      checkResidual(node);
     } else {
-      throw new UnsupportedOperationException("");
+      checker.reportWarning(node, "unsupported.continue");
+      errorOnCurrentPath = true;
+      // Don't issue subsequent errors; this is reset when this method is done.
+      ignoringErrors = true;
     }
     return p;
   }
@@ -809,8 +841,11 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // Set mark for full expression
     effStack.peek().mark();
 
+    makeLoopBodyBreakable(node);
     scan(node.getStatement(), p);
+    removeLoopBodyBreakTarget();
     ControlEffectQuantale<X>.ControlEffect bodyEff = effStack.peek().latestEffect();
+    bodyEff = genericEffect.flattenContinuesTo(bodyEff, node);
     scan(node.getCondition(), p);
     ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().latestEffect();
 
@@ -842,6 +877,13 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     throw new UnsupportedOperationException("foreach support does not exist yet");
   }
 
+  protected void makeLoopBodyBreakable(Tree node) {
+    residualTargets.addFirst(residualTargets.peek().withUnbounded(genericEffect.underlyingUnit(), node));
+  }
+  protected void removeLoopBodyBreakTarget() {
+    residualTargets.removeFirst();
+  }
+
   @Override
   public Void visitForLoop(ForLoopTree node, Void p) {
     // TODO: extension
@@ -864,8 +906,11 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().squashMark(node.getCondition()); //latestEffect();
 
     effStack.peek().mark();
+    makeLoopBodyBreakable(node);
     scan(node.getStatement(), p);
     ControlEffectQuantale<X>.ControlEffect bodyEff = effStack.peek().squashMark(node.getStatement()); //latestEffect();
+    removeLoopBodyBreakTarget();
+    bodyEff = genericEffect.flattenContinuesTo(bodyEff, node);
     // mark for updates, since there may be multiple
     effStack.peek().mark();
     scan(node.getUpdate(), p);
@@ -881,12 +926,14 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
       assert (pieces.size() == 4);
       assert pieces.get(0).equals(initEff) : "pieces.get(0) = " + pieces.get(0) + " while initEff = " + initEff;
       assert pieces.get(1).equals(condEff);
-      assert pieces.get(2).equals(bodyEff) : "pieces.get(2) = " + pieces.get(2) + " while bodyEff = " + bodyEff;
+      // Disable this, doesn't account for flattening
+      //assert pieces.get(2).equals(bodyEff) : "pieces.get(2) = " + pieces.get(2) + " while bodyEff = " + bodyEff;
       assert pieces.get(3).equals(updateEff);
     } else {
       assert (pieces.size() == 3);
       assert pieces.get(0).equals(condEff);
-      assert pieces.get(1).equals(bodyEff);
+      // Disable this, doesn't account for flattening
+      //assert pieces.get(1).equals(bodyEff);
       assert pieces.get(2).equals(updateEff);
     }
 
@@ -1168,8 +1215,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
 
   @Override
   public Void visitTry(TryTree node, Void p) {
-    // TODO extension
-    // throw new UnsupportedOperationException("not yet implemented");
+    // TODO support extension
 
     // Visit the body
     // take the body effect, and remove all nonlocal effects targeting this try block
@@ -1225,7 +1271,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     // catch block for E (with the current context) and resolve that E is not re-thrown as some
     // unrelated G.
     // That said, the scenario above is somewhat contrived, and itself probably uncommon.
-    // Nonetheless, we compromise slightly on early reporting in order to mitigat the computational
+    // Nonetheless, we compromise slightly on early reporting in order to mitigate the computational
     // concerns and error-reporting subtleties. We essentially mark the locally-caught exceptions as
     // "any-prefix-goes", and then check for real in conjunction with the catch block visit.
     Set<ClassType> caught = new HashSet<>();
@@ -1307,7 +1353,7 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     }
 
     ControlEffectQuantale<X>.ControlEffect lub =
-        bodyEff.filtering(caught); // TODO: WITH HANDLED EXCEPTIONS REMOVED
+        bodyEff.filtering(caught);
     assert lub != null;
     for (Pair<ControlEffectQuantale<X>.ControlEffect, CatchTree> tcpath : catchpaths) {
       lub = genericEffect.LUB(lub, tcpath.first);
@@ -1321,14 +1367,6 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     effStack.peek().pushEffect(lub, node);
     ControlEffectQuantale<X>.ControlEffect trybodyeff = effStack.peek().squashMark(node);
 
-    // BlockTree body = node.getBlock();
-    // BlockTree finblock = node.getFinallyBlock();
-    // var catches = node.getCatches();
-
-    // TODO: Okay, can't just append finally block effect to all entries in the exception map,
-    // because there might be some in there from another branch of execution (e.g., the then branch
-    // of a conditional, where this try is in the else block). The solution is to properly implement
-    // C(X).
     if (node.getFinallyBlock() != null) {
       // We undid 1/2 marks, now back to 2
       effStack.peek().mark();
@@ -1409,7 +1447,9 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     effStack.peek().mark();
     scan(node.getCondition(), p);
     ControlEffectQuantale<X>.ControlEffect condEff = effStack.peek().latestEffect();
+    makeLoopBodyBreakable(node);
     scan(node.getStatement(), p);
+    removeLoopBodyBreakTarget();
     ControlEffectQuantale<X>.ControlEffect bodyEff = effStack.peek().latestEffect();
 
     // Here we DO NOT simply squash, because we must invoke iteration
@@ -1417,18 +1457,35 @@ public class GenericEffectVisitor<X> extends BaseTypeVisitor<GenericEffectTypeFa
     assert (pieces.get(0) == condEff);
     assert (pieces.get(1) == bodyEff);
 
-    ControlEffectQuantale<X>.ControlEffect repeff =
-        genericEffect.iter(genericEffect.seq(bodyEff, condEff));
-    if (repeff == null) {
-      checker.reportError(node, "undefined.repetition.twopart", bodyEff, condEff);
-      // Pretend we ran the condition, loop, and condition again
-      effStack
-          .peek()
-          .pushEffect(genericEffect.seq(condEff, genericEffect.seq(bodyEff, condEff)), node);
+    // The body effect currently is the *raw* body effect, without resolving breaks or continues.
+    // Breaks in the body should be left as breaks and merged *after* iteration, as they break out of the loop and won't run the check after
+    // Continues in the body should be merged into the latent effect of the body.
+    // Technically, breaks target a tag outside the loop, while continues target a tag at the outermost level that
+    // is still within the loop body.
+    //
+    // Currently we use AST nodes as tags, which means both break and continue will have the same target node if raised in the same
+    // loop context.
+    bodyEff = genericEffect.flattenContinuesTo(bodyEff, node);
+
+    ControlEffectQuantale<X>.ControlEffect body_check = genericEffect.seq(bodyEff, condEff);
+    if (body_check == null) {
+      checker.reportError(node, "undefined.sequencing.while", bodyEff, condEff);
+      errorOnCurrentPath = true;
     } else {
-      // Valid iteration
-      ControlEffectQuantale<X>.ControlEffect eff = genericEffect.seq(condEff, repeff);
-      effStack.peek().pushEffect(eff, node);
+      ControlEffectQuantale<X>.ControlEffect repeff =
+          genericEffect.iter(body_check);
+      if (repeff == null) {
+        checker.reportError(node, "undefined.repetition.twopart", bodyEff, condEff);
+        // Pretend we ran the condition, loop, and condition again
+        effStack
+            .peek()
+            .pushEffect(genericEffect.seq(condEff, genericEffect.seq(bodyEff, condEff)), node);
+      } else {
+        // Valid iteration
+        ControlEffectQuantale<X>.ControlEffect eff = genericEffect.seq(condEff, repeff);
+        eff = genericEffect.flattenBreaksTo(eff,node);
+        effStack.peek().pushEffect(eff, node);
+      }
     }
     checkResidual(node);
     return p;

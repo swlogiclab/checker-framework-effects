@@ -43,6 +43,15 @@ public class ControlEffectQuantale<X>
   /** Reference to a GnericEffectTypeFactory to check subtyping among exceptions */
   private GenericEffectTypeFactory<X> xtypeFactory;
 
+  /** A debug flag */
+  private boolean debug;
+
+  public boolean setDebug(boolean dbg) { 
+    boolean old = debug;
+    debug = dbg;
+    return old;
+  }
+
   /** A representation type for a control effect. */
   public class ControlEffect {
 
@@ -101,7 +110,7 @@ public class ControlEffectQuantale<X>
 
     @Override
     public String toString() {
-      return "[" + base + "|" + excs + "|" + breakset + "]";
+      return "[base:" + base + "|excs:" + excs + "|breaks:" + breakset + "]";
     }
 
     /** This checks <i>equivalence</i> of two control effects. We work modulo equivalence. */
@@ -194,9 +203,18 @@ public class ControlEffectQuantale<X>
         }
       }
       for (ClassType t : caught) {
-        filtered.add(Pair.of(t, new UnboundedNonlocalEffect<X>(u, target)));
+        filtered.add(Pair.of(t, new UnboundedThrowPrefix<X>(u, target)));
       }
       return new ControlEffect(this.base, filtered, this.breakset);
+    }
+    /** An overload of withUnbounded for unbounded continue-to-loop */
+    public ControlEffect withUnbounded(X u, Tree target) {
+      Set<NonlocalEffect<X>> breaks = new HashSet<>();
+      if (this.breakset != null) {
+        breaks.addAll(this.breakset);
+      }
+      breaks.add(new UnboundedContinuePrefix<X>(u, target));
+      return new ControlEffect(this.base, this.excs, breaks);
     }
   }
 
@@ -322,7 +340,7 @@ public class ControlEffectQuantale<X>
 
     @Override
     public String toString() {
-      return effect.toString() + ":" + (target == null ? "<null>" : target.hashCode());
+      return effect.toString() + ":" + (target == null ? "<null>" : target.getKind());
     }
 
     /**
@@ -335,7 +353,7 @@ public class ControlEffectQuantale<X>
     }
   }
 
-  public static class UnboundedNonlocalEffect<X> extends NonlocalEffect<X> {
+  public static abstract class UnboundedNonlocalEffect<X> extends NonlocalEffect<X> {
     public UnboundedNonlocalEffect(X e, Tree target) {
       super(e, target, target);
     }
@@ -348,6 +366,24 @@ public class ControlEffectQuantale<X>
     @Override
     public String toString() {
       return "Unbounded:" + (target == null ? "<null>" : target.hashCode());
+    }
+  }
+  public static class UnboundedThrowPrefix<X> extends UnboundedNonlocalEffect<X> {
+    public UnboundedThrowPrefix(X e, Tree target) {
+      super(e, target);
+    }
+    @Override
+    public String toString() {
+      return "Unbounded exception:" + (target == null ? "<null>" : target.hashCode());
+    }
+  }
+  public static class UnboundedContinuePrefix<X> extends UnboundedNonlocalEffect<X> {
+    public UnboundedContinuePrefix(X e, Tree target) {
+      super(e, target);
+    }
+    @Override
+    public String toString() {
+      return "Unbounded continue:" + (target == null ? "<null>" : target.hashCode());
     }
   }
 
@@ -559,15 +595,72 @@ public class ControlEffectQuantale<X>
   /**
    * Construct a control effect that breaks directly to the specified target, from a given source
    * AST node. This may be a literal break statement, or may be an early return if the target is a method.
+   * It may also be a continue statement(!). These cases can be distinguished by looking at the source node's kind.
    *
    * @param target The AST node of where the break will be resolved (switch or loop, or method if we're modeling early return)
    * @param src The AST node of the break statement
    * @return A control effect modeling the nonlocal jump associated with the given break/return statement
    */
   public ControlEffect breakout(Tree target, Tree src) {
+    assert (src.getKind() == Tree.Kind.BREAK || src.getKind() == Tree.Kind.RETURN || src.getKind() == Tree.Kind.CONTINUE);
     Set<NonlocalEffect<X>> bset = new HashSet<>();
     bset.add(new NonlocalEffect<X>(underlying.unit(), target, src));
     return new ControlEffect(null, null, bset);
+  }
+
+  /**
+   * Flatten (join) non-local effects from continues targeting the indicated node into the base
+   */
+  public ControlEffect flattenContinuesTo(ControlEffect eff, Tree target) {
+    if (eff.breakset == null) return eff;
+    X base = eff.base;
+    Set<NonlocalEffect<X>> bset2 = new HashSet<>();
+    for (NonlocalEffect<X> nl : eff.breakset) {
+      if (nl.src.getKind() == Tree.Kind.CONTINUE && nl.target.equals(target)) {
+        if (base == null) {
+          base = nl.effect;
+	      } else {
+          base = underlying.LUB(base,nl.effect);
+	        if (base == null) return null; // TODO: find a better way to precisely indicate the source of this error
+	      }
+      } else {
+        bset2.add(nl);
+      }
+    }
+    if (bset2.size() == 0) {
+      bset2 = null;
+    }
+    return new ControlEffect(base, eff.excs, bset2);
+  }
+  /**
+   * Flatten (join) non-local effects from breaks targeting the indicated node into the base. This is a distinct method from flattenContinuesTo because breaks are resolved later.
+   */
+  public ControlEffect flattenBreaksTo(ControlEffect eff, Tree target) {
+    if (debug) System.err.println("Flattening breaks on: " + eff);
+    if (eff.breakset == null) return eff;
+    X base = eff.base;
+    if (debug) System.err.println("initializing base to "+base);
+    Set<NonlocalEffect<X>> bset2 = new HashSet<>();
+    for (NonlocalEffect<X> nl : eff.breakset) {
+      if (nl.src.getKind() == Tree.Kind.BREAK && nl.target.equals(target)) {
+        if (base == null) {
+          base = nl.effect;
+          if (debug) System.err.println("set null base to "+base);
+	      } else {
+          base = underlying.LUB(base,nl.effect);
+          if (debug) System.err.println("updated base to "+base);
+	        if (base == null) return null; // TODO: find a better way to precisely indicate the source of this error
+	      }
+      } else {
+        bset2.add(nl);
+      }
+    }
+    if (bset2.size() == 0) {
+      bset2 = null;
+    }
+    ControlEffect res = new ControlEffect(base, eff.excs, bset2);
+    if (debug) System.err.println("--> " + res);
+    return res;
   }
 
   /**
@@ -662,42 +755,17 @@ public class ControlEffectQuantale<X>
    * from C1, with residual by X1 lifted to sets of control behaviors.
    *
    * <p>Plus, some wrinkles for error reporting: generally this will be called with the target
-   * effect as the method effect, which will have placeholder trees.
-   *
-   * <p>TODO: Oh! but actually that's not quite right and/or the use of this around prompt
-   * boundaries must be refined. Control effects that will be resolved within the scope of the
-   * target shouldn't figure into this result... or should, but should be handled appropriately...
-   * which is subtle, because it includes cases like taking the residual within a try-catch, when
-   * the body may throw locally-caught exceptions. So maybe:
-   *
-   * <ul>
-   *   <li>Residual on underlying effects
-   *   <li>For exceptions, residual of control w.r.t. underlying for exceptions in the target
-   *   <li>For exceptions, not in the target, just pass through "hoping" they're caught locally,
-   *       which will be checked by the actual try-catch rule
-   *   <li>optimistically pass breaks through, since they might later feed into throw or completion
-   *       or both, so we can't reject early?
-   * </ul>
-   *
-   * This is along the right lines, but really we need a proof.
+   * effect as the method effect, which will have placeholder trees for break and some throw targets.
    */
   @Override
   public ControlEffect residual(ControlEffect sofar, ControlEffect target) {
-    // TODO: Fix for exception inheritance
-    if (sofar.base == null) {
-      // anything sequenced after only non-local behaviors has no impact on the overall effect, so
-      // really the residual could return anything and stuff would "work" so long as sofar <=
-      // target.
-      // TODO: double-check the math to make sure I'm not missing a subtlety here
-      if (LE(sofar, target)) {
-        return target;
-      } else {
-        // sofar isn't less than target, and we can't sequence anything on the right of it to make
-        // it so
-        //System.err.println("sofar has null underlying, so must be LE target, but isn't");
-        return null;
-      }
+    // If the effect so far is only control effects, and they are control effects included in the
+    // target, then the largest effect we can sequence after this is the target itself
+    if (sofar.base == null && LE(sofar, target)) {
+      return target;
     }
+
+
     // Optimize common case
     if (sofar.breakset == null
         && sofar.excs == null
@@ -706,7 +774,6 @@ public class ControlEffectQuantale<X>
         && target.excs == null) {
       X baseResid = underlying.residual(sofar.base, target.base);
       if (baseResid == null) {
-        //System.err.println("sofar.base has no underlying residual with target.base");
         return null;
       }
       return lift(baseResid);
@@ -721,7 +788,6 @@ public class ControlEffectQuantale<X>
         // exist with some throw or break
         // In general there may be *multiple* possible exceptions, and the residual should include
         // all of them
-        // TODO: actually check breaks
         if (target.excs != null) {
           HashSet<Pair<ClassType, NonlocalEffect<X>>> throwResiduals = new HashSet<>();
           for (Pair<ClassType, NonlocalEffect<X>> p : target.excs) {
@@ -749,32 +815,39 @@ public class ControlEffectQuantale<X>
       // sofar.base is undefined, then that control effect *must* have been triggered in sofar, and
       // cannot be triggered by further composition on the right. If we cannot find such an
       // already-triggered control effect, then it's an error and there is no residual.
+      // This works because whenever the visitor enters a block that acts as a prompt boundary,
+      // it tweaks its target to add synthetic control effects
 
       Set<NonlocalEffect<X>> breakset = new HashSet<>();
       Set<X> overApprox = new HashSet<>();
       if (sofar.breakset != null) {
+        //System.err.println(">> Checking residual of " + sofar + " with non-empty breaks against target " + target);
         for (NonlocalEffect<X> bsofar : sofar.breakset) {
           boolean matched = false;
           if (underlying.residual(bsofar.effect, target.base) != null) {
             matched = true;
-	  } else {
+          } else {
+            //System.err.println(">> Underlying residual of " + bsofar.effect + " against target base " + target.base + " was null");
             for (NonlocalEffect<X> btarget : target.breakset) {
-              if (underlying.LE(bsofar.effect, btarget.effect)) {
+              if (btarget.isUnbounded() && btarget.target.equals(bsofar.target)) {
+                matched = true;
+                break;
+              } else if (underlying.LE(bsofar.effect, btarget.effect)) {
                 overApprox.add(btarget.effect);
                 matched = true;
                 break;
               }
             }
-	    if (!matched) {
+	          if (!matched) {
               // could also be a prefix of some exception
-	      for (Pair<ClassType,NonlocalEffect<X>> p : target.excs) {
+	            for (Pair<ClassType,NonlocalEffect<X>> p : target.excs) {
                 if (underlying.residual(bsofar.effect, p.second.effect) != null) {
                   matched = true;
-		  break;
-		}
-	      }
-	    }
-	  }
+                  break;
+		            }
+	            }
+	          }
+	        }
           if (!matched) {
             // This effect isn't over-approximated
             return null;
@@ -787,6 +860,10 @@ public class ControlEffectQuantale<X>
       // to sofar break above to avoid more loops)
       if (target.breakset != null) {
         for (NonlocalEffect<X> btarget : target.breakset) {
+          if (btarget.isUnbounded()) {
+            breakset.add(btarget);
+            continue;
+          }
           X underlyingResid = underlying.residual(sofar.base, btarget.effect);
           if (underlyingResid == null) {
             // Ok if this was over-approx of something so far, otherwise an error
@@ -805,14 +882,13 @@ public class ControlEffectQuantale<X>
           }
         }
       }
-      if (breakset.size() == 0) breakset = null;
+      if (breakset.size() == 0) {
+        //System.err.println("Breakset of residual is empty");
+        breakset = null;
+      }
 
-      // exceptions are the same as breaksets, but per-exception, and sofar shouldn't throw
-      // exceptions the target doesn't
-      // TODO: Again, suggests the base for the residual check should be adjusted at
-      // try/catch/finally boundaries
       if (sofar.excs != null && target.excs == null) {
-        // sofar throws exceptions, but target doesn't
+        // sofar throws exceptions, but target doesn't; try blocks adjust the target bounds locally to account for caught exceptions, so this is invalid
         return null;
       }
       Set<Pair<ClassType, NonlocalEffect<X>>> excMap = new HashSet<>();
@@ -876,6 +952,9 @@ public class ControlEffectQuantale<X>
       }
       if (excMap.size() == 0) excMap = null;
 
+      if (!(baseResid != null || excMap != null || breakset != null)) {
+        throw new BugInCF("Cannot construct residual of " + sofar + " \\ " + target);
+      }
       return new ControlEffect(baseResid, excMap, breakset);
     }
   }
